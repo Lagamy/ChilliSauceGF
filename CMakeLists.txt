@@ -1,0 +1,116 @@
+﻿cmake_minimum_required(VERSION 3.10)
+
+# Enable Hot Reload for MSVC compilers if supported.
+# if(POLICY CMP0141)
+  # cmake_policy(SET CMP0141 NEW)
+  # set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+# endif()
+
+project("PBRVulkanDemo")
+
+# Generate compile_commands.json for clangd
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+set(CMAKE_C_FLAGS_DEBUG "-g -O0")
+
+# GLFW 
+set(GLFW_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third-party/GLFW")
+
+add_library(glfw3 STATIC IMPORTED)
+set_target_properties(glfw3 PROPERTIES
+    IMPORTED_LOCATION "${GLFW_DIR}/lib/glfw3.lib"
+    INTERFACE_INCLUDE_DIRECTORIES "${GLFW_DIR}/include"
+)
+
+# GLM 
+add_library(glm INTERFACE)
+target_include_directories(glm INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third-party/glm
+)
+
+# Vulkan 
+find_package(Vulkan REQUIRED)
+
+
+# Add source to this project's executable.
+add_executable(PBRVulkanDemo
+	# Core 
+	"src/main.cpp" "src/Core.cpp" "src/Misc/Utilities.cpp" 
+
+	# Managers
+	"src/Core/Managers/AssetsManager.cpp" "src/Core/Managers/GPUMemoryManager.cpp"
+	"src/Core/Managers/InputManager.cpp" "src/Core/Managers/ThreadManager.cpp"
+
+	# Graphics
+	"src/Graphics/Backend/Base/Device.cpp" "src/Graphics/Backend/Base/Instance.cpp" 
+   	"src/Graphics/Backend/Base/Swapchain.cpp" "src/Graphics/Renderer.cpp"	
+	"src/Graphics/Backend/Base/Surface.cpp" "src/Graphics/Backend/Image/Image.cpp"  
+	"src/Graphics/Backend/Base/FrameBuffer.cpp" "src/Graphics/RenderTarget.cpp"
+	"src/Graphics/Backend/Base/MemoryBlock.cpp" "src/Graphics/Backend/Base/Buffer.cpp" 
+	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/FrameResources.cpp" 
+	"src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
+	"src/Graphics/Backend/Image/Sampler.cpp" "src/Graphics/PhysicalGPUBuffer.cpp" 
+	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/CommandPool.cpp" 
+	"src/Graphics/CommandPoolPack.cpp"	"src/Graphics/FrameResources.cpp"  
+	"src/Graphics/Backend/Image/ImageView.cpp" "src/Graphics/Backend/Base/Shader.cpp" 
+	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
+	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
+	"src/Graphics/RenderFlow.cpp" "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp"
+	"src/Graphics/Backend/CommandBuffer/CommandBuffer.cpp" 
+)
+
+set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+set(CORE_DIR "${SRC_DIR}/Core")
+set(GRAPHICS_DIR "${SRC_DIR}/Graphics")
+set(MISC_DIR "${SRC_DIR}/Misc")
+set(TEST_DIR "${SRC_DIR}/Test/Triangle")
+
+# Core
+set(ASSETS_DIR "${CORE_DIR}/Assets")
+set(MANAGERS_DIR "${CORE_DIR}/Managers")
+set(RESOURCES_DIR "${CORE_DIR}/Resources")
+
+
+# Graphics
+set(BACKEND_DIR "${GRAPHICS_DIR}/Backend")
+set(IMAGE_DIR "${BACKEND_DIR}/Image")
+set(BASE_DIR "${BACKEND_DIR}/Base")
+set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
+set(DESCRIPTORSET_DIR "${BACKEND_DIR}/DescriptorSet")
+set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
+
+
+# Link dependencies
+target_link_libraries(PBRVulkanDemo
+    PUBLIC glfw3
+    PUBLIC Vulkan::Vulkan
+    PUBLIC glm
+)
+
+target_include_directories(PBRVulkanDemo PRIVATE 
+	# Src
+	${SRC_DIR} ${CORE_DIR} ${GRAPHICS_DIR}
+	${MISC_DIR} ${TEST_DIR}
+
+	# Core
+	${ASSETS_DIR} ${MANAGERS_DIR} ${RESOURCES_DIR}
+
+	# Graphics
+	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR}
+	${COMMANDBUFFER_DIR} ${DESCRIPTORSET_DIR} ${SYNCHRONISATION_DIR}
+)
+
+# Put the executable into /bin
+set_target_properties(PBRVulkanDemo PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+# Create a folder with Media
+add_custom_command(TARGET PBRVulkanDemo POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+  "${CMAKE_SOURCE_DIR}/Assets"
+  "${RUNTIME_OUTPUT_DIRECTORY}/Assets"
+)
