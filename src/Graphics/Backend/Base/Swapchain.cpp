@@ -1,4 +1,5 @@
 #include "Swapchain.h"
+#include "Framebuffer.h"
 #include "Globals.h"
 #include <array>
 #include <cassert>
@@ -7,7 +8,7 @@
 // Presents render result as an Image to the Surface, which renders it on window.  
 void Swapchain::create() {
 	// Get Swapchain details - so we can pick best settings 
-	GraphicsUtilities::SwapchainDetails swapchainDetails = GraphicsUtilities::getSwapchainDetails(EngineGlobals::renderer.mainDevice.physicalDevice);
+	GraphicsUtilities::SwapchainDetails swapchainDetails = GraphicsUtilities::getSwapchainDetails(Demo::renderer.mainDevice.physicalDevice);
 
 	// Find optimal Surface values for our swapchain
 	// 1. Choose best Swapchain Image Format 
@@ -84,22 +85,30 @@ void Swapchain::create() {
 	std::vector<VkImage>images(swapchainImageCount);
 	vkGetSwapchainImagesKHR(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, &swapchainImageCount, images.data());
 
-	this->swapchainImages.reserve(swapchainImageCount);
+	this->images.reserve(swapchainImageCount);
 	for (auto& image : images)
 	{
 		// Store image handle
 		Image swapchainImage;
 		swapchainImage.setImage(image);
-		swapchainImage.addView("Swapchain", this->imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D);
+		swapchainImage.addView("Swapchain", this->imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 0);
 		// Add it to swapchain image list 
-		this->swapchainImages.emplace_back(swapchainImage);
+		this->images.emplace_back(swapchainImage);
 	}
 	//printf("Swapchain Image Count: %u\n", swapchainImageCount);
 }
 
+void Swapchain::createFramebuffers(RenderPass& rRenderpass_) 
+{ 
+	for(Framebuffer& framebuffer : this->framebuffers) 
+	{
+		framebuffer.create(this->extent.width, this->extent.height, 1, rRenderpass_);
+	}
+}
+
 void Swapchain::destroy()
 {
-	for (auto& swapchainImage : this->swapchainImages)
+	for (auto& swapchainImage : this->images)
 	{
 		vkDestroyImageView(Demo::renderer.mainDevice.logicalDevice, swapchainImage.getImageView(0), nullptr);
 		//vkDestroyImage(Globals::device.logicalDevice, swapchainImage.image, nullptr); // vkDestroySwapchainKHR also destroys images

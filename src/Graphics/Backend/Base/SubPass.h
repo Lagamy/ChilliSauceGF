@@ -18,12 +18,12 @@ struct SubPassLayoutTransitionInfo {
 };
 
 struct SubPassDescriptionInfo {
-	RenderPass& rRenderPass;
+	RenderPass* pRenderPass;
 	VkPipelineBindPoint pipelineBindPoint;
-	std::span<const uint32_t> colorAttachmentsToUseIds;
+	std::vector<uint32_t> colorAttachmentsToUseIds;
 	const uint32_t depthStencilAttachmentToUseId; 
 	DepthStencilAccessTypeEnum depthStencilAccessType;
-	std::span<const uint32_t> resolveAttachmentsToUseIds;
+	std::vector<uint32_t> resolveAttachmentsToUseIds;
 	VkAttachmentReference* pInputAttachmentsRefs;
 	uint32_t inputAttachmentsRefcount;
 };

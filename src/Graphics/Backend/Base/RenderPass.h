@@ -5,7 +5,6 @@
 #pragma once
 #include "Utilities.h"
 #include "SubPass.h"
-#include "FrameBuffer.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 
@@ -19,8 +18,6 @@ private:
 	std::vector<VkSubpassDescription> subpassDescriptions;
 	std::vector<VkSubpassDependency> subpassDependencies;
 
-	std::vector<Framebuffer> framebuffers; // Has one to many relationship with imageViwes. You can do stuff like this: VkImageView attachments[] = { colorView, depthView, resolveView };. Renderpass needed for creation(See 
-	
 	/* Attachments need to be fully filled BEFORE SubPasses are created */
 	std::vector<VkAttachmentDescription> colorAttachments;
 	std::vector<VkAttachmentDescription> depthStencilAttachments;

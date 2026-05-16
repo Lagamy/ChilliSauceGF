@@ -12,18 +12,18 @@ SubPass::SubPass(VkSubpassDescription& rDescription_, VkSubpassDependency& rLayo
 	for (size_t i = 0; i < subpassDescriptionInfo_.colorAttachmentsToUseIds.size(); i++)
 	{
 		this->colorAttachmentsRefs[i] = {};
-		this->colorAttachmentsRefs[i].attachment = subpassDescriptionInfo_.rRenderPass.getColorAttachmentIdFromFinal(subpassDescriptionInfo_.colorAttachmentsToUseIds[i]);
+		this->colorAttachmentsRefs[i].attachment = subpassDescriptionInfo_.pRenderPass->getColorAttachmentIdFromFinal(subpassDescriptionInfo_.colorAttachmentsToUseIds[i]);
 		this->colorAttachmentsRefs[i].layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
 	}
 
 	this->depthStencilAttachmentRef = {};
-	this->depthStencilAttachmentRef.attachment = subpassDescriptionInfo_.rRenderPass.getDepthStencilAttachmentIdFromFinal(subpassDescriptionInfo_.depthStencilAttachmentToUseId);
+	this->depthStencilAttachmentRef.attachment = subpassDescriptionInfo_.pRenderPass->getDepthStencilAttachmentIdFromFinal(subpassDescriptionInfo_.depthStencilAttachmentToUseId);
 	this->depthStencilAttachmentRef.layout = static_cast<VkImageLayout>(subpassDescriptionInfo_.depthStencilAccessType);
 
 	for (size_t i = 0; i < subpassDescriptionInfo_.resolveAttachmentsToUseIds.size(); i++)
 	{
 		this->resolveAttachmentsRefs[i] = {};
-		this->resolveAttachmentsRefs[i].attachment = subpassDescriptionInfo_.rRenderPass.getColorAttachmentIdFromFinal(subpassDescriptionInfo_.resolveAttachmentsToUseIds[i]);
+		this->resolveAttachmentsRefs[i].attachment = subpassDescriptionInfo_.pRenderPass->getColorAttachmentIdFromFinal(subpassDescriptionInfo_.resolveAttachmentsToUseIds[i]);
 		this->resolveAttachmentsRefs[i].layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
 	}
 

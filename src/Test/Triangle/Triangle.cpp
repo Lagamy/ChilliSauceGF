@@ -1,6 +1,7 @@
 #include "Triangle.h"
 #include "Globals.h"
 #include "GraphicsPipeline.h"
+#include <vulkan/vulkan_core.h>
 
 Triangle::Triangle()
 {
@@ -9,8 +10,6 @@ Triangle::Triangle()
 	RenderPass& rRenderPass = Demo::renderer.renderpass;
 	GraphicsPipeline& rGraphicsPipeline = Demo::renderer.graphicsPipeline;
 	
-	rGraphicsPipeline = GraphicsPipeline(vertexShader, fragmentShader. )
-
 	/* Init Mesh */
 	mesh.vertices = {
 		glm::vec3(-0.5, -0.5, 0.0), 
@@ -32,9 +31,22 @@ Triangle::Triangle()
 	Demo::GPUMemoryManager.upload(mesh.ibMemoryId, mesh.indices.data(), Demo::renderer.mainDevice.queues.graphicsQueue);
 	/**************/
 	
-	/* Init RenderPass*/
+	/* Configure RenderPass*/
+	rRenderPass.addColorAttachment(Demo::renderer.swapchain.imageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR); // STORE_OP_DONT_CARE - means we dont care what will happen to the attachment after reading it
+	
+	SubPassDescriptionInfo subpassDescription = {}; 
+	subpassDescription.pRenderPass = &rRenderPass; 
+	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; 
+	subpassDescription.colorAttachmentsToUseIds = {0};
 
-	/* Init Graphics Pipeline */
+	SubPassLayoutTransitionInfo subpassLayoutTransition = {};
+	subpassLayoutTransition.stageMaskFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; 
+	subpassLayoutTransition.accessMaskFlag = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	subpassLayoutTransition.dependencyFlags = 0; 
+
+	rRenderPass.addSubpass(subpassDescription, subpassLayoutTransition); 
+
+	/* Configure Graphics Pipeline */
 	rGraphicsPipeline = GraphicsPipeline(vertexShader, fragmentShader, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
-	rGraphicsPipeline.create(rRenderPass, 0);
+	
 }

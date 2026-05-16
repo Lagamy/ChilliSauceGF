@@ -8,7 +8,7 @@
 void Renderer::setup() {
 
 	this->instance.setup();
-//	createDebugMessenger();
+	//	createDebugMessenger();
 	this->surface.create(); // Device needs to know - what surface will be used, so I could check if device supports it. 
 	this->mainDevice.setup();
 	this->swapchain.create();
@@ -19,6 +19,11 @@ void Renderer::setup() {
 	{
 		frameResources.init();
 	}
+
+	// Renderpass attachments and subpasses are gonna be defined by Demo
+	this->renderpass.create();
+	this->swapchain.createFramebuffers(this->renderpass);
+	this->graphicsPipeline.create(this->renderpass, 1);
 }
 
 void Renderer::run() {
