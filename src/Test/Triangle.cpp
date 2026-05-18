@@ -48,5 +48,61 @@ Triangle::Triangle()
 
 	/* Configure Graphics Pipeline */
 	rGraphicsPipeline = GraphicsPipeline(vertexShader, fragmentShader, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
-	
+
+	/* Initialize Command Buffer Blueprints */
+	Demo::renderer.renderFlow.initCmdBufferBlueprint(
+		GRAPHICS, 
+		[this](VkCommandBuffer& cmd) { record(cmd); }
+	);
 }
+
+void Triangle::record(VkCommandBuffer& cmdBuffer_)
+{
+	VkCommandBufferBeginInfo beginInfo = {}; 
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	
+	vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
+	VkClearValue clearColor = {};
+	clearColor.color = {0.0f, 0.0f, 0.0f, 1.0f};
+
+	VkRenderPassBeginInfo renderPassInfo = {}; 
+	renderPassInfo.renderPass = Demo::renderer.renderpass.get(); 
+	renderPassInfo.framebuffer = Demo::renderer.swapchain.framebuffers[Demo::renderer.currentFrameAtFlight].get(); 
+	renderPassInfo.renderArea = { 
+		.offset = {0, 0}, 
+		.extent = Demo::renderer.swapchain.extent
+	};
+	renderPassInfo.clearValueCount = 1; 
+	renderPassInfo.pClearValues = &clearColor; 
+
+	vkCmdBeginRenderPass(cmdBuffer_, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE); // VK_SUBPASS_CONTENTS_INLINE - mean The commands for this subpass will be recorded directly into this primary command buffer.
+	
+	// Bind graphics pipeline  
+	vkCmdBindPipeline(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, Demo::renderer.graphicsPipeline.get());
+	
+	// Bind vertex buffer 
+	VkBuffer vertexBuffers[] = { Demo::GPUMemoryManager.getEntry(this->mesh.vbMemoryId).buffer.get() }; 
+	VkDeviceSize vOffsets[] = { 0 }; 
+	vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
+	
+	// Bind index buffer 
+	vkCmdBindIndexBuffer(cmdBuffer_, Demo::GPUMemoryManager.getEntry(this->mesh.ibMemoryId).buffer.get(), 0, VK_INDEX_TYPE_UINT32);
+	
+	// Viewport and Scissor (for dynamic) 
+	// VkViewport viewport = {}; 
+	// viewport.x = 0.0f; 
+	// viewport.y = 0.0f; 
+	// viewport.width = (float)Demo::renderer.swapchain.extent.width;
+	// viewport.height = (float)Demo::renderer.swapchain.extent.height;
+	// vkCmdSetViewport(cmdBuffer_, 0, 1, &viewport);
+
+	// VkRect2D scissor = {}; 
+	// scissor.offset = { 0, 0 };
+	// scissor.extent = Demo::renderer.swapchain.extent;
+
+	// Draw
+	vkCmdDrawIndexed(cmdBuffer_, mesh.indices.size(), 1, 0, 0, 0);
+
+	vkEndCommandBuffer(cmdBuffer_);
+}
+

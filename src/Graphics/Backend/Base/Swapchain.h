@@ -7,7 +7,7 @@
 
 struct Swapchain {
 	VkSwapchainKHR vkHandle = VK_NULL_HANDLE; // Handle 
-	VkFormat imageFormat;
+	GraphicsUtilities::ColorFormatsEnum imageFormat;
 	VkExtent2D extent; // Resolution  
 
 	std::vector<Image> images;

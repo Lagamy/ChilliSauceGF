@@ -5,19 +5,6 @@ void Core::setup()
 	Demo::renderer.setup(); // Sets up instance, chooses device, created swapchain.  	
 }
 
-void Core::loadProject(const char* path_)
-{
-	// Load from binary
-}
-
-
-
-void Core::addProject(const char* name_)
-{
-	// EngineGlobals::currentProject = Project(name_);
-
-	// Create a binary 
-}
 
 void Core::run()
 {

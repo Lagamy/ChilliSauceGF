@@ -14,7 +14,7 @@ struct RenderFlow {
 	CommandBufferBlueprint transferCmdBufferBlueprint;
 	CommandBufferBlueprint computeCmdBufferBlueprint;
 
-	void initPrimaryCmdBufferBlueprint(CmdBufferTypeEnum cmdBufferType_, Cmd commandsToRecord_);
+	void initCmdBufferBlueprint(CmdBufferTypeEnum cmdBufferType_, Cmd commandsToRecord_);
 
 	RenderFlow(); 
 	~RenderFlow(); 

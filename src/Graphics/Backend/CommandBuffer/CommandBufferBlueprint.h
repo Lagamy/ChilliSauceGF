@@ -3,6 +3,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <string>
+#include <functional>
 
 enum CmdBufferTypeEnum
 {
@@ -12,7 +13,7 @@ enum CmdBufferTypeEnum
 };
 
 
-using Cmd = void(*)(VkCommandBuffer& rCmdBuffer_);
+using Cmd = std::function<void(VkCommandBuffer&)>;
 
 struct CommandBufferBlueprint {
 	Cmd commandsToRecord;

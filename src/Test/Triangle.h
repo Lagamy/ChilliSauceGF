@@ -11,5 +11,6 @@ struct Triangle {
 	Mesh mesh;
 	
 	Triangle(); 
+	void record(VkCommandBuffer& cmdBuffer_);
 }; 
 
