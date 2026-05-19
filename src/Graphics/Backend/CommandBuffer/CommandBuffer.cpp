@@ -30,6 +30,7 @@ CommandBuffer::CommandBuffer(CommandBufferBlueprint& rBlueprint_, VkCommandBuffe
 	this->commandsToRecord = rBlueprint_.commandsToRecord;
 	this->cmdBufferUsageFlags = rBlueprint_.cmdBufferUsageFlags; 
 	this->vkHandle = vkHandle_;
+	this->oneTimeUse = rBlueprint_.oneTimeUse; 
 }
 
 VkCommandBuffer CommandBuffer::get() const {

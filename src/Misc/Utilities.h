@@ -11,6 +11,13 @@
 #include <concepts>
 
 //#include "DescriptorSetLayout.h"
+enum QueueFamilyEnum
+{
+	GRAPHICS,
+	TRANSFER,
+	COMPUTE
+};
+
 namespace GraphicsUtilities
 {
 	/* Helper structs */
@@ -41,26 +48,26 @@ namespace GraphicsUtilities
 		RESOLVE
 	};
 
-	enum class ColorFormatsEnum {
-		VK_FORMAT_R8_UNORM = VkFormat::VK_FORMAT_R8_UNORM,
-		VK_FORMAT_R8G8_UNORM = VkFormat::VK_FORMAT_R8G8_UNORM,
-		VK_FORMAT_R8G8B8_UNORM = VkFormat::VK_FORMAT_R8G8B8_UNORM,
-		VK_FORMAT_B8G8R8_UNORM = VkFormat::VK_FORMAT_B8G8R8_UNORM,
-		VK_FORMAT_R8G8B8A8_UNORM = VkFormat::VK_FORMAT_R8G8B8A8_UNORM,
-		VK_FORMAT_B8G8R8A8_UNORM = VkFormat::VK_FORMAT_B8G8R8A8_UNORM,
-		VK_FORMAT_R16G16B16A16_SFLOAT = VkFormat::VK_FORMAT_R16G16B16A16_SFLOAT,
-		VK_FORMAT_R32G32B32A32_SFLOAT = VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT
-	};
+	// enum class ColorFormatsEnum {
+		// VK_FORMAT_R8_UNORM = VkFormat::VK_FORMAT_R8_UNORM,
+		// VK_FORMAT_R8G8_UNORM = VkFormat::VK_FORMAT_R8G8_UNORM,
+		// VK_FORMAT_R8G8B8_UNORM = VkFormat::VK_FORMAT_R8G8B8_UNORM,
+		// VK_FORMAT_B8G8R8_UNORM = VkFormat::VK_FORMAT_B8G8R8_UNORM,
+		// VK_FORMAT_R8G8B8A8_UNORM = VkFormat::VK_FORMAT_R8G8B8A8_UNORM,
+		// VK_FORMAT_B8G8R8A8_UNORM = VkFormat::VK_FORMAT_B8G8R8A8_UNORM,
+		// VK_FORMAT_R16G16B16A16_SFLOAT = VkFormat::VK_FORMAT_R16G16B16A16_SFLOAT,
+		// VK_FORMAT_R32G32B32A32_SFLOAT = VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT
+	// };
 
-	enum class DepthStencilFormatsEnum {
-		VK_FORMAT_D24_UNORM_S8_UINT = VkFormat::VK_FORMAT_D24_UNORM_S8_UINT, // 24‑bit depth + 8‑bit stencil
-		VK_FORMAT_D32_SFLOAT_S8_UINT = VkFormat::VK_FORMAT_D32_SFLOAT_S8_UINT // 32‑bit float depth + 8‑bit stencil
-	};
+	// enum class DepthStencilFormatsEnum {
+		// VK_FORMAT_D24_UNORM_S8_UINT = VkFormat::VK_FORMAT_D24_UNORM_S8_UINT, // 24‑bit depth + 8‑bit stencil
+		// VK_FORMAT_D32_SFLOAT_S8_UINT = VkFormat::VK_FORMAT_D32_SFLOAT_S8_UINT // 32‑bit float depth + 8‑bit stencil
+	// };
 
-	enum class DepthFormatsEnum {
-		VK_FORMAT_D16_UNORM = VkFormat::VK_FORMAT_D16_UNORM, // 16‑bit unsigned normalized depth
-		VK_FORMAT_D32_SFLOAT = VkFormat::VK_FORMAT_D32_SFLOAT // 32‑bit float depth
-	};
+	// enum class DepthFormatsEnum {
+		// VK_FORMAT_D16_UNORM = VkFormat::VK_FORMAT_D16_UNORM, // 16‑bit unsigned normalized depth
+		// VK_FORMAT_D32_SFLOAT = VkFormat::VK_FORMAT_D32_SFLOAT // 32‑bit float depth
+	// };
 	
 	/* Helper methods */
 	// Device suitable params functions 
@@ -73,8 +80,6 @@ namespace GraphicsUtilities
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& rSurfaceCapabilities_); // What size are images can be, based on limitations(our window size)
 
 	// Utills 
-	void copyBuffer(VkQueue transferQueue_, VkCommandPool transferCommandPool_, VkBuffer srcBuffer_, VkBuffer dstBuffer_, VkDeviceSize srcOffset_, VkDeviceSize dstOffset_, VkDeviceSize bufferSize_);
-	
 	// Write Descriptor Set Data(By binding it to a Buffer with that data).
 	void writeBufferDescriptorSet(VkDescriptorSet& rSet, VkBuffer& rBuffer, VkDeviceSize _dataSize, uint32_t _binding, VkDescriptorType _descriptorType, uint32_t _arrayElement);
 }

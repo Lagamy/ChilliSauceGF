@@ -1,25 +1,20 @@
 #pragma once 
 
+#include "Utilities.h"
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <string>
 #include <functional>
 
-enum CmdBufferTypeEnum
-{
-	GRAPHICS,
-	TRANSFER,
-	COMPUTE
-};
 
 
-using Cmd = std::function<void(VkCommandBuffer&)>;
+using recordFunc = std::function<void(VkCommandBuffer&)>;
 
 struct CommandBufferBlueprint {
-	Cmd commandsToRecord;
+	recordFunc commandsToRecord;
 	VkCommandBufferUsageFlags cmdBufferUsageFlags;
 
 	bool exists = false; 
-
-	void init(Cmd commandsToRecord_, VkCommandBufferUsageFlags cmdBufferUsageFlags_);
+	bool oneTimeUse; 
+	void init(recordFunc commandsToRecord_, VkCommandBufferUsageFlags cmdBufferUsageFlags_, bool oneTimeUse_);
 };

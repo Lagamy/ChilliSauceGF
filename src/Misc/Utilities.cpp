@@ -142,52 +142,7 @@
 		}
 
 		// Utills
-		void copyBuffer(VkQueue transferQueue_, VkCommandPool transferCommandPool_, VkBuffer srcBuffer_, VkBuffer dstBuffer_,  VkDeviceSize srcOffset_, VkDeviceSize dstOffset_, VkDeviceSize bufferSize_)
-		{
-			// Inst optimal for loading many meshes, so TODO: optimize it for multiple transfer buffers use + sync via Fences and Semaphores to render only loaded meshes 
-			VkCommandBuffer transferCommandBuffer;
-
-			VkCommandBufferAllocateInfo commandBufferAllocInfo = {};
-			commandBufferAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-			commandBufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-			commandBufferAllocInfo.commandPool = transferCommandPool_;
-			commandBufferAllocInfo.commandBufferCount = 1;
-
-			vkAllocateCommandBuffers(Demo::renderer.mainDevice.logicalDevice, &commandBufferAllocInfo, &transferCommandBuffer);
-
-			// Info to begin the command buffer record 
-			VkCommandBufferBeginInfo beginInfo = {};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // We are only using this command buffer once. So setup for 1 time submit. 
-
-			// Begin command buffer transfer commands
-			vkBeginCommandBuffer(transferCommandBuffer, &beginInfo);
-
-			// Region of data to copy from and to 
-			VkBufferCopy bufferCopyRegion = {};
-			bufferCopyRegion.srcOffset = srcOffset_; // copy whole thing(from the beginning)
-			bufferCopyRegion.dstOffset = dstOffset_;
-			bufferCopyRegion.size = bufferSize_;
-
-			// Command to copy from srcBuffer to dstBuffer 
-			vkCmdCopyBuffer(transferCommandBuffer, srcBuffer_, dstBuffer_, 1, &bufferCopyRegion);
-
-			vkEndCommandBuffer(transferCommandBuffer);
-
-			// Submit command buffer to the Transfer Queue
-			VkSubmitInfo submitInfo = {};
-			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			submitInfo.commandBufferCount = 1;
-			submitInfo.pCommandBuffers = &transferCommandBuffer;
-
-			// Submit transfer command to transfer Queue and wait till it finishes(Not optimal) 
-			vkQueueSubmit(transferQueue_, 1, &submitInfo, VK_NULL_HANDLE);
-			vkQueueWaitIdle(transferQueue_); // Code doesn't executes past this line untill _transferQueue is empty. Also prevents creating new CommandBuffer for new mesh before this one is dispatched.(We can have limited amounts of them, otherwise - app will crash) 
-
-			// Free temporary command buffer back to pool(transferCommandBuffer object no longer exists on GPU side)
-			vkFreeCommandBuffers(Demo::renderer.mainDevice.logicalDevice, transferCommandPool_, 1, &transferCommandBuffer);
-		}
-
+		
 		// void writeBufferDescriptorSet(VkDescriptorSet set_, VkBuffer buffer_, VkDeviceSize dataSize_, uint32_t _binding, VkDescriptorType _descriptorType, uint32_t _arrayElement)
 		// {
 			// // Describes Buffer

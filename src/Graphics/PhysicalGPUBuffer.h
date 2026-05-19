@@ -14,7 +14,7 @@ struct PhysicalGPUBuffer {
 	void* pCpuSharedData; // Pointer to GPU buffered that was mapped to the CPU
 	bool cpuShared;
 	bool created;
-
+	bool exists = true; 
 	// Those are in use only if isLocalHost = true; 
 	Buffer stagingBuffer; 
 	MemoryBlock stagingMemoryBlock;
@@ -24,6 +24,6 @@ struct PhysicalGPUBuffer {
 
 	// add uploads and partial upload
 	void recreate(); 
-	void upload(const void* data_, VkQueue queue_, CommandPool& rCommandPool_); // full upload
-	void upload(const void* data_, VkQueue queue_, CommandPool& rCommandPool_, size_t byteAmount_, size_t srcStartingByte_, size_t dstStartingByte_); // partial upload 
+	void upload(const void* data_); // full upload
+	void upload(const void* data_, size_t byteAmount_, size_t srcStartingByte_, size_t dstStartingByte_); // partial upload 
 };

@@ -17,8 +17,9 @@
 
 struct CommandBuffer {
     VkCommandBuffer vkHandle = VK_NULL_HANDLE; // Gets created externally by Command Pool 
-
-	Cmd commandsToRecord; 
+	bool oneTimeUse;
+	
+	recordFunc commandsToRecord; 
 	VkCommandBufferUsageFlags cmdBufferUsageFlags; // Has options like: "One Time Submit", "Render Pass Continue(Secondary CmdBuffer)" and "Simultaneous Use"
     uint32_t queueFamilyIndex; 
     

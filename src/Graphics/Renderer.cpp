@@ -1,48 +1,63 @@
 #include "Renderer.h"
-#include "CMDsRecordFunctions.h"
 #include "CommandBufferBlueprint.h"
-#include "Engine.h"
 #include "HelperGlobals.h"
+#include "Triangle.h"
+#include "Globals.h"
 #include <vulkan/vulkan_core.h>
 
-void Renderer::setup() {
-
+void Renderer::setup() 
+{
+	// Vulkan setup 
 	this->instance.setup();
 	//	createDebugMessenger();
 	this->surface.create(); // Device needs to know - what surface will be used, so I could check if device supports it. 
 	this->mainDevice.setup();
 	this->swapchain.create();
+	
 
+	// Scene/Renderer setup 
+	triangle.load();
 	this->framesResources.resize(this->framesAtFlightCount);
 
 	for (auto& frameResources : this->framesResources)
 	{
-		frameResources.init();
+		frameResources.init(); // CMDPools init for each queue family per frame in flight  
 	}
 
-	// Renderpass attachments and subpasses are gonna be defined by Demo
+	// Renderpass and Graphics pipeline are defined defined by Scene
 	this->renderpass.create();
 	this->swapchain.createFramebuffers(this->renderpass);
 	this->graphicsPipeline.create(this->renderpass, 1);
 }
 
-void Renderer::run() {
-
+void Renderer::run() 
+{
+	this->currentFrameAtFlight = std::max(this->currentFrameAtFlight + 1, this->framesAtFlightCount);  
 }
 
-void Renderer::shutdown() {
-
-	
+void Renderer::shutdown() 
+{
+	this->graphicsPipeline.destroy(); 
+	this->swapchain.destroyFramebuffers(); 
+	this->renderpass.destroy(); 
+	for(auto& frameResources : this->framesResources)
+	{
+		frameResources.destroy(); 
+	}
+	this->gpuMemoryManager.destroy(); 
+	this->swapchain.destroy(); 
+	this->mainDevice.destroy(); 
+	this->surface.destroy(); 
+	this->instance.destroy();
 }
 
-void Renderer::initRenderFlows() { 
-	this->gameRenderFlow.initPrimaryCmdBufferBlueprint(GRAPHICS, gameCmdGraphicsCommands);
-}
 
-void Renderer::populateCmdPools() { 
+void Renderer::populateCmdPools() 
+{ 
 	// Game cmd blueprints: 
 }
 
-Renderer::~Renderer() {
+Renderer::~Renderer() 
+{
 	this->shutdown(); 
 }

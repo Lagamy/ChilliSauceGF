@@ -10,7 +10,8 @@
 struct Triangle { 
 	Mesh mesh;
 	
-	Triangle(); 
-	void record(VkCommandBuffer& cmdBuffer_);
+	void load(); 
+	void recordCMDs(VkCommandBuffer& cmdBuffer_);
 }; 
 
+inline Triangle triangle; 

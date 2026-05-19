@@ -1,6 +1,7 @@
 // To render properly. 
 
 #pragma once 
+#include "GPUMemoryManager.h"
 #include "RenderFlow.h"
 #include "RenderPass.h" 
 #include "Instance.h"
@@ -16,6 +17,7 @@ struct Renderer {
 	Device mainDevice;
 	Surface surface;
 	Swapchain swapchain;
+	GPUMemoryManager gpuMemoryManager;
 	
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass renderpass;

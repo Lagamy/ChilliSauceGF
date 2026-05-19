@@ -1,5 +1,7 @@
 // Swapable class that decides render flow 
 #pragma once 
+
+#include "Utilities.h"
 #include "CommandBufferBlueprint.h"
 #include <vector>
 #include <thread>
@@ -7,15 +9,11 @@
 
 // Every member here will create a prefab usable in other scenes 
 // Can be applied to a Scene. Saved as a binary in a folder, with other resources being in children folders. 
-using func = void(*)(); 
 struct RenderFlow { 
 
-	CommandBufferBlueprint graphicsCmdBufferBlueprint;
-	CommandBufferBlueprint transferCmdBufferBlueprint;
-	CommandBufferBlueprint computeCmdBufferBlueprint;
+	std::vector<CommandBufferBlueprint> graphicsCmdBufferBlueprints;
+	std::vector<CommandBufferBlueprint> transferCmdBufferBlueprints;
+	std::vector<CommandBufferBlueprint> computeCmdBufferBlueprints;
 
-	void initCmdBufferBlueprint(CmdBufferTypeEnum cmdBufferType_, Cmd commandsToRecord_);
-
-	RenderFlow(); 
-	~RenderFlow(); 
+	void addCmdBufferBlueprint(QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);
 };

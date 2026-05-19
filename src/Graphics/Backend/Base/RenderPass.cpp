@@ -172,12 +172,12 @@ void RenderPass::addFinalExternalDependency()
 	this->subpassDependencies.emplace_back(finalDependency);
 }
 
-void RenderPass::addColorAttachment(GraphicsUtilities::ColorFormatsEnum format_, VkSampleCountFlagBits sampleCount_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_)
+void RenderPass::addColorAttachment(VkFormat format_, VkSampleCountFlagBits sampleCount_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_)
 {
 	this->colorAttachments.emplace_back();
 	VkAttachmentDescription& newColorAttachment = this->colorAttachments.back();
 	newColorAttachment = {}; 
-	newColorAttachment.format = static_cast<VkFormat>(format_);	// Format to use for Attachment(image)
+	newColorAttachment.format = format_;	// Format to use for Attachment(image)
 	newColorAttachment.samples = sampleCount_;	// Number of sample to write for Multisampling
 	newColorAttachment.loadOp = loadOp_;	// Describes what to do with attachment before rendering. Clear image before render pass starts. 
 	newColorAttachment.storeOp = storeOp_;	// Describes what to do with attachment after rendering. Store result, so I can draw it to the Framebuffer later.
@@ -187,12 +187,12 @@ void RenderPass::addColorAttachment(GraphicsUtilities::ColorFormatsEnum format_,
 	newColorAttachment.finalLayout = finalLayout_; // The layout after renderpass ends
 }
 
-void RenderPass::addDepthStencilAttachment(GraphicsUtilities::DepthStencilFormatsEnum format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkAttachmentLoadOp stencilLoadOp_, VkAttachmentStoreOp stencilStoreOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_)
+void RenderPass::addDepthStencilAttachment(VkFormat format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkAttachmentLoadOp stencilLoadOp_, VkAttachmentStoreOp stencilStoreOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_)
 {
 	this->depthStencilAttachments.emplace_back();
 	VkAttachmentDescription& newDepthStencilAttachment = this->colorAttachments.back();
 	newDepthStencilAttachment = {};
-	newDepthStencilAttachment.format = static_cast<VkFormat>(format_);	// Format to use for Attachment(image)
+	newDepthStencilAttachment.format = format_;	// Format to use for Attachment(image)
 	newDepthStencilAttachment.samples = VK_SAMPLE_COUNT_1_BIT;	// Number of sample to write for Multisampling
 	newDepthStencilAttachment.loadOp = loadOp_;	// Describes what to do with attachment before rendering. Clear image before render pass starts. 
 	newDepthStencilAttachment.storeOp = storeOp_;	// Describes what to do with attachment after rendering. Store result, so I can draw it to the Framebuffer later.
@@ -202,12 +202,12 @@ void RenderPass::addDepthStencilAttachment(GraphicsUtilities::DepthStencilFormat
 	newDepthStencilAttachment.finalLayout = finalLayout_; // The layout after renderpass ends
 }
 
-void RenderPass::addDepthAttachment(GraphicsUtilities::DepthFormatsEnum format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_)
+void RenderPass::addDepthAttachment(VkFormat format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_)
 {
 	this->depthStencilAttachments.emplace_back();
 	VkAttachmentDescription& newDepthAttachment = this->colorAttachments.back();
 	newDepthAttachment = {};
-	newDepthAttachment.format = static_cast<VkFormat>(format_);	// Format to use for Attachment(image)
+	newDepthAttachment.format = format_;	// Format to use for Attachment(image)
 	newDepthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;	// Number of sample to write for Multisampling
 	newDepthAttachment.loadOp = loadOp_;	// Describes what to do with attachment before rendering. Clear image before render pass starts. 
 	newDepthAttachment.storeOp = storeOp_;	// Describes what to do with attachment after rendering. Store result, so I can draw it to the Framebuffer later.
@@ -232,12 +232,12 @@ void RenderPass::addStencilAttachment(VkAttachmentLoadOp stencilLoadOp_, VkAttac
 	newStencilAttachment.finalLayout = finalLayout_; // The layout after renderpass ends
 }
 
-void RenderPass::addResolveAttachment(GraphicsUtilities::ColorFormatsEnum format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_)
+void RenderPass::addResolveAttachment(VkFormat format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_)
 {
 	this->resolveAttachments.emplace_back();
 	VkAttachmentDescription& newColorAttachment = this->colorAttachments.back();
 	newColorAttachment = {};
-	newColorAttachment.format = static_cast<VkFormat>(format_);	// Format to use for Attachment(image)
+	newColorAttachment.format = format_;	// Format to use for Attachment(image)
 	newColorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;	// Number of sample to write for Multisampling
 	newColorAttachment.loadOp = loadOp_;	// Describes what to do with attachment before rendering. Clear image before render pass starts. 
 	newColorAttachment.storeOp = storeOp_;	// Describes what to do with attachment after rendering. Store result, so I can draw it to the Framebuffer later.

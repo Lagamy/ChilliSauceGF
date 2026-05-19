@@ -106,6 +106,14 @@ void Swapchain::createFramebuffers(RenderPass& rRenderpass_)
 	}
 }
 
+void Swapchain::destroyFramebuffers()
+{
+	for(auto& framebuffer : framebuffers)
+	{
+		framebuffer.destroy();
+	}
+}
+
 void Swapchain::destroy()
 {
 	for (auto& swapchainImage : this->images)

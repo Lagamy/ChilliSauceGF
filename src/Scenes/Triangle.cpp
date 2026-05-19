@@ -3,10 +3,10 @@
 #include "GraphicsPipeline.h"
 #include <vulkan/vulkan_core.h>
 
-Triangle::Triangle()
+void Triangle::load()
 {
-	Shader vertexShader = Shader("");
-	Shader fragmentShader = Shader("");
+	Shader vertexShader = Shader("Assets/shaders/triangle");
+	Shader fragmentShader = Shader("Assets/shaders/triangle");
 	RenderPass& rRenderPass = Demo::renderer.renderpass;
 	GraphicsPipeline& rGraphicsPipeline = Demo::renderer.graphicsPipeline;
 	
@@ -23,12 +23,12 @@ Triangle::Triangle()
 	/**************/
 
 	/* Upload Mesh */
-	mesh.vbMemoryId = Demo::GPUMemoryManager.addEntry("Triangle", sizeof(Vertex) * mesh.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, false); 
-	Demo::GPUMemoryManager.upload(mesh.vbMemoryId, mesh.vertices.data(), Demo::renderer.mainDevice.queues.graphicsQueue); 
+	mesh.vbMemoryId = Demo::renderer.gpuMemoryManager.addEntry("Triangle", sizeof(Vertex) * mesh.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, false); 
+	Demo::renderer.gpuMemoryManager.upload(mesh.vbMemoryId, mesh.vertices.data()); 
 		
 	// Create Index Buffer and fill it with data.
-	mesh.ibMemoryId = Demo::GPUMemoryManager.addEntry("Triangle", sizeof(mesh.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, false); 
-	Demo::GPUMemoryManager.upload(mesh.ibMemoryId, mesh.indices.data(), Demo::renderer.mainDevice.queues.graphicsQueue);
+	mesh.ibMemoryId = Demo::renderer.gpuMemoryManager.addEntry("Triangle", sizeof(mesh.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, false); 
+	Demo::renderer.gpuMemoryManager.upload(mesh.ibMemoryId, mesh.indices.data());
 	/**************/
 	
 	/* Configure RenderPass*/
@@ -50,13 +50,13 @@ Triangle::Triangle()
 	rGraphicsPipeline = GraphicsPipeline(vertexShader, fragmentShader, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
 
 	/* Initialize Command Buffer Blueprints */
-	Demo::renderer.renderFlow.initCmdBufferBlueprint(
+	Demo::renderer.renderFlow.addCmdBufferBlueprint(
 		GRAPHICS, 
-		[this](VkCommandBuffer& cmd) { record(cmd); }
+		[this](VkCommandBuffer& cmd) { recordCMDs(cmd); }
 	);
 }
 
-void Triangle::record(VkCommandBuffer& cmdBuffer_)
+void Triangle::recordCMDs(VkCommandBuffer& cmdBuffer_)
 {
 	VkCommandBufferBeginInfo beginInfo = {}; 
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -81,12 +81,12 @@ void Triangle::record(VkCommandBuffer& cmdBuffer_)
 	vkCmdBindPipeline(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, Demo::renderer.graphicsPipeline.get());
 	
 	// Bind vertex buffer 
-	VkBuffer vertexBuffers[] = { Demo::GPUMemoryManager.getEntry(this->mesh.vbMemoryId).buffer.get() }; 
+	VkBuffer vertexBuffers[] = { Demo::renderer.gpuMemoryManager.getEntry(this->mesh.vbMemoryId).buffer.get() }; 
 	VkDeviceSize vOffsets[] = { 0 }; 
 	vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
 	
 	// Bind index buffer 
-	vkCmdBindIndexBuffer(cmdBuffer_, Demo::GPUMemoryManager.getEntry(this->mesh.ibMemoryId).buffer.get(), 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(cmdBuffer_, Demo::renderer.gpuMemoryManager.getEntry(this->mesh.ibMemoryId).buffer.get(), 0, VK_INDEX_TYPE_UINT32);
 	
 	// Viewport and Scissor (for dynamic) 
 	// VkViewport viewport = {}; 

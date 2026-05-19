@@ -48,7 +48,7 @@ PhysicalGPUBuffer::~PhysicalGPUBuffer() {
 	this->buffer.destroy(); 
 }
 
-void PhysicalGPUBuffer::upload(const void* data_, VkQueue queue_, CommandPool& rCommandPool_) {
+void PhysicalGPUBuffer::upload(const void* data_) {
 	// Doesn't need guard rails, as it is an internall process 
 	if (this->cpuShared)
 	{ 
@@ -66,7 +66,7 @@ void PhysicalGPUBuffer::upload(const void* data_, VkQueue queue_, CommandPool& r
 	}
 }
 
-void PhysicalGPUBuffer::upload(const void* data_, VkQueue queue_, CommandPool& rCommandPool_, size_t byteAmount_, size_t srcStartingByte_, size_t dstStartingByte_) {
+void PhysicalGPUBuffer::upload(const void* data_, size_t byteAmount_, size_t srcStartingByte_, size_t dstStartingByte_) {
 	// Doesn't need guard rails, as it is an internall process 
 	if (this->cpuShared)
 	{

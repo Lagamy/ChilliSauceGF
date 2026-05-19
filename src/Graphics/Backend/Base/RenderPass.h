@@ -32,11 +32,11 @@ public:
 	void addFinalExternalDependency();
 
 	// In UI editing
-	void addColorAttachment(GraphicsUtilities::ColorFormatsEnum format_, VkSampleCountFlagBits sampleCount_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_);
-	void addDepthStencilAttachment(GraphicsUtilities::DepthStencilFormatsEnum format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkAttachmentLoadOp stencilLoadOp_, VkAttachmentStoreOp stencilStoreOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_);
-	void addDepthAttachment(GraphicsUtilities::DepthFormatsEnum format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_);
+	void addColorAttachment(VkFormat format_, VkSampleCountFlagBits sampleCount_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_);
+	void addDepthStencilAttachment(VkFormat format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkAttachmentLoadOp stencilLoadOp_, VkAttachmentStoreOp stencilStoreOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_);
+	void addDepthAttachment(VkFormat format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_);
 	void addStencilAttachment(VkAttachmentLoadOp stencilLoadOp_, VkAttachmentStoreOp stencilStoreOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_);
-	void addResolveAttachment(GraphicsUtilities::ColorFormatsEnum format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_);
+	void addResolveAttachment(VkFormat format_, VkAttachmentLoadOp loadOp_, VkAttachmentStoreOp storeOp_, VkImageLayout initialLayout_, VkImageLayout finalLayout_);
 
 	size_t getColorAttachmentIdFromFinal(size_t localId_);
 	size_t getDepthStencilAttachmentIdFromFinal(size_t localId_);

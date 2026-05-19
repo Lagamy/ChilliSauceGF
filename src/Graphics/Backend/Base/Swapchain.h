@@ -7,7 +7,7 @@
 
 struct Swapchain {
 	VkSwapchainKHR vkHandle = VK_NULL_HANDLE; // Handle 
-	GraphicsUtilities::ColorFormatsEnum imageFormat;
+	VkFormat imageFormat;
 	VkExtent2D extent; // Resolution  
 
 	std::vector<Image> images;
@@ -15,6 +15,7 @@ struct Swapchain {
 
 	void create();
 	void createFramebuffers(RenderPass& rRenderpass_); 
+	void destroyFramebuffers();
 	void destroy();
 	VkSwapchainKHR get() const;
 };

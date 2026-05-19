@@ -41,24 +41,26 @@ add_executable(PBRVulkanDemo
 
 	# Managers
 	"src/Core/Managers/AssetsManager.cpp" "src/Core/Managers/GPUMemoryManager.cpp"
-	"src/Core/Managers/InputManager.cpp" "src/Core/Managers/ThreadManager.cpp"
+	"src/Core/Managers/InputManager.cpp" 
 
 	# Graphics
 	"src/Graphics/Backend/Base/Device.cpp" "src/Graphics/Backend/Base/Instance.cpp" 
    	"src/Graphics/Backend/Base/Swapchain.cpp" "src/Graphics/Renderer.cpp"	
 	"src/Graphics/Backend/Base/Surface.cpp" "src/Graphics/Backend/Image/Image.cpp"  
-	"src/Graphics/Backend/Base/FrameBuffer.cpp" "src/Graphics/RenderTarget.cpp"
+	"src/Graphics/Backend/Base/Framebuffer.cpp" "src/Graphics/Backend/CommandBuffer/CommandBuffer.cpp" 
 	"src/Graphics/Backend/Base/MemoryBlock.cpp" "src/Graphics/Backend/Base/Buffer.cpp" 
 	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/FrameResources.cpp" 
 	"src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
 	"src/Graphics/Backend/Image/Sampler.cpp" "src/Graphics/PhysicalGPUBuffer.cpp" 
 	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/CommandPool.cpp" 
-	"src/Graphics/CommandPoolPack.cpp"	"src/Graphics/FrameResources.cpp"  
 	"src/Graphics/Backend/Image/ImageView.cpp" "src/Graphics/Backend/Base/Shader.cpp" 
 	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
-	"src/Graphics/RenderFlow.cpp" "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp"
-	"src/Graphics/Backend/CommandBuffer/CommandBuffer.cpp" 
+	"src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" "src/Graphics/Backend/CommandBuffer/CommandBuffer.cpp" 
+	"src/Graphics/RenderFlow.cpp" 
+
+	#Scenes
+	"src/Scenes/Triangle.cpp"
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -66,7 +68,7 @@ set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(CORE_DIR "${SRC_DIR}/Core")
 set(GRAPHICS_DIR "${SRC_DIR}/Graphics")
 set(MISC_DIR "${SRC_DIR}/Misc")
-set(TEST_DIR "${SRC_DIR}/Test/Triangle")
+set(SCENES_DIR "${SRC_DIR}/Scenes")
 
 # Core
 set(ASSETS_DIR "${CORE_DIR}/Assets")
@@ -101,6 +103,9 @@ target_include_directories(PBRVulkanDemo PRIVATE
 	# Graphics
 	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR}
 	${COMMANDBUFFER_DIR} ${DESCRIPTORSET_DIR} ${SYNCHRONISATION_DIR}
+
+	# Scenes 
+	${SCENES_DIR}
 )
 
 # Put the executable into /bin

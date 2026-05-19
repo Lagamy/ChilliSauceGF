@@ -3,6 +3,7 @@
 #include "Renderer.h"
 #include "GPUMemoryManager.h"
 #include "AssetsManager.h"
+#include "Triangle.h"
 #include <glfw/glfw3.h>
 #include <string>
 #include <vector>
@@ -23,7 +24,6 @@ namespace Demo {
 	inline std::vector<const char*> requiredDeviceExtensions = { // If you choose Ray tracing to be enabled -> this would change
             VK_KHR_SWAPCHAIN_EXTENSION_NAME	
 	}; 
-	inline GPUMemoryManager GPUMemoryManager;
 	inline Renderer renderer;
 	inline AssetsManager assetsManager;
 };
