@@ -47,6 +47,4 @@ public:
 	VkImageView getImageView(size_t id_) const;
 	VkImageCreateInfo getImageMetadata() const; 
 	VkImageViewCreateInfo getViewMetadata(size_t id_) const;
-
-	~Image();
 };

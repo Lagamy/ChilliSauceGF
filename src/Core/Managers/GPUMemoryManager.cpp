@@ -1,4 +1,7 @@
 #include "GPUMemoryManager.h"
+#include "Globals.h"
+#include "PhysicalGPUBuffer.h"
+#include "Utilities.h"
 
 
 uint32_t GPUMemoryManager::addEntry(const char* name_, size_t size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_) 
@@ -13,18 +16,65 @@ void GPUMemoryManager::removeEntry(uint32_t id_)
 
 void GPUMemoryManager::upload(uint32_t entryId_, const void* data_) // full upload
 {
-	this->memoryEntries.get(entryId_).upload(data_); 
+	
+	PhysicalGPUBuffer& rPhysicalBuffer = this->memoryEntries.get(entryId_); 
+
+	if (rPhysicalBuffer.cpuShared)
+	{ 
+		// Map our vertex data to vertex Buffer 
+		memcpy(rPhysicalBuffer.pCpuSharedData, data_, rPhysicalBuffer.size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
+
+	}
+	else
+	{
+		// Map our vertex data to vertex Buffer 
+		memcpy(rPhysicalBuffer.pCpuSharedData, data_, rPhysicalBuffer.size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
+		
+		this->deviceLocalUploadEntries.emplace_back(entryId_, data_);
+	}
 }
 
 void GPUMemoryManager::upload(uint32_t entryId_, const void* data_, size_t byteAmount_, size_t srcStartingByte_, size_t dstStartingByte_) // partial upload
 {
-	this->memoryEntries.get(entryId_).upload(data_, byteAmount_, srcStartingByte_, dstStartingByte_); 
+	PhysicalGPUBuffer& rPhysicalBuffer = this->memoryEntries.get(entryId_); 
+	
+
+
+	// Doesn't need guard rails, as it is an internall process 
+	if (rPhysicalBuffer.cpuShared)
+	{
+		// Map our vertex data to vertex Buffer 
+		void* sharedDataP; // Create an empty typeless pointer.
+		vkMapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.stagingMemoryBlock.get(), dstStartingByte_, byteAmount_, 0, &sharedDataP);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping. 
+		memcpy(sharedDataP, static_cast<const char*>(data_) + srcStartingByte_, byteAmount_);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer. Static cast to char* is for pointer math(as char is 1 byte exactly)
+		vkUnmapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.stagingMemoryBlock.get());	// Unmap vertexBufferMemory from data
+	}
+	else
+	{
+		// Map our vertex data to vertex Buffer 
+		void* sharedDataP; // Create an empty typeless pointer.
+		vkMapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.stagingMemoryBlock.get(), dstStartingByte_, byteAmount_, 0, &sharedDataP);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping. 
+		memcpy(sharedDataP, static_cast<const char*>(data_) + srcStartingByte_, byteAmount_);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
+		vkUnmapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.stagingMemoryBlock.get());	// Unmap vertexBufferMemory from data
+
+		// Copy staging buffer to vertex buffer on GPU
+		this->deviceLocalUploadEntries.emplace_back(entryId_, data_, byteAmount_, srcStartingByte_, dstStartingByte_);
+	}
 }
 
 PhysicalGPUBuffer& GPUMemoryManager::getEntry(uint32_t id_) 
 {
 	return this->memoryEntries.get(id_); 	
 } 
+
+void GPUMemoryManager::create()
+{
+	Demo::renderer.renderFlow.addCmdBufferBlueprint(
+		TRANSFER, 
+		[this](VkCommandBuffer& cmd) { recordCMDs(cmd); }, 
+		true 
+	);
+}
 
 void GPUMemoryManager::destroy() 
 {
@@ -34,9 +84,8 @@ void GPUMemoryManager::destroy()
 	}
 }
 
-void UploadEntry::recordCMDs(CommandBuffer& cmdBuffer_)
+void GPUMemoryManager::recordCMDs(VkCommandBuffer& cmdBuffer_)
 {
-	
 	// Inst optimal for loading many meshes, so TODO: optimize it for multiple transfer buffers use + sync via Fences and Semaphores to render only loaded meshes 
 
 	// Info to begin the command buffer record 
@@ -44,30 +93,45 @@ void UploadEntry::recordCMDs(CommandBuffer& cmdBuffer_)
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // We are only using this command buffer once. So setup for 1 time submit. 
 
-	// Begin command buffer transfer commands
-	vkBeginCommandBuffer(cmdBuffer_.get(), &beginInfo);
+	for(auto& rUploadEntry : this->deviceLocalUploadEntries)
+	{
+		// Begin command buffer transfer commands
+		PhysicalGPUBuffer& rPhysicalBuffer = Demo::renderer.gpuMemoryManager.getEntry(rUploadEntry.entryId); 
+		vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
 
-	// Region of data to copy from and to 
-	VkBufferCopy bufferCopyRegion = {};
-	bufferCopyRegion.srcOffset = this->srcOffset; // copy whole thing(from the beginning)
-	bufferCopyRegion.dstOffset = this->dstOffset;
-	bufferCopyRegion.size = this->bufferSize;
+		// Region of data to copy from and to 
+		VkBufferCopy bufferCopyRegion = {};
+		bufferCopyRegion.srcOffset = rUploadEntry.srcStartingByte; 
+		bufferCopyRegion.dstOffset = rUploadEntry.dstStartingByte;
+		bufferCopyRegion.size = rPhysicalBuffer.size;
 
-	// Command to copy from srcBuffer to dstBuffer 
-	vkCmdCopyBuffer(transferCommandBuffer, this->srcBuffer, this->dstBuffer, 1, &bufferCopyRegion);
+		// Command to copy from srcBuffer to dstBuffer 
+		vkCmdCopyBuffer(cmdBuffer_, rPhysicalBuffer.stagingBuffer.get(), rPhysicalBuffer.buffer.get(), 1, &bufferCopyRegion);
+	}
 
-	vkEndCommandBuffer(transferCommandBuffer);
+	vkEndCommandBuffer(cmdBuffer_);
 
 	// Submit command buffer to the Transfer Queue
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &transferCommandBuffer;
+	// VkSubmitInfo submitInfo = {};
+	// submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	// submitInfo.commandBufferCount = 1;
+	// submitInfo.pCommandBuffers = &cmdBuffer_.get();
 
 	// Submit transfer command to transfer Queue and wait till it finishes(Not optimal) 
-	vkQueueSubmit(transferQueue_, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(transferQueue_); // Code doesn't executes past this line untill _transferQueue is empty. Also prevents creating new CommandBuffer for new mesh before this one is dispatched.(We can have limited amounts of them, otherwise - app will crash) 
+	// vkQueueSubmit(Demo::renderer.mainDevice.queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	// vkQueueWaitIdle(Demo::renderer.mainDevice.queues.transferQueue); // Code doesn't executes past this line untill _transferQueue is empty. Also prevents creating new CommandBuffer for new mesh before this one is dispatched.(We can have limited amounts of them, otherwise - app will crash) 
 
 	// Free temporary command buffer back to pool(transferCommandBuffer object no longer exists on GPU side)
-	vkFreeCommandBuffers(Demo::renderer.mainDevice.logicalDevice, transferCommandPool_, 1, &transferCommandBuffer);
+	// vkFreeCommandBuffers(Demo::renderer.mainDevice.logicalDevice, transferCommandPool_, 1, &transferCommandBuffer);
 }
+
+UploadEntry::UploadEntry(uint32_t entryId_, const void* data_)
+{
+
+}
+
+UploadEntry::UploadEntry(uint32_t entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_)
+{
+
+}
+

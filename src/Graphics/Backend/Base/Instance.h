@@ -1,4 +1,5 @@
 #pragma once
+#include "ValidationLayers/ValidationLayers.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <glfw/glfw3.h>
@@ -8,6 +9,7 @@
 struct Instance {
 private:
 	VkInstance vkHandle = VK_NULL_HANDLE;
+	ValidationLayers validationLayers; 
 public:
 	void setup();
 	void destroy();

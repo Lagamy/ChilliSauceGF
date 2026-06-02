@@ -1,13 +1,16 @@
 #pragma once
-#include "CommandPool.h"
+#include "CommandPoolsPack.h"
+#include "OneShotCommandPool.h"
+#include "FrameCommandPool.h"
 #include "CommandBufferBlueprint.h"
+#include "Semaphore.h"
+#include "Utilities.h"
 
 struct FrameResources {
-	CommandPool graphicsCommandPool;
-	CommandPool transferCommandPool;
-	CommandPool computeCommandPool;
+	CommandPoolsPack<OneShotCommandPool> oneShotCommandPools; 
+	CommandPoolsPack<FrameCommandPool> frameCommandPools; 
 
-	void init(); 
-	void resetCMDBuffers(); 
+	void create();
 	void destroy(); 
+	VkCommandBuffer& getCommandBuffer(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamily_, uint32_t id_);
 };

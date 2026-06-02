@@ -48,43 +48,4 @@ PhysicalGPUBuffer::~PhysicalGPUBuffer() {
 	this->buffer.destroy(); 
 }
 
-void PhysicalGPUBuffer::upload(const void* data_) {
-	// Doesn't need guard rails, as it is an internall process 
-	if (this->cpuShared)
-	{ 
-		// Map our vertex data to vertex Buffer 
-		memcpy(pCpuSharedData, data_, this->size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
 
-	}
-	else
-	{
-		// Map our vertex data to vertex Buffer 
-		memcpy(this->pCpuSharedData, data_, this->size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
-
-		// Copy staging buffer to vertex buffer on GPU
-		GraphicsUtilities::copyBuffer(queue_, rCommandPool_.get(), this->stagingBuffer.get(), this->buffer.get(), 0, 0, this->size);
-	}
-}
-
-void PhysicalGPUBuffer::upload(const void* data_, size_t byteAmount_, size_t srcStartingByte_, size_t dstStartingByte_) {
-	// Doesn't need guard rails, as it is an internall process 
-	if (this->cpuShared)
-	{
-		// Map our vertex data to vertex Buffer 
-		void* sharedDataP; // Create an empty typeless pointer.
-		vkMapMemory(Demo::renderer.mainDevice.logicalDevice, this->stagingMemoryBlock.get(), dstStartingByte_, byteAmount_, 0, &sharedDataP);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping. 
-		memcpy(sharedDataP, static_cast<const char*>(data_) + srcStartingByte_, byteAmount_);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer. Static cast to char* is for pointer math(as char is 1 byte exactly)
-		vkUnmapMemory(Demo::renderer.mainDevice.logicalDevice, this->stagingMemoryBlock.get());	// Unmap vertexBufferMemory from data
-	}
-	else
-	{
-		// Map our vertex data to vertex Buffer 
-		void* sharedDataP; // Create an empty typeless pointer.
-		vkMapMemory(Demo::renderer.mainDevice.logicalDevice, this->stagingMemoryBlock.get(), dstStartingByte_, byteAmount_, 0, &sharedDataP);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping. 
-		memcpy(sharedDataP, static_cast<const char*>(data_) + srcStartingByte_, byteAmount_);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
-		vkUnmapMemory(Demo::renderer.mainDevice.logicalDevice, this->stagingMemoryBlock.get());	// Unmap vertexBufferMemory from data
-
-		// Copy staging buffer to vertex buffer on GPU
-		GraphicsUtilities::copyBuffer(queue_, rCommandPool_.get(), this->stagingBuffer.get(), this->buffer.get(), dstStartingByte_, dstStartingByte_, byteAmount_); // both are dstStartingBytes, since both buffers are 1 : 1, so data offset is identical 
-	}
-}

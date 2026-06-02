@@ -9,5 +9,5 @@ struct Fence {
 
     void create();
     void destroy();
-    VkFence get() const;
+    const VkFence& get();
 };

@@ -10,5 +10,5 @@ public:
     void create();
     void destroy();
     ~Semaphore();
-    VkSemaphore get() const;
+    VkSemaphore& get();
 };

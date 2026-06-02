@@ -23,7 +23,7 @@ void Fence::destroy()
 }
 
 
-VkFence Fence::get() const
+const VkFence& Fence::get() 
 {
     return this->vkHandle;
 }

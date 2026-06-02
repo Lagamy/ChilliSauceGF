@@ -26,7 +26,7 @@ Semaphore::~Semaphore()
     }
 }
 
-VkSemaphore Semaphore::get() const
+VkSemaphore& Semaphore::get() 
 {
-    return vkHandle;
+    return this->vkHandle;
 }

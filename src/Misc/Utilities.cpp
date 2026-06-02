@@ -1,5 +1,6 @@
 #include "Utilities.h"
 #include "Globals.h"
+#include <vulkan/vulkan_core.h>
 
 /* Device filters */
 	namespace GraphicsUtilities
@@ -162,18 +163,19 @@
 			// // Update Descriptor Set with new Binding info. (Improve later on) 
 			// vkUpdateDescriptorSets(Engine::renderer.mainDevice.logicalDevice, 1, &setWrite, 0, nullptr);
 		// }
+	
 	}
 
 	namespace DiskUtilities
 	{
-		std::vector<char> readFile(const std::string& filename) {
+		std::vector<char> readFile(const std::string& rFilename) {
 			// Open stream from given file 
-			std::ifstream file(filename, std::ios::binary | std::ios::ate); // ate - move char pointer at end of the file(to identify file size via positions of char at the end). So it starts reading file from end 
+			std::ifstream file(rFilename, std::ios::binary | std::ios::ate); // ate - move char pointer at end of the file(to identify file size via positions of char at the end). So it starts reading file from end 
 
 			// Check if file stream has successfully opened
 			if (!file.is_open())
 			{
-				throw std::runtime_error("Failed to open the file: " + filename);
+				throw std::runtime_error("Failed to open the file: " + rFilename);
 			}
 			// Get current read position(at end, since std::ios::ate) - and save it as size of our file 
 			size_t fileSize = (size_t)file.tellg();

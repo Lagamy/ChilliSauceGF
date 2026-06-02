@@ -1,23 +1,28 @@
 #include "FrameResources.h"
 #include "Globals.h"
 
-void FrameResources::init()
-{
-	this->graphicsCommandPool.create(VK_COMMAND_BUFFER_LEVEL_PRIMARY, GRAPHICS); 
-	this->computeCommandPool.create(VK_COMMAND_BUFFER_LEVEL_PRIMARY, COMPUTE);
-	this->transferCommandPool.create(VK_COMMAND_BUFFER_LEVEL_PRIMARY, TRANSFER);
+void FrameResources::create()
+{	
+	this->frameCommandPools.create();
+	this->oneShotCommandPools.create();
 }
 
-void FrameResources::resetCMDBuffers()
-{
-	this->graphicsCommandPool.resetCMDBuffers(); 
-	this->computeCommandPool.resetCMDBuffers(); 
-	this->transferCommandPool.resetCMDBuffers(); 
-}
+
 
 void FrameResources::destroy()
 {
-	this->graphicsCommandPool.destroy(); 
-	this->computeCommandPool.destroy(); 
-	this->transferCommandPool.destroy(); 
+	this->oneShotCommandPools.destroy();
+	this->frameCommandPools.destroy();
+}
+
+VkCommandBuffer& FrameResources::getCommandBuffer(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamily_, uint32_t id_)
+{
+	if(poolType_ == FRAME) 
+	{
+		this->frameCommandPools.commandPools[queueFamily_].get(); 
+	}
+	else 
+	{
+		this->oneShotCommandPools.commandPools[queueFamily_].get(); 
+	}
 }

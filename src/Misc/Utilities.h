@@ -9,6 +9,7 @@
 #include <sstream>
 #include <iomanip>
 #include <concepts>
+#include "CommandBufferBlueprint.h"
 
 //#include "DescriptorSetLayout.h"
 enum QueueFamilyEnum
@@ -16,6 +17,12 @@ enum QueueFamilyEnum
 	GRAPHICS,
 	TRANSFER,
 	COMPUTE
+};
+
+enum CommandPoolTypeEnum : uint8_t 
+{
+	FRAME, 
+	ONESHOT
 };
 
 namespace GraphicsUtilities

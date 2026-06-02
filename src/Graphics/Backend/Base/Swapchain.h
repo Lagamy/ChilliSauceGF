@@ -3,14 +3,14 @@
 #include "Framebuffer.h"
 #include "RenderPass.h"
 #include "Utilities.h"
-#include "Image.h"
+#include "RenderTarget.h"
 
 struct Swapchain {
 	VkSwapchainKHR vkHandle = VK_NULL_HANDLE; // Handle 
 	VkFormat imageFormat;
 	VkExtent2D extent; // Resolution  
 
-	std::vector<Image> images;
+	std::vector<RenderTarget> renderTargets;
 	std::vector<Framebuffer> framebuffers;
 
 	void create();

@@ -3,7 +3,6 @@
 #pragma once 
 #include "MemoryBlock.h"
 #include "Buffer.h" 
-#include "CommandPool.h"
 
 struct PhysicalGPUBuffer {
 	std::string name; 
@@ -22,8 +21,5 @@ struct PhysicalGPUBuffer {
 	PhysicalGPUBuffer(const char* name_, size_t size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
 	~PhysicalGPUBuffer();
 
-	// add uploads and partial upload
 	void recreate(); 
-	void upload(const void* data_); // full upload
-	void upload(const void* data_, size_t byteAmount_, size_t srcStartingByte_, size_t dstStartingByte_); // partial upload 
 };

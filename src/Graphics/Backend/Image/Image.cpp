@@ -127,7 +127,3 @@ void Image::destroy()
 	this->vkHandle = VK_NULL_HANDLE; 
 }
 
-Image::~Image()
-{
-	this->destroy();
-}

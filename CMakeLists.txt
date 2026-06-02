@@ -47,17 +47,16 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/Backend/Base/Device.cpp" "src/Graphics/Backend/Base/Instance.cpp" 
    	"src/Graphics/Backend/Base/Swapchain.cpp" "src/Graphics/Renderer.cpp"	
 	"src/Graphics/Backend/Base/Surface.cpp" "src/Graphics/Backend/Image/Image.cpp"  
-	"src/Graphics/Backend/Base/Framebuffer.cpp" "src/Graphics/Backend/CommandBuffer/CommandBuffer.cpp" 
 	"src/Graphics/Backend/Base/MemoryBlock.cpp" "src/Graphics/Backend/Base/Buffer.cpp" 
 	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/FrameResources.cpp" 
 	"src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
 	"src/Graphics/Backend/Image/Sampler.cpp" "src/Graphics/PhysicalGPUBuffer.cpp" 
-	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/CommandPool.cpp" 
+	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" 
+	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.h" "src/Graphics/RenderFlow.cpp" 
 	"src/Graphics/Backend/Image/ImageView.cpp" "src/Graphics/Backend/Base/Shader.cpp" 
 	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
-	"src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" "src/Graphics/Backend/CommandBuffer/CommandBuffer.cpp" 
-	"src/Graphics/RenderFlow.cpp" 
+	"src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" "src/Graphics/Backend/Base/Framebuffer.cpp" 
 
 	#Scenes
 	"src/Scenes/Triangle.cpp"
@@ -83,7 +82,7 @@ set(BASE_DIR "${BACKEND_DIR}/Base")
 set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
 set(DESCRIPTORSET_DIR "${BACKEND_DIR}/DescriptorSet")
 set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
-
+set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
 
 # Link dependencies
 target_link_libraries(PBRVulkanDemo
@@ -101,8 +100,8 @@ target_include_directories(PBRVulkanDemo PRIVATE
 	${ASSETS_DIR} ${MANAGERS_DIR} ${RESOURCES_DIR}
 
 	# Graphics
-	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR}
-	${COMMANDBUFFER_DIR} ${DESCRIPTORSET_DIR} ${SYNCHRONISATION_DIR}
+	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} 
+	${DESCRIPTORSET_DIR} ${SYNCHRONISATION_DIR} ${VALIDATION_DIR}
 
 	# Scenes 
 	${SCENES_DIR}
@@ -118,4 +117,8 @@ add_custom_command(TARGET PBRVulkanDemo POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory
   "${CMAKE_SOURCE_DIR}/Assets"
   "${RUNTIME_OUTPUT_DIRECTORY}/Assets"
+)
+
+target_compile_definitions(PBRVulkanDemo PRIVATE
+	$<$<CONFIG:Debug>:DEMO_DEBUG>
 )

@@ -51,8 +51,9 @@ void Triangle::load()
 
 	/* Initialize Command Buffer Blueprints */
 	Demo::renderer.renderFlow.addCmdBufferBlueprint(
+		FRAME,
 		GRAPHICS, 
-		[this](VkCommandBuffer& cmd) { recordCMDs(cmd); }
+		[this](VkCommandBuffer& cmd) { recordCMDs(cmd); } 
 	);
 }
 

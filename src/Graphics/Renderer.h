@@ -18,21 +18,22 @@ struct Renderer {
 	Surface surface;
 	Swapchain swapchain;
 	GPUMemoryManager gpuMemoryManager;
-	
+	Semaphore imageAvailable; 
+
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass renderpass;
 	GraphicsPipeline graphicsPipeline; 
 
 	RenderFlow renderFlow;
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
-
+	Fence fence; 
 
 	uint32_t framesAtFlightCount = 3;
 	uint32_t currentFrameAtFlight; 
 	uint32_t queueFamiliesCount = 3; 
 
 	void setup();
-	void run(); 
+	void draw(); 
 	void shutdown();
 
 	
@@ -40,6 +41,13 @@ struct Renderer {
 	void initRenderFlow(); // init all command buffer blueprints
 	void populateCmdPools(); 
 	void allocateCmdPools();
+
+	void recordOneShotCmdBuf(uint32_t id_);
+	void recordFrameCmdPool(); 
+
+	void resetOneShotCmdBuf(uint32_t id_);
+	void resetFrameCmdPool();
+	
 
 	~Renderer(); 
 };

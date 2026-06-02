@@ -35,8 +35,24 @@ void Instance::setup() {
 	//Add GLFW extensions to list of extensions 
 	for (size_t i = 0; i < glfwExtensionCount; i++)
 	{
-		instanceExtensions.push_back(glfwExtensions[i]); // glfwExtensions[i] == *(glfwExtensions + i). Compiler does i * sizeOf(const char*) automatically 
+		instanceExtensions.emplace_back(glfwExtensions[i]); // glfwExtensions[i] == *(glfwExtensions + i). Compiler does i * sizeOf(const char*) automatically 
 	}
+	
+	/* Validation layers setup */
+	// Check if Debug or Release build(Enables Validation layers if Debug)
+	#ifdef DEMO_DEBUG
+		this->validationLayers.debugMessenger.init(); 
+		for(const char* extension : this->validationLayers.extensions)
+		{
+			instanceExtensions.emplace_back(extension);	
+		}
+		createInfo.enabledLayerCount = validationLayers.layers.size();
+		createInfo.ppEnabledLayerNames = validationLayers.layers.data();
+		createInfo.pNext = &validationLayers.debugMessenger.createInfo;
+	#else 
+		createInfo.enabledLayerCount = 0;
+		createInfo.ppEnabledLayerNames = nullptr;
+	#endif
 
 	// Check if those Instance Extensions supported...
 	if (!checkInstanceExtensionSupport(&instanceExtensions))
@@ -46,10 +62,7 @@ void Instance::setup() {
 
 	createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size()); // Making room for our extensions in createInfo  
 	createInfo.ppEnabledExtensionNames = instanceExtensions.data(); // Passing extensions to our createInfo
-
-	/* Validation layers setup */
-	createInfo.enabledLayerCount = 0;
-	createInfo.ppEnabledLayerNames = nullptr;
+	
 
 	// Create instance 
 	VkResult result = vkCreateInstance(&createInfo, nullptr, &vkHandle); // Second argument is allocator. It is for manually defining where and how to store it in memory. nullptr = allocate and store it automatically    
