@@ -24,7 +24,7 @@ void OneShotCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum que
     }
 
 	// Allocate command buffers from blueprints 
-	this->allocateIfActiveCommandBuffers();
+	this->allocateCmdBuffersFromBlueprints();
 }
 
 void OneShotCommandPool::destroy()
@@ -33,7 +33,7 @@ void OneShotCommandPool::destroy()
     this->vkHandle = VK_NULL_HANDLE;
 }
 
-void OneShotCommandPool::allocateIfActiveCommandBuffers()
+void OneShotCommandPool::allocateCmdBuffersFromBlueprints()
 {
     // Allocate CommandBuffers from the pool in GPU, and recieve handles for them. 
 	std::vector<CommandBufferBlueprint>& rBlueprints = 

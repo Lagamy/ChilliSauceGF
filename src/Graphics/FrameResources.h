@@ -7,10 +7,6 @@
 #include "Utilities.h"
 
 struct FrameResources {
-	CommandPoolsPack<OneShotCommandPool> oneShotCommandPools; 
 	CommandPoolsPack<FrameCommandPool> frameCommandPools; 
-
-	void create();
-	void destroy(); 
-	VkCommandBuffer& getCommandBuffer(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamily_, uint32_t id_);
+	Fence frameFinished; 
 };

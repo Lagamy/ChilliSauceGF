@@ -10,6 +10,8 @@
 #include "Swapchain.h"
 #include "FrameResources.h"
 #include "GraphicsPipeline.h"
+#include "Utilities.h"
+#include <cstdint>
 #include <vector>
 
 struct Renderer {
@@ -26,7 +28,7 @@ struct Renderer {
 
 	RenderFlow renderFlow;
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
-	Fence fence; 
+	CommandPoolsPack<OneShotCommandPool> oneShotCommandPools; 
 
 	uint32_t framesAtFlightCount = 3;
 	uint32_t currentFrameAtFlight; 
@@ -39,15 +41,14 @@ struct Renderer {
 	
 
 	void initRenderFlow(); // init all command buffer blueprints
-	void populateCmdPools(); 
-	void allocateCmdPools();
 
-	void recordOneShotCmdBuf(uint32_t id_);
-	void recordFrameCmdPool(); 
+	void recordOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_);
+	void recordFrameCmdPools(); 
 
-	void resetOneShotCmdBuf(uint32_t id_);
-	void resetFrameCmdPool();
+	void resetOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_);
+	void resetFrameCmdPools();
 	
+	// void submitCmdBuf(CommandPoolTypeEnum poolType_, uint32_t id_, std::span<VkPipelineStageFlags> waitStages, ); 
 
-	~Renderer(); 
+	~Renderer();
 };
