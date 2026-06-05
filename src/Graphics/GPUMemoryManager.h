@@ -1,14 +1,15 @@
 // Represents resources that are in GPU currently
 #pragma once 
 #include "CommandBufferBlueprint.h"
-#include "PhysicalGPUBuffer.h"
+#include "GPUMemoryEntry.h"
+#include "MemoryBlock.h"
 #include "Pool.h"
 #include "Semaphore.h"
 
 struct UploadEntry 
 { 
 	uint32_t entryId; 
-	void* data; 
+	const void* data; 
 	size_t byteAmount = 0; 
 	size_t srcStartingByte = 0; 
 	size_t dstStartingByte = 0; 
@@ -20,10 +21,10 @@ struct UploadEntry
 };
 
 struct GPUMemoryManager { 
-	Pool<PhysicalGPUBuffer> memoryEntries = Pool<PhysicalGPUBuffer>("MemoryEntries"); 
-	std::vector<UploadEntry> deviceLocalUploadEntries; 
-	Semaphore uploadCompleteSemaphore; 
+	Pool<GPUMemoryEntry> memoryEntries = Pool<GPUMemoryEntry>("MemoryEntries"); 
+	GPUMemoryEntry uploadHeap; 
 
+	std::vector<UploadEntry> gpuLocalUploadEntries;
 	uint32_t addEntry(const char* name_, size_t size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
 	
 
@@ -36,9 +37,13 @@ struct GPUMemoryManager {
 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_); // For device local uploads
 	
-	
-	PhysicalGPUBuffer& getEntry(uint32_t id_);
+	void submitTransferOps(); 
+
+	GPUMemoryEntry& getEntry(uint32_t id_);
 
 	void create();
-	void destroy(); 
+	void destroy();
 };
+
+
+

@@ -7,6 +7,6 @@
 #include "Utilities.h"
 
 struct FrameResources {
-	CommandPoolsPack<FrameCommandPool> frameCommandPools; 
+	CommandPoolsPack<FrameCommandPool> frameCmdPools; 
 	Fence frameFinished; 
 };

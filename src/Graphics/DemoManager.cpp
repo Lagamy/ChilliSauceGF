@@ -1,6 +1,6 @@
 #include "RenderFlow.h"
 
-void RenderFlow::addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)
+void DemoManager::addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)
 {
 	if(poolType_ == FRAME)
 	{

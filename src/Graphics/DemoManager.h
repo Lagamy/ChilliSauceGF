@@ -1,4 +1,4 @@
-// Swapable class that decides render flow 
+// Manages demo setup and connects it to the renderer.
 #pragma once 
 
 #include "Utilities.h"
@@ -6,12 +6,13 @@
 #include <vector>
 #include <thread>
 
-
-// Every member here will create a prefab usable in other scenes 
-// Can be applied to a Scene. Saved as a binary in a folder, with other resources being in children folders. 
-struct RenderFlow { 
+using demoFunc = std::function<void()>;
+struct DemoManager {
 	CmdBufferBlueprintsPack frameCmdBufferBlueprints; 
 	CmdBufferBlueprintsPack oneShotCmdBufferBlueprints; 	
 
 	void addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);
+	
+	demoFunc loadDemo; 
+	demoFunc submitToGPU; 
 };

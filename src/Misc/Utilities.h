@@ -12,14 +12,14 @@
 #include "CommandBufferBlueprint.h"
 
 //#include "DescriptorSetLayout.h"
-enum QueueFamilyEnum
+enum QueueFamilyEnum : uint8_t
 {
-	GRAPHICS,
-	TRANSFER,
-	COMPUTE
+	GRAPHICS = 0,
+	TRANSFER = 1,
+	COMPUTE = 2
 };
 
-enum CommandPoolTypeEnum : uint8_t 
+enum CommandPoolTypeEnum 
 {
 	FRAME, 
 	ONESHOT

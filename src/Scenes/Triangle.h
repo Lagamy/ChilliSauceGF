@@ -11,6 +11,8 @@ struct Triangle {
 	
 	void load(); 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_);
+	void submit();
+	Triangle(); 
 }; 
 
 inline Triangle triangle; 

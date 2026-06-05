@@ -48,15 +48,15 @@ add_executable(PBRVulkanDemo
    	"src/Graphics/Backend/Base/Swapchain.cpp" "src/Graphics/Renderer.cpp"	
 	"src/Graphics/Backend/Base/Surface.cpp" "src/Graphics/Backend/Image/Image.cpp"  
 	"src/Graphics/Backend/Base/MemoryBlock.cpp" "src/Graphics/Backend/Base/Buffer.cpp" 
-	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/FrameResources.cpp" 
+	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/Backend/Base/Framebuffer.cpp"
 	"src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
-	"src/Graphics/Backend/Image/Sampler.cpp" "src/Graphics/PhysicalGPUBuffer.cpp" 
+	"src/Graphics/Backend/Image/Sampler.cpp" "src/Graphics/GPUMemoryEntry.cpp"
 	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" 
 	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.h" "src/Graphics/RenderFlow.cpp" 
 	"src/Graphics/Backend/Image/ImageView.cpp" "src/Graphics/Backend/Base/Shader.cpp" 
 	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
-	"src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" "src/Graphics/Backend/Base/Framebuffer.cpp" 
+	"src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp"
 
 	#Scenes
 	"src/Scenes/Triangle.cpp"

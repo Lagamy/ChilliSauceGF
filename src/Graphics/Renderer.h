@@ -1,8 +1,10 @@
 // To render properly. 
 
 #pragma once 
+#include <cstdint>
+#include <vector>
 #include "GPUMemoryManager.h"
-#include "RenderFlow.h"
+#include "DemoManager.h"
 #include "RenderPass.h" 
 #include "Instance.h"
 #include "Device.h"
@@ -11,8 +13,7 @@
 #include "FrameResources.h"
 #include "GraphicsPipeline.h"
 #include "Utilities.h"
-#include <cstdint>
-#include <vector>
+#include "SyncManager.h"
 
 struct Renderer {
 	Instance instance; // Connects this programm and the Vulkan library and encapsulates all Vulkan actions in that instance/app. (So different programs using Vulkan aren’t fighting)
@@ -20,19 +21,22 @@ struct Renderer {
 	Surface surface;
 	Swapchain swapchain;
 	GPUMemoryManager gpuMemoryManager;
-	Semaphore imageAvailable; 
+	SyncManager syncManager; 
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass renderpass;
 	GraphicsPipeline graphicsPipeline; 
 
-	RenderFlow renderFlow;
+	DemoManager demoManager;
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
 	CommandPoolsPack<OneShotCommandPool> oneShotCommandPools; 
 
 	uint32_t framesAtFlightCount = 3;
 	uint32_t currentFrameAtFlight; 
 	uint32_t queueFamiliesCount = 3; 
+
+
+	uint32_t imageAvailableSemId; 
 
 	void setup();
 	void draw(); 
@@ -47,8 +51,11 @@ struct Renderer {
 
 	void resetOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_);
 	void resetFrameCmdPools();
+	void addSemaphore(); 
+
+
+	VkCommandBuffer getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_); 
 	
-	// void submitCmdBuf(CommandPoolTypeEnum poolType_, uint32_t id_, std::span<VkPipelineStageFlags> waitStages, ); 
 
 	~Renderer();
 };

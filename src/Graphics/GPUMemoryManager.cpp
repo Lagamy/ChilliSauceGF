@@ -18,61 +18,49 @@ void GPUMemoryManager::upload(uint32_t entryId_, const void* data_) // full uplo
 {
 	
 	PhysicalGPUBuffer& rPhysicalBuffer = this->memoryEntries.get(entryId_); 
+	// Map our vertex data to vertex Buffer 
+	memcpy(rPhysicalBuffer.pCpuSharedData, data_, rPhysicalBuffer.size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
 
-	if (rPhysicalBuffer.cpuShared)
+	if (!rPhysicalBuffer.cpuShared)
 	{ 
 		// Map our vertex data to vertex Buffer 
-		memcpy(rPhysicalBuffer.pCpuSharedData, data_, rPhysicalBuffer.size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
-
-	}
-	else
-	{
-		// Map our vertex data to vertex Buffer 
-		memcpy(rPhysicalBuffer.pCpuSharedData, data_, rPhysicalBuffer.size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
-		
-		this->deviceLocalUploadEntries.emplace_back(entryId_, data_);
+		this->gpuLocalUploadEntries.emplace_back(entryId_, data_);
 	}
 }
 
 void GPUMemoryManager::upload(uint32_t entryId_, const void* data_, size_t byteAmount_, size_t srcStartingByte_, size_t dstStartingByte_) // partial upload
 {
-	PhysicalGPUBuffer& rPhysicalBuffer = this->memoryEntries.get(entryId_); 
+	GPUMemoryEntry& rMemoryEntry = this->memoryEntries.get(entryId_); 
 	
 
+	// Map our vertex data to vertex Buffer 
+	void* sharedDataP; // Create an empty typeless pointer.
+	vkMapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.cpuMemoryBlock.get(), dstStartingByte_, byteAmount_, 0, &sharedDataP);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping. 
+	memcpy(sharedDataP, static_cast<const char*>(data_) + srcStartingByte_, byteAmount_);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
+	vkUnmapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.cpuMemoryBlock.get());	// Unmap vertexBufferMemory from data
 
 	// Doesn't need guard rails, as it is an internall process 
-	if (rPhysicalBuffer.cpuShared)
+	if (!rPhysicalBuffer.cpuShared)
 	{
-		// Map our vertex data to vertex Buffer 
-		void* sharedDataP; // Create an empty typeless pointer.
-		vkMapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.stagingMemoryBlock.get(), dstStartingByte_, byteAmount_, 0, &sharedDataP);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping. 
-		memcpy(sharedDataP, static_cast<const char*>(data_) + srcStartingByte_, byteAmount_);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer. Static cast to char* is for pointer math(as char is 1 byte exactly)
-		vkUnmapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.stagingMemoryBlock.get());	// Unmap vertexBufferMemory from data
-	}
-	else
-	{
-		// Map our vertex data to vertex Buffer 
-		void* sharedDataP; // Create an empty typeless pointer.
-		vkMapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.stagingMemoryBlock.get(), dstStartingByte_, byteAmount_, 0, &sharedDataP);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping. 
-		memcpy(sharedDataP, static_cast<const char*>(data_) + srcStartingByte_, byteAmount_);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
-		vkUnmapMemory(Demo::renderer.mainDevice.logicalDevice, rPhysicalBuffer.stagingMemoryBlock.get());	// Unmap vertexBufferMemory from data
-
 		// Copy staging buffer to vertex buffer on GPU
-		this->deviceLocalUploadEntries.emplace_back(entryId_, data_, byteAmount_, srcStartingByte_, dstStartingByte_);
+		this->gpuLocalUploadEntries.emplace_back(entryId_, data_, byteAmount_, srcStartingByte_, dstStartingByte_);
 	}
 }
 
-PhysicalGPUBuffer& GPUMemoryManager::getEntry(uint32_t id_) 
+GPUMemoryEntry& GPUMemoryManager::getEntry(uint32_t id_) 
 {
 	return this->memoryEntries.get(id_); 	
 } 
 
 void GPUMemoryManager::create()
 {
+	// Create Upload Heap
+	this->uploadHeap = GPUMemoryEntry("Upload Heap", 256, MB, )
+
 	Demo::renderer.renderFlow.addCmdBufferBlueprint(
+		ONESHOT,
 		TRANSFER, 
-		[this](VkCommandBuffer& cmd) { recordCMDs(cmd); }, 
-		true 
+		[this](VkCommandBuffer& cmd) { recordCMDs(cmd); } 
 	);
 }
 
@@ -92,25 +80,29 @@ void GPUMemoryManager::recordCMDs(VkCommandBuffer& cmdBuffer_)
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // We are only using this command buffer once. So setup for 1 time submit. 
+	vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
 
-	for(auto& rUploadEntry : this->deviceLocalUploadEntries)
+	for(auto& rUploadEntry : this->gpuLocalUploadEntries)
 	{
 		// Begin command buffer transfer commands
 		PhysicalGPUBuffer& rPhysicalBuffer = Demo::renderer.gpuMemoryManager.getEntry(rUploadEntry.entryId); 
-		vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
-
+		
 		// Region of data to copy from and to 
 		VkBufferCopy bufferCopyRegion = {};
 		bufferCopyRegion.srcOffset = rUploadEntry.srcStartingByte; 
 		bufferCopyRegion.dstOffset = rUploadEntry.dstStartingByte;
-		bufferCopyRegion.size = rPhysicalBuffer.size;
+		bufferCopyRegion.size = rUploadEntry.partialUpload ? rUploadEntry.byteAmount : rPhysicalBuffer.size;
 
 		// Command to copy from srcBuffer to dstBuffer 
 		vkCmdCopyBuffer(cmdBuffer_, rPhysicalBuffer.stagingBuffer.get(), rPhysicalBuffer.buffer.get(), 1, &bufferCopyRegion);
 	}
 
 	vkEndCommandBuffer(cmdBuffer_);
+	this->gpuLocalUploadEntries.clear();
+}
 
+void GPUMemoryManager::submitTransferOps()
+{
 	// Submit command buffer to the Transfer Queue
 	// VkSubmitInfo submitInfo = {};
 	// submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -127,11 +119,17 @@ void GPUMemoryManager::recordCMDs(VkCommandBuffer& cmdBuffer_)
 
 UploadEntry::UploadEntry(uint32_t entryId_, const void* data_)
 {
-
+	this->entryId = entryId_; 
+	this->data = data_; 
 }
 
 UploadEntry::UploadEntry(uint32_t entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_)
 {
-
+	this->entryId = entryId_; 
+	this->data = data_; 
+	this->byteAmount = byteAmount_; 
+	this->srcStartingByte = srcStartingbyte_; 
+	this->dstStartingByte = dstStartingbyte_;
 }
+
 

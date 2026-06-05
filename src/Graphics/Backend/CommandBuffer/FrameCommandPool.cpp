@@ -35,9 +35,9 @@ void FrameCommandPool::allocateCmdBuffersFromBlueprints()
 {
     // Allocate CommandBuffers from the pool in GPU, and recieve handles for them. 
 	std::vector<CommandBufferBlueprint>& rBlueprints = 
-		this->queueFamilyEnum == GRAPHICS ? Demo::renderer.renderFlow.frameCmdBufferBlueprints.graphics : 
-		this->queueFamilyEnum == COMPUTE ? Demo::renderer.renderFlow.frameCmdBufferBlueprints.compute : 
-		Demo::renderer.renderFlow.frameCmdBufferBlueprints.transfer; 
+		this->queueFamilyEnum == GRAPHICS ? Demo::renderer.demoManager.frameCmdBufferBlueprints.graphics : 
+		this->queueFamilyEnum == COMPUTE ? Demo::renderer.demoManager.frameCmdBufferBlueprints.compute : 
+		Demo::renderer.demoManager.frameCmdBufferBlueprints.transfer; 
 		
     if (rBlueprints.size() != 0)
     {

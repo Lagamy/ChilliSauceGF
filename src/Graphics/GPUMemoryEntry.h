@@ -4,22 +4,18 @@
 #include "MemoryBlock.h"
 #include "Buffer.h" 
 
-struct PhysicalGPUBuffer {
+struct GPUMemoryEntry {
 	std::string name; 
 	Buffer buffer; 
 
 	MemoryBlock memoryBlock;
-	size_t size; 
+	VkDeviceSize size; 
+	StorageUnitEnum unit;
 	void* pCpuSharedData; // Pointer to GPU buffered that was mapped to the CPU
 	bool cpuShared;
 	bool created;
 	bool exists = true; 
-	// Those are in use only if isLocalHost = true; 
-	Buffer stagingBuffer; 
-	MemoryBlock stagingMemoryBlock;
 	
-	PhysicalGPUBuffer(const char* name_, size_t size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
-	~PhysicalGPUBuffer();
-
-	void recreate(); 
+	GPUMemoryEntry(const char* name_, VkDeviceSize size_, StorageUnitEnum unit_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
+	~GPUMemoryEntry();
 };

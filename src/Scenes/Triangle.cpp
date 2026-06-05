@@ -50,7 +50,7 @@ void Triangle::load()
 	rGraphicsPipeline = GraphicsPipeline(vertexShader, fragmentShader, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
 
 	/* Initialize Command Buffer Blueprints */
-	Demo::renderer.renderFlow.addCmdBufferBlueprint(
+	Demo::renderer.demoManager.addCmdBufferBlueprint(
 		FRAME,
 		GRAPHICS, 
 		[this](VkCommandBuffer& cmd) { recordCMDs(cmd); } 
@@ -102,8 +102,18 @@ void Triangle::recordCMDs(VkCommandBuffer& cmdBuffer_)
 	// scissor.extent = Demo::renderer.swapchain.extent;
 
 	// Draw
-	vkCmdDrawIndexed(cmdBuffer_, mesh.indices.size(), 1, 0, 0, 0);
+	vkCmdDrawIndexed(cmdBuffer_, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
 
 	vkEndCommandBuffer(cmdBuffer_);
 }
 
+void Triangle::submit() 
+{
+
+}
+
+Triangle::Triangle()
+{
+	Demo::renderer.demoManager.loadDemo = [this]() { load(); };
+	Demo::renderer.demoManager.submitToGPU = [this]() { submit(); };
+}
