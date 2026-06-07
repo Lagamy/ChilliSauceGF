@@ -23,6 +23,14 @@ void Buffer::destroy()
 	this->vkHandle = VK_NULL_HANDLE;
 }
 
+Buffer::~Buffer()
+{
+	if (this->vkHandle != VK_NULL_HANDLE)
+    {
+        this->destroy();
+    }
+}
+
 VkBuffer Buffer::get() const
 {
 	return this->vkHandle;

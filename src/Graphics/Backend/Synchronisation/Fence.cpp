@@ -16,14 +16,22 @@ void Fence::create()
 }
 
 
-
 void Fence::destroy()
 {
     vkDestroyFence(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
+	this->vkHandle = VK_NULL_HANDLE;
 }
 
 
 const VkFence& Fence::get() 
 {
     return this->vkHandle;
+}
+
+Fence::~Fence()
+{
+	if (this->vkHandle != VK_NULL_HANDLE)
+    {
+        this->destroy();
+    }	
 }

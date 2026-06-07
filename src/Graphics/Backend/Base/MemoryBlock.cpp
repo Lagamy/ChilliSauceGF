@@ -20,7 +20,16 @@ void MemoryBlock::create(VkMemoryRequirements memoryRequirements_, VkMemoryPrope
 
 void MemoryBlock::destroy()
 {
-	vkFreeMemory(Engine::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
+	vkFreeMemory(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
+	this->vkHandle = VK_NULL_HANDLE;
+}
+
+MemoryBlock::~MemoryBlock()
+{
+	if (this->vkHandle != VK_NULL_HANDLE)
+    {
+        this->destroy();
+    }
 }
 
 VkDeviceMemory MemoryBlock::get() const

@@ -14,4 +14,5 @@ struct MemoryBlock {
 
 
 	uint32_t findMemoryTypeIndex(uint32_t allowedTypes_, VkMemoryPropertyFlags properties_);
+	~MemoryBlock();
 };

@@ -10,4 +10,6 @@ struct Fence {
     void create();
     void destroy();
     const VkFence& get();
+
+	~Fence();
 };

@@ -5,6 +5,7 @@
 #include <vector>
 #include "GPUMemoryManager.h"
 #include "DemoManager.h"
+#include "Pool.h"
 #include "RenderPass.h" 
 #include "Instance.h"
 #include "Device.h"
@@ -36,7 +37,7 @@ struct Renderer {
 	uint32_t queueFamiliesCount = 3; 
 
 
-	uint32_t imageAvailableSemId; 
+	PoolId imageAvailableSemaphoreId; 
 
 	void setup();
 	void draw(); 
@@ -54,8 +55,8 @@ struct Renderer {
 	void addSemaphore(); 
 
 
-	VkCommandBuffer getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_); 
-	
+	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_); 
+	VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_); 
 
 	~Renderer();
 };

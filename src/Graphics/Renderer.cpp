@@ -106,6 +106,18 @@ void Renderer::resetFrameCmdPools()
 	}
 }
 
+VkCommandPool& Renderer::getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_)
+{
+	if(poolType_ == ONESHOT) 
+	{
+		this->oneShotCommandPools.getPoolByQueue(queueFamily_);
+	}
+	else 
+	{
+		this->framesResources[this->currentFrameAtFlight].frameCmdPools.getPoolByQueue(queueFamily_);
+	} 
+}
+
 Renderer::~Renderer() 
 {
 	this->shutdown(); 

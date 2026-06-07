@@ -8,38 +8,43 @@
 
 struct UploadEntry 
 { 
-	uint32_t entryId; 
+	PoolId entryId; 
 	const void* data; 
 	size_t byteAmount = 0; 
-	size_t srcStartingByte = 0; 
+	size_t heapStartinByte = 0; 
 	size_t dstStartingByte = 0; 
 
 	bool partialUpload;
 
-	UploadEntry(uint32_t entryId_, const void* data_); 
-	UploadEntry(uint32_t entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_);
+	UploadEntry(PoolId entryId_, const void* data_); 
+	UploadEntry(PoolId entryId_, const void* data_, size_t byteAmount_, size_t heapStartinByte_, size_t dstStartingbyte_);
+};
+
+struct UploadHeap 
+{
+	size_t lastByte = 0;
+	GPUMemoryEntry memoryEntry; 
 };
 
 struct GPUMemoryManager { 
 	Pool<GPUMemoryEntry> memoryEntries = Pool<GPUMemoryEntry>("MemoryEntries"); 
-	GPUMemoryEntry uploadHeap; 
+	UploadHeap uploadHeap; 
 
 	std::vector<UploadEntry> gpuLocalUploadEntries;
-	uint32_t addEntry(const char* name_, size_t size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
+	PoolId addEntry(const char* name_, VkDeviceSize size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
 	
 
-	void removeEntry(uint32_t id_); 
-	
+	void removeEntry(PoolId id_); 
 	
 
-	void upload(uint32_t entryId_, const void* data_); // full upload
-	void upload(uint32_t entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload
+	void upload(PoolId entryId_, const void* data_); // full upload
+	void upload(PoolId entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload
 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_); // For device local uploads
 	
 	void submitTransferOps(); 
 
-	GPUMemoryEntry& getEntry(uint32_t id_);
+	GPUMemoryEntry& getEntry(PoolId id_);
 
 	void create();
 	void destroy();

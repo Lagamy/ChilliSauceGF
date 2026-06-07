@@ -2,7 +2,6 @@
 #include "Globals.h"
 
 GPUMemoryEntry::GPUMemoryEntry(const char* name_, VkDeviceSize size_, StorageUnitEnum unit_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuShared_) {
-	this->name = name_;
 	this->cpuShared = cpuShared_; 
 	this->size = size_; 
 	this->unit = unit_;

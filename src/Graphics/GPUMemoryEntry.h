@@ -5,7 +5,6 @@
 #include "Buffer.h" 
 
 struct GPUMemoryEntry {
-	std::string name; 
 	Buffer buffer; 
 
 	MemoryBlock memoryBlock;

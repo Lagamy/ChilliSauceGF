@@ -15,14 +15,14 @@ void Semaphore::create()
 void Semaphore::destroy()
 {
     vkDestroySemaphore(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
-    vkHandle = VK_NULL_HANDLE;
+    this->vkHandle = VK_NULL_HANDLE;
 }
 
 Semaphore::~Semaphore()
 {
-    if (vkHandle != VK_NULL_HANDLE)
+    if (this->vkHandle != VK_NULL_HANDLE)
     {
-        destroy();
+        this->destroy();
     }
 }
 

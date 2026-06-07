@@ -35,7 +35,7 @@ struct Pool {
 
 	std::string name; 
 
-	PoolId add(const T&& object_, const char* name_) { 
+	PoolId add(const T& object_, const char* name_) { 
 		PoolId pId;
 		if(this->freeSlots.empty())
 		{
@@ -58,22 +58,45 @@ struct Pool {
 		return pId; 
 	}
 
-	void remove(uint32_t id_) {
-		this->alive[id_] = false;
-		this->generation[id_]++; 
-		this->freeSlots.emplace(id_);
-		this->nameToId.erase(this->names[id_]);
-	}
-
-	T& get(uint32_t id_)
-	{
-		if(id_ > this->objects.size() || this->alive[id_] == false)
+	void remove(PoolId pId_) {
+		if(pId_.id > this->objects.size() || this->alive[pId_.id] == false || this->generation[pId_.id] > pId_.generation)
 		{
 			std::stringstream errorMessageStream;
-			errorMessageStream << name << " Pool: object with id " << id_ << " doesn't exist.\n";
+			errorMessageStream << name << " Pool: object with id: " << pId_.id << " and generation: " << pId_.generation << " already doesn't exist.\n";
 			throw std::runtime_error(errorMessageStream.str());
 		}
-		return this->objects[id_];
+		this->alive[pId_.id] = false;
+		this->generation[pId_.id]++; 
+		this->freeSlots.emplace(pId_.id);
+		this->nameToId.erase(this->names[pId_.id]);
+	}
+
+	void clear()
+	{
+		this->objects.clear();
+		this->alive.clear(); 
+		this->generation.clear();
+		std::queue<uint32_t> empty;
+   		std::swap(this->freeSlots, empty);
+		this->name.clear(); 
+		this->nameToId.clear();
+	}
+
+	T& get(PoolId pId_)
+	{
+		if(pId_.id > this->objects.size() || this->alive[pId_.id] == false)
+		{
+			std::stringstream errorMessageStream;
+			errorMessageStream << name << " Pool: object with id: " << pId_.id << " doesn't exist.\n";
+			throw std::runtime_error(errorMessageStream.str());
+		}
+		if(this->generation[pId_.id] > pId_.generation)
+		{
+			std::stringstream errorMessageStream;
+			errorMessageStream << name << " Pool: slot with id: " << pId_.id << " has bigger generation(" << pId_.generation << "), than passed one(" << this->generation[pId_.id] << ").\n";
+			throw std::runtime_error(errorMessageStream.str());
+		}
+		return this->objects[pId_];
 	}
 
 	PoolId getIdByName(const char* name_)

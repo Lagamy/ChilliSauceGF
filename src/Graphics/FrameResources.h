@@ -1,4 +1,5 @@
 #pragma once
+#include "Pool.h"
 #include "CommandPoolsPack.h"
 #include "OneShotCommandPool.h"
 #include "FrameCommandPool.h"
@@ -8,5 +9,5 @@
 
 struct FrameResources {
 	CommandPoolsPack<FrameCommandPool> frameCmdPools; 
-	Fence frameFinished; 
+	PoolId frameFinishedFenceId; 
 };
