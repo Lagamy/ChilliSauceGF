@@ -67,7 +67,7 @@ void Renderer::shutdown()
 	this->instance.destroy();
 }
 
-VkCommandBuffer Renderer::getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_)
+VkCommandBuffer& Renderer::getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_)
 {
 	if(poolType_ == FRAME)
 	{
@@ -76,6 +76,18 @@ VkCommandBuffer Renderer::getCommandBuffer(QueueFamilyEnum queueFamily_, Command
 	else
 	{
 		return this->oneShotCommandPools.getPoolByQueue(queueFamily_).commandBuffers.buffers[id_];
+	}
+}
+
+VkCommandPool& Renderer::getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_)
+{
+	if(poolType_ == FRAME)
+	{
+		return this->framesResources[this->currentFrameAtFlight].frameCmdPools.getPoolByQueue(queueFamily_).get();
+	}
+	else
+	{
+		return this->oneShotCommandPools.getPoolByQueue(queueFamily_).get();
 	}
 }
 

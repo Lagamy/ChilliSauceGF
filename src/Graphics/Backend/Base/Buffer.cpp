@@ -1,11 +1,11 @@
 #include "Buffer.h"
 #include "Globals.h"
 
-void Buffer::create(VkDeviceSize bufferSize_, StorageUnitEnum unit_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, const char* name_)
+void Buffer::create(VkDeviceSize bufferSize_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, const char* name_)
 {
 	VkBufferCreateInfo bufferCreateInfo = {};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferCreateInfo.size = this->toBytes(bufferSize_, unit_);	// Size of buffer
+	bufferCreateInfo.size = bufferSize_;	// Size of buffer
 	bufferCreateInfo.usage = bufferUsageFlags_; // Creating buffer for multiple usage goals is possible. (Transfer recieve and Vertex for example)
 	bufferCreateInfo.sharingMode = bufferSharingMode_; // Can it share with multiple queue families or not(VK_SHARING_MODE_EXCLUSIVE = not) 
 
@@ -37,7 +37,4 @@ VkBuffer Buffer::get() const
 }
 
 
-VkDeviceSize toBytes(uint64_t size_, StorageUnitEnum unit_)
-{
-	return size_ << (10 * static_cast<uint8_t>(unit_));
-}
+

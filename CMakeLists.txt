@@ -40,8 +40,7 @@ add_executable(PBRVulkanDemo
 	"src/main.cpp" "src/Core.cpp" "src/Misc/Utilities.cpp" 
 
 	# Managers
-	"src/Core/Managers/AssetsManager.cpp" "src/Core/Managers/GPUMemoryManager.cpp"
-	"src/Core/Managers/InputManager.cpp" 
+	"src/Core/Managers/AssetsManager.cpp" "src/Core/Managers/InputManager.cpp" 
 
 	# Graphics
 	"src/Graphics/Backend/Base/Device.cpp" "src/Graphics/Backend/Base/Instance.cpp" 
@@ -50,13 +49,14 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/Backend/Base/MemoryBlock.cpp" "src/Graphics/Backend/Base/Buffer.cpp" 
 	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/Backend/Base/Framebuffer.cpp"
 	"src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
-	"src/Graphics/Backend/Image/Sampler.cpp" "src/Graphics/GPUMemoryEntry.cpp"
 	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" 
-	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.h" "src/Graphics/RenderFlow.cpp" 
+	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.h" "src/Graphics/DemoManager.cpp" 
 	"src/Graphics/Backend/Image/ImageView.cpp" "src/Graphics/Backend/Base/Shader.cpp" 
 	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
-	"src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp"
+	"src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" "src/Graphics/Backend/MemoryManagment/GPUHeap.cpp"
+	"src/Graphics/Backend/MemoryManagment/GPUMemoryEntry.cpp" "src/Graphics/Backend/MemoryManagment/StaticAllocator.cpp"
+	"src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/Image/Sampler.cpp" 
 
 	#Scenes
 	"src/Scenes/Triangle.cpp"
@@ -83,6 +83,7 @@ set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
 set(DESCRIPTORSET_DIR "${BACKEND_DIR}/DescriptorSet")
 set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
 set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
+set(MEMORY_MANAGMENT_DIR "${BACKEND_DIR}/MemoryManagment")
 
 # Link dependencies
 target_link_libraries(PBRVulkanDemo
@@ -102,6 +103,7 @@ target_include_directories(PBRVulkanDemo PRIVATE
 	# Graphics
 	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} 
 	${DESCRIPTORSET_DIR} ${SYNCHRONISATION_DIR} ${VALIDATION_DIR}
+	${MEMORY_MANAGMENT_DIR}
 
 	# Scenes 
 	${SCENES_DIR}

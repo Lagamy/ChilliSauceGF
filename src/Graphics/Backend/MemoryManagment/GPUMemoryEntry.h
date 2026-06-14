@@ -13,8 +13,8 @@ struct GPUMemoryEntry {
 	void* pCpuSharedData; // Pointer to GPU buffered that was mapped to the CPU
 	bool cpuShared;
 	bool created;
-	bool exists = true; 
 	
+	void destroy();
 	GPUMemoryEntry(const char* name_, VkDeviceSize size_, StorageUnitEnum unit_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
 	~GPUMemoryEntry();
 };

@@ -111,7 +111,22 @@ struct Pool {
 		return iterator->second;
 	}
 
-	Pool(const char* name_) : name(name_) {}; 
+	Pool(const char* name_) : name(name_) {};
+
+	const std::vector<T>& data()
+	{
+		return this->objects; 
+	}
+
+	const size_t size()
+	{
+		return this->objects.size();
+	}
+
+	const size_t sizeInBytes()
+	{
+		return this->objects.size() * sizeof(T);
+	}
 };
 
 

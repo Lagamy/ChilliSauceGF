@@ -4,47 +4,51 @@
 #include "GPUMemoryEntry.h"
 #include "MemoryBlock.h"
 #include "Pool.h"
-#include "Semaphore.h"
+#include "SyncManager.h"
+#include "Image.h"
+#include "StaticAllocator.h"
+#include "Utilities.h"
+#include <vulkan/vulkan_core.h>
 
-struct UploadEntry 
+
+
+
+
+struct UpdateEntry 
 { 
-	PoolId entryId; 
-	const void* data; 
+	uint32_t entryId; 
+	UploadTypeEnum uploadType; 
 	size_t byteAmount = 0; 
-	size_t heapStartinByte = 0; 
+	size_t heapStartingByte = 0; 
 	size_t dstStartingByte = 0; 
 
-	bool partialUpload;
+	bool partialUpdate;
 
-	UploadEntry(PoolId entryId_, const void* data_); 
-	UploadEntry(PoolId entryId_, const void* data_, size_t byteAmount_, size_t heapStartinByte_, size_t dstStartingbyte_);
+	UpdateEntry(uint32_t entryId_, UploadTypeEnum uploadType_, const void* data_, size_t heapStartingByte_); 
+	UpdateEntry(uint32_t entryId_, UploadTypeEnum uploadType_, const void* data_, size_t heapStartingByte_, size_t byteAmount_, size_t srcStartingbyte_);
 };
 
-struct UploadHeap 
-{
-	size_t lastByte = 0;
-	GPUMemoryEntry memoryEntry; 
-};
 
 struct GPUMemoryManager { 
-	Pool<GPUMemoryEntry> memoryEntries = Pool<GPUMemoryEntry>("MemoryEntries"); 
-	UploadHeap uploadHeap; 
-
-	std::vector<UploadEntry> gpuLocalUploadEntries;
-	PoolId addEntry(const char* name_, VkDeviceSize size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
 	
+	StaticAllocator staticAllocator;
+	std::vector<UpdateEntry> updateEntries; 
+	bool updateNeeded = false;
+	void submitTransferCmds();
+	uint32_t updateCmdBufferId;
+	uint32_t staticUploadCmdBufferId; 
 
-	void removeEntry(PoolId id_); 
-	
+	PoolId updateFinishedSemaphore; 
+	PoolId updateFinishedFence; 
 
-	void upload(PoolId entryId_, const void* data_); // full upload
-	void upload(PoolId entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload
 
-	void recordCMDs(VkCommandBuffer& cmdBuffer_); // For device local uploads
-	
-	void submitTransferOps(); 
+	void addUpdate(PoolId entryId_, const void* data_); // full upload
+	void addUpdate(PoolId entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload
 
-	GPUMemoryEntry& getEntry(PoolId id_);
+	// For device local uploads
+	void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_);
+	void submitStaticUploadCmds(); 
+	void submitUpdateCmdsIfNeeded();
 
 	void create();
 	void destroy();

@@ -15,12 +15,12 @@ struct OneShotCommandPool {
     OneShotCommandBuffers commandBuffers; 
 
     void create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_);
-    void resetCmdBuffer(uint32_t id_); 
+    void resetCmdBuffer(uint32_t id_, Fence& finishSignalFence); 
 	void recordCmdBuffer(uint32_t id_);
 	void submitCmdBuffer(uint32_t id_);
 	void dealocateCMDBuffers();
     void destroy();
-    VkCommandPool get() const; 
+    VkCommandPool& get(); 
 
     void allocateCmdBuffersFromBlueprints();
 

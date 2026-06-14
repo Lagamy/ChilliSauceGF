@@ -1,5 +1,3 @@
-// To render properly. 
-
 #pragma once 
 #include <cstdint>
 #include <vector>
@@ -52,8 +50,10 @@ struct Renderer {
 
 	void resetOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_);
 	void resetFrameCmdPools();
-	void addSemaphore(); 
-
+	void addSemaphore(const char* name_); 
+	void addFence(const char* name_); 
+	PoolId getSemaphore(const char* name_);
+	PoolId getFence(const char* name_);
 
 	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_); 
 	VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_); 

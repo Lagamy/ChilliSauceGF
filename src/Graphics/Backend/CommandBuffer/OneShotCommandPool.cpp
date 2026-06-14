@@ -37,9 +37,9 @@ void OneShotCommandPool::allocateCmdBuffersFromBlueprints()
 {
     // Allocate CommandBuffers from the pool in GPU, and recieve handles for them. 
 	std::vector<CommandBufferBlueprint>& rBlueprints = 
-		this->queueFamilyEnum == GRAPHICS ? Demo::renderer.renderFlow.oneShotCmdBufferBlueprints.graphics: 
-		this->queueFamilyEnum == COMPUTE ? Demo::renderer.renderFlow.oneShotCmdBufferBlueprints.compute: 
-		Demo::renderer.renderFlow.oneShotCmdBufferBlueprints.transfer; 
+		this->queueFamilyEnum == GRAPHICS ? Demo::renderer.demoManager.oneShotCmdBufferBlueprints.graphics: 
+		this->queueFamilyEnum == COMPUTE ? Demo::renderer.demoManager.oneShotCmdBufferBlueprints.compute: 
+		Demo::renderer.demoManager.oneShotCmdBufferBlueprints.transfer; 
 		
     if (rBlueprints.size() != 0)
     {
@@ -70,9 +70,9 @@ void OneShotCommandPool::allocateCmdBuffersFromBlueprints()
     }
 }
 
-void OneShotCommandPool::resetCmdBuffer(uint32_t id_)
+void OneShotCommandPool::resetCmdBuffer(uint32_t id_, Fence& finishSignalFence)
 {
-	vkWaitForFences(Demo::renderer.mainDevice.logicalDevice, 1, &this->commandBuffers.finished[id_].get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
+	vkWaitForFences(Demo::renderer.mainDevice.logicalDevice, 1, &finishSignalFence.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
 	vkResetCommandBuffer(this->commandBuffers.buffers[id_], 0); 
 	this->commandBuffers.recorded[id_] = false;
 }
@@ -84,6 +84,6 @@ void OneShotCommandPool::recordCmdBuffer(uint32_t id_)
 }
 
 
-VkCommandPool OneShotCommandPool::get() const {
+VkCommandPool& OneShotCommandPool::get() {
     return this->vkHandle; 
 }

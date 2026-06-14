@@ -20,7 +20,7 @@ struct FrameCommandPool {
 	void recordCmdBuffers();
 	void dealocateCmdBuffers();
     void destroy();
-    VkCommandPool get() const; 
+    const VkCommandPool& get(); 
 
     void allocateCmdBuffersFromBlueprints();
 

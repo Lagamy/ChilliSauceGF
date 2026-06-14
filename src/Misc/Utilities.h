@@ -25,6 +25,25 @@ enum CommandPoolTypeEnum
 	ONESHOT
 };
 
+enum UploadTypeEnum : uint8_t 
+{
+	VERTEX = 0, 
+	INDEX = 1, 
+	// UNIFORM = 2,
+	// STORAGE = 3,
+	// TEXTURE = 4
+};
+
+
+struct UploadEntry 
+{ 
+	std::string name; 
+	const void* data; 
+	size_t heapStartingByte = 0; 
+	VkDeviceSize size; 
+	UploadEntry(const char* name_, const void* data_, VkDeviceSize size_, size_t currentBuffSize_); 
+};
+
 namespace GraphicsUtilities
 {
 	/* Helper structs */
@@ -54,7 +73,8 @@ namespace GraphicsUtilities
 		DEPTHSTENCIL,
 		RESOLVE
 	};
-
+	
+	
 	// enum class ColorFormatsEnum {
 		// VK_FORMAT_R8_UNORM = VkFormat::VK_FORMAT_R8_UNORM,
 		// VK_FORMAT_R8G8_UNORM = VkFormat::VK_FORMAT_R8G8_UNORM,

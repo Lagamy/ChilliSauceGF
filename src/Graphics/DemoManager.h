@@ -1,6 +1,7 @@
 // Manages demo setup and connects it to the renderer.
 #pragma once 
 
+#include "Pool.h"
 #include "Utilities.h"
 #include "CmdBufferBlueprintsPack.h"
 #include <vector>
@@ -11,7 +12,7 @@ struct DemoManager {
 	CmdBufferBlueprintsPack frameCmdBufferBlueprints; 
 	CmdBufferBlueprintsPack oneShotCmdBufferBlueprints; 	
 
-	void addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);
+	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);
 	
 	demoFunc loadDemo; 
 	demoFunc submitToGPU; 

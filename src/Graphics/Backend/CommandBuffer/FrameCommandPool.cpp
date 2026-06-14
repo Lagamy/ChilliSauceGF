@@ -22,7 +22,7 @@ void FrameCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum queue
     }
 
 	// Allocate command buffers from blueprints 
-	this->allocateIfActiveCommandBuffers();
+	this->allocateCmdBuffersFromBlueprints();
 }
 
 void FrameCommandPool::destroy()
@@ -67,14 +67,14 @@ void FrameCommandPool::allocateCmdBuffersFromBlueprints()
     }
 }
 
-void FrameCommandPool::resetCMDPool(Fence& rFrameFinishedFence_)
+void FrameCommandPool::resetCmdPool(Fence& rFrameFinishedFence_)
 {
 
 	vkWaitForFences(Demo::renderer.mainDevice.logicalDevice, 1, &rFrameFinishedFence_.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
 	vkResetCommandPool(Demo::renderer.mainDevice.logicalDevice, this->get(), 0); 
 }
 
-void FrameCommandPool::recordCMDBuffers()
+void FrameCommandPool::recordCmdBuffers()
 {
 	for(uint32_t i = 0; i < this->commandBuffers.buffers.size(); i++)
 	{
@@ -82,6 +82,6 @@ void FrameCommandPool::recordCMDBuffers()
 	}
 }
 
-VkCommandPool FrameCommandPool::get() const {
+const VkCommandPool& FrameCommandPool::get() {
     return this->vkHandle; 
 }
