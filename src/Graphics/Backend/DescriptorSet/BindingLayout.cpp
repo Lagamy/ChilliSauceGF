@@ -1,5 +1,7 @@
 #include "BindingLayout.h"
 
+namespace Graphics
+{
 BindingLayout::BindingLayout(uint32_t bindingId_, ResourceTypeEnum resourceType_, VkDescriptorType descriptorType_, uint32_t descriptorCount_, VkShaderStageFlags shaderStageFlags_, Sampler* pSampler_)
 {
 	this->resourceType  = resourceType_; 
@@ -23,4 +25,5 @@ BindingLayout::BindingLayout(uint32_t bindingId_, ResourceTypeEnum resourceType_
 
 VkDescriptorSetLayoutBinding BindingLayout::get() const {
 	return this->layout;
+}
 }

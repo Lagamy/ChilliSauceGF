@@ -10,10 +10,8 @@
 #include "Utilities.h"
 #include <vulkan/vulkan_core.h>
 
-
-
-
-
+namespace Graphics
+{
 struct UpdateEntry 
 { 
 	uint32_t entryId; 
@@ -53,6 +51,4 @@ struct GPUMemoryManager {
 	void create();
 	void destroy();
 };
-
-
-
+}

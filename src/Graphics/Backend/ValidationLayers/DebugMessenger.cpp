@@ -1,5 +1,7 @@
 #include "DebugMessenger.h"
 
+namespace Graphics
+{
 void DebugMessenger::init()
 {
 	this->createInfo.sType =
@@ -15,4 +17,5 @@ void DebugMessenger::init()
     	VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 
 	this->createInfo.pfnUserCallback = debugCallback;
+}
 }

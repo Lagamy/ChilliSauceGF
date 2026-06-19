@@ -8,6 +8,8 @@
 #include "Utilities.h"
 #include "Fence.h"
 
+namespace Graphics
+{
 struct FrameCommandPool { 
 	VkCommandPool vkHandle = VK_NULL_HANDLE;
     VkCommandBufferLevel level;  // Primary - can only be run by queue. Secondary - can only be called in another command buffer(using vkCmdExecureCommands(cmBuffer)).
@@ -26,3 +28,4 @@ struct FrameCommandPool {
 
     FrameCommandPool() = default;
 };
+}

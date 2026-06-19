@@ -6,9 +6,8 @@
 #include <limits>
 #include <vulkan/vulkan_core.h>
 
-
-
-
+namespace Graphics
+{
 void GPUMemoryManager::create()
 {
 	this->staticUploadCmdBufferId = Demo::renderer.demoManager.addCmdBufferBlueprint(
@@ -54,7 +53,8 @@ void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_)
 
 void GPUMemoryManager::submitStaticUploadCmds()
 {
-
+	Fence& rUploadFinished = Demo::renderer.syncManager.fences.get(this->staticAllocator.uploadFinishedFence);
+	vkResetFences(Demo::renderer.mainDevice.logicalDevice, 1, &rUploadFinished.get());
 	// Submit command buffer to the Transfer Queue
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -62,12 +62,12 @@ void GPUMemoryManager::submitStaticUploadCmds()
 	submitInfo.pCommandBuffers = &Demo::renderer.getCommandBuffer(TRANSFER, ONESHOT, 0);
 
 	// Submit transfer command to transfer Queue and wait till it finishes(Not optimal)
-	Fence& rUploadFinished = Demo::renderer.syncManager.fences.get(this->staticAllocator.uploadFinishedFence);
 	vkQueueSubmit(Demo::renderer.mainDevice.queues.transferQueue, 1, &submitInfo, rUploadFinished.get());
 
-	vkWaitForFences(Demo::renderer.mainDevice.logicalDevice, 1, &rUploadFinished.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
+	vkWaitForFences(Demo::renderer.mainDevice.logicalDevice, 1, &rUploadFinished.get(), VK_TRUE, std::numeric_limits<uint64_t>::max()); // Block this CPU thread until the GPU signals this fence.
 	// Free temporary command buffer back to pool(transferCommandBuffer object no longer exists on GPU side)
 	vkFreeCommandBuffers(Demo::renderer.mainDevice.logicalDevice, Demo::renderer.getCommandPool(TRANSFER, ONESHOT), 1, &Demo::renderer.getCommandBuffer(TRANSFER, ONESHOT, 0));
+	
 }
 
 void GPUMemoryManager::submitUpdateCmdsIfNeeded()
@@ -97,19 +97,19 @@ UploadEntry::UploadEntry(const char* name_, const void* data_, VkDeviceSize size
 	this->size = size_; 
 }
 
-UpdateEntry::UpdateEntry(PoolId entryId_, const void* data_, size_t heapStartinByte_)
-{
-	this->heapStartingByte = heapStartinByte_;
-	this->entryId = entryId_; 
-	this->data = data_; 
-}
+// UpdateEntry::UpdateEntry(PoolId entryId_, const void* data_, size_t heapStartinByte_)
+// {
+	// this->heapStartingByte = heapStartinByte_;
+	// this->entryId = entryId_; 
+	// this->data = data_; 
+// }
 
-UpdateEntry::UpdateEntry(PoolId entryId_, const void* data_, size_t heapStartinByte_, size_t byteAmount_, size_t dstStartingbyte_)
-{
-	this->entryId = entryId_; 
-	this->data = data_; 
-	this->byteAmount = byteAmount_; 
-	this->heapStartingByte = heapStartinByte_; 
-	this->dstStartingByte = dstStartingbyte_;
+// UpdateEntry::UpdateEntry(PoolId entryId_, const void* data_, size_t heapStartinByte_, size_t byteAmount_, size_t dstStartingbyte_)
+// {
+	// this->entryId = entryId_; 
+	// this->data = data_; 
+	// this->byteAmount = byteAmount_; 
+	// this->heapStartingByte = heapStartinByte_; 
+	// this->dstStartingByte = dstStartingbyte_;
+// }
 }
-

@@ -1,6 +1,8 @@
 #include "GPUMemoryEntry.h"
 #include "Globals.h"
 
+namespace Graphics
+{
 GPUMemoryEntry::GPUMemoryEntry(const char* name_, VkDeviceSize size_, StorageUnitEnum unit_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuShared_)
 {
 	this->cpuShared = cpuShared_; 
@@ -45,5 +47,5 @@ GPUMemoryEntry::~GPUMemoryEntry()
 	this->memoryBlock.destroy(); 
 	this->buffer.destroy(); 
 }
-
+}
 

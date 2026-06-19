@@ -1,7 +1,9 @@
 #include "Semaphore.h"
 #include "Globals.h"
 
-void Semaphore::create()
+namespace Graphics
+{
+Semaphore::Semaphore()
 {
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -29,4 +31,5 @@ Semaphore::~Semaphore()
 VkSemaphore& Semaphore::get() 
 {
     return this->vkHandle;
+}
 }

@@ -5,6 +5,8 @@
 #include <cassert>
 #include <cstddef>
 
+namespace Graphics
+{
 // Presents render result as an Image to the Surface, which renders it on window.  
 void Swapchain::create() {
 	// Get Swapchain details - so we can pick best settings 
@@ -124,4 +126,5 @@ void Swapchain::destroy()
 
 VkSwapchainKHR Swapchain::get() const {
 	return this->vkHandle;
+}
 }

@@ -3,6 +3,8 @@
 #include <vulkan/vulkan.h>
 #include <format>
 
+namespace Graphics
+{
 struct PipelineLayout {
 private:
 	VkPipelineLayout vkHandle = VK_NULL_HANDLE;
@@ -11,3 +13,4 @@ public:
 	void destroy();
 	VkPipelineLayout get() const;
 };
+}

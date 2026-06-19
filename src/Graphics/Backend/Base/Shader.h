@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+namespace Graphics
+{
 struct Shader {
 	VkShaderModule vkHandle;
 	VkShaderModule get() const; 
@@ -10,3 +12,4 @@ struct Shader {
 	Shader(const std::string& shaderPath);
 	~Shader();
 };
+}

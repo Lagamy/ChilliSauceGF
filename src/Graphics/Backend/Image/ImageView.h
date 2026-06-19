@@ -5,6 +5,9 @@
 #pragma once 
 #include <vulkan/vulkan.h>
 #include <string>
+
+namespace Graphics
+{
 struct ImageView {
 	std::string name; 
 	VkImageView vkHandle; 
@@ -13,3 +16,4 @@ struct ImageView {
 	ImageView(const char* name_, VkImage& rImage_, VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageViewType dimensionType_, VkImageViewCreateFlags flags_);
 	~ImageView();
 };
+}

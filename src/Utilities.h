@@ -9,61 +9,21 @@
 #include <sstream>
 #include <iomanip>
 #include <concepts>
-#include "CommandBufferBlueprint.h"
 
 //#include "DescriptorSetLayout.h"
-enum QueueFamilyEnum : uint8_t
+namespace Graphics
 {
-	GRAPHICS = 0,
-	TRANSFER = 1,
-	COMPUTE = 2
-};
-
-enum CommandPoolTypeEnum 
-{
-	FRAME, 
-	ONESHOT
-};
-
-enum UploadTypeEnum : uint8_t 
-{
-	VERTEX = 0, 
-	INDEX = 1, 
-	// UNIFORM = 2,
-	// STORAGE = 3,
-	// TEXTURE = 4
-};
-
-
-struct UploadEntry 
-{ 
-	std::string name; 
-	const void* data; 
-	size_t heapStartingByte = 0; 
-	VkDeviceSize size; 
-	UploadEntry(const char* name_, const void* data_, VkDeviceSize size_, size_t currentBuffSize_); 
-};
-
-namespace GraphicsUtilities
-{
-	/* Helper structs */
-	// indicies (locations) of Queue Families (if they exist at all);
-	struct QueueFamilyIndicies {
-		int32_t graphicsFamily = -1;	 // Location of Graphics Queue Family(includes Transfer capabilities by Vulkan Standard)
-		int32_t presentationFamily = -1; // Location of Presentation Queue Family(not a real Queue Family, more of "Queue that supports Presentation")
-		int32_t transferFamily = -1; 
-		int32_t computeFamily = -1; 
-
-		bool isValid() {
-			return this->graphicsFamily >= 0 && this->presentationFamily >= 0 && this->transferFamily >= 0 && this->computeFamily >= 0;
-		}
-		// Todo: if there are no Transfer or Compute queues - assign their indices to available Graphics queue, so further code works anyways, just on one queue. 
+	enum QueueFamilyEnum : uint8_t
+	{
+		GRAPHICS = 0,
+		TRANSFER = 1,
+		COMPUTE = 2
 	};
 
-	struct SwapchainDetails {
-		VkSurfaceCapabilitiesKHR surfaceCapabilities; // Surface properties(image size/extent, alpha compositing, etc)
-		std::vector<VkSurfaceFormatKHR> imageFormats; // Surface Image format(Size of each color, order of channels, normalized or not, etc.) + Color space
-		std::vector<VkPresentModeKHR> presentationModes; // How images should be swaped/presented on the screen. 
+	enum CommandPoolTypeEnum 
+	{
+		FRAME, 
+		ONESHOT
 	};
 
 	enum AttachmentTypeEnum {
@@ -73,7 +33,37 @@ namespace GraphicsUtilities
 		DEPTHSTENCIL,
 		RESOLVE
 	};
-	
+
+	enum AllocatorTypeEnum { 
+		STATIC 
+	};
+
+	enum UploadTypeEnum : uint8_t 
+	{
+		VERTEX = 0, 
+		INDEX = 1, 
+		// UNIFORM = 2,
+		// STORAGE = 3,
+		// TEXTURE = 4
+	};
+
+	struct UploadEntry 
+	{ 
+		std::string name; 
+		const void* data; 
+		size_t heapStartingByte = 0; 
+		VkDeviceSize size; 
+		UploadEntry(const char* name_, const void* data_, VkDeviceSize size_, size_t currentBuffSize_); 
+	};
+
+
+	/* Helper structs */
+
+	struct SwapchainDetails {
+		VkSurfaceCapabilitiesKHR surfaceCapabilities; // Surface properties(image size/extent, alpha compositing, etc)
+		std::vector<VkSurfaceFormatKHR> imageFormats; // Surface Image format(Size of each color, order of channels, normalized or not, etc.) + Color space
+		std::vector<VkPresentModeKHR> presentationModes; // How images should be swaped/presented on the screen. 
+	};
 	
 	// enum class ColorFormatsEnum {
 		// VK_FORMAT_R8_UNORM = VkFormat::VK_FORMAT_R8_UNORM,
@@ -84,7 +74,7 @@ namespace GraphicsUtilities
 		// VK_FORMAT_B8G8R8A8_UNORM = VkFormat::VK_FORMAT_B8G8R8A8_UNORM,
 		// VK_FORMAT_R16G16B16A16_SFLOAT = VkFormat::VK_FORMAT_R16G16B16A16_SFLOAT,
 		// VK_FORMAT_R32G32B32A32_SFLOAT = VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT
-	// };
+	// };	
 
 	// enum class DepthStencilFormatsEnum {
 		// VK_FORMAT_D24_UNORM_S8_UINT = VkFormat::VK_FORMAT_D24_UNORM_S8_UINT, // 24‑bit depth + 8‑bit stencil
@@ -109,6 +99,7 @@ namespace GraphicsUtilities
 	// Utills 
 	// Write Descriptor Set Data(By binding it to a Buffer with that data).
 	void writeBufferDescriptorSet(VkDescriptorSet& rSet, VkBuffer& rBuffer, VkDeviceSize _dataSize, uint32_t _binding, VkDescriptorType _descriptorType, uint32_t _arrayElement);
+	
 }
 
 // namespace DebugUtilities
@@ -178,7 +169,7 @@ namespace GraphicsUtilities
 // }
 
 
-namespace DiskUtilities 
+namespace Disk
 {
 	std::vector<char> readFile(const std::string& rFilename_);
 }

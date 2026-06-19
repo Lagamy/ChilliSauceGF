@@ -3,6 +3,8 @@
 #include <vulkan/vulkan.h>
 #include <glfw/glfw3.h>
 
+namespace Graphics
+{
 struct Surface {
 	VkSurfaceKHR vkHandle = VK_NULL_HANDLE;
 
@@ -11,3 +13,4 @@ struct Surface {
 
 	VkSurfaceKHR get() const;
 };
+}

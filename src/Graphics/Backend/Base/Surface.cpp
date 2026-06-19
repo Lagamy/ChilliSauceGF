@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
+namespace Graphics
+{
 void Surface::create() {
 	// Creating surface createInfo struct, using built in GLFW function and runs vulkan create surface function)
 	VkResult result = glfwCreateWindowSurface(Demo::renderer.instance.get(), App::appWindow, nullptr, &this->vkHandle);
@@ -20,4 +22,5 @@ void Surface::destroy() {
 VkSurfaceKHR Surface::get() const
 {
 	return this->vkHandle;
+}
 }

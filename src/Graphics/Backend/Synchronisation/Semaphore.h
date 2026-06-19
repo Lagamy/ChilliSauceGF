@@ -3,12 +3,14 @@
 #include <vulkan/vulkan.h>
 #include <stdexcept>
 
+namespace Graphics
+{
 struct Semaphore {
-private:
     VkSemaphore vkHandle = VK_NULL_HANDLE;
-public: 
-    void create();
+
     void destroy();
-    ~Semaphore();
     VkSemaphore& get();
+	Semaphore();
+    ~Semaphore();
 };
+}

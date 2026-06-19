@@ -15,20 +15,20 @@
 #include "SyncManager.h"
 
 struct Renderer {
-	Instance instance; // Connects this programm and the Vulkan library and encapsulates all Vulkan actions in that instance/app. (So different programs using Vulkan aren’t fighting)
-	Device mainDevice;
-	Surface surface;
-	Swapchain swapchain;
-	GPUMemoryManager gpuMemoryManager;
-	SyncManager syncManager; 
+	Graphics::Instance instance; // Connects this programm and the Vulkan library and encapsulates all Vulkan actions in that instance/app. (So different programs using Vulkan aren’t fighting)
+	Graphics::Device mainDevice;
+	Graphics::Surface surface;
+	Graphics::Swapchain swapchain;
+	Graphics::GPUMemoryManager gpuMemoryManager;
+	Graphics::SyncManager syncManager; 
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
-	RenderPass renderpass;
-	GraphicsPipeline graphicsPipeline; 
+	Graphics::RenderPass renderpass;
+	Graphics::GraphicsPipeline graphicsPipeline; 
 
-	DemoManager demoManager;
-	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
-	CommandPoolsPack<OneShotCommandPool> oneShotCommandPools; 
+	Graphics::DemoManager demoManager;
+	std::vector<Graphics::FrameResources> framesResources; // Initialized by defined RenderFlows 
+	Graphics::CmdPoolsPack<Graphics::OneShotCommandPool> oneShotCommandPools; 
 
 	uint32_t framesAtFlightCount = 3;
 	uint32_t currentFrameAtFlight; 
@@ -36,7 +36,6 @@ struct Renderer {
 
 
 	PoolId imageAvailableSemaphoreId; 
-
 	void setup();
 	void draw(); 
 	void shutdown();
@@ -45,18 +44,6 @@ struct Renderer {
 
 	void initRenderFlow(); // init all command buffer blueprints
 
-	void recordOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_);
-	void recordFrameCmdPools(); 
-
-	void resetOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_);
-	void resetFrameCmdPools();
-	void addSemaphore(const char* name_); 
-	void addFence(const char* name_); 
-	PoolId getSemaphore(const char* name_);
-	PoolId getFence(const char* name_);
-
-	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_); 
-	VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_); 
-
 	~Renderer();
 };
+

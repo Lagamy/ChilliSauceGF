@@ -7,6 +7,8 @@
 #include <vector>
 #include <thread>
 
+namespace Graphics
+{
 using demoFunc = std::function<void()>;
 struct DemoManager {
 	CmdBufferBlueprintsPack frameCmdBufferBlueprints; 
@@ -17,3 +19,4 @@ struct DemoManager {
 	demoFunc loadDemo; 
 	demoFunc submitToGPU; 
 };
+}

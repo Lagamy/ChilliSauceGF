@@ -7,7 +7,8 @@
 #include <functional>
 
 
-
+namespace Graphics
+{
 using recordFunc = std::function<void(VkCommandBuffer&)>;
 
 struct CommandBufferBlueprint {
@@ -15,3 +16,4 @@ struct CommandBufferBlueprint {
 	VkCommandBufferUsageFlags cmdBufferUsageFlags;
 	void init(recordFunc commandsToRecord_, VkCommandBufferUsageFlags cmdBufferUsageFlags_, bool oneTimeUse_);
 };
+}

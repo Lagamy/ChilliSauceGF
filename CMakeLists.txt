@@ -37,7 +37,7 @@ find_package(Vulkan REQUIRED)
 # Add source to this project's executable.
 add_executable(PBRVulkanDemo
 	# Core 
-	"src/main.cpp" "src/Core.cpp" "src/Misc/Utilities.cpp" 
+	"src/main.cpp" "src/Core.cpp" "src/Utilities.cpp" "src/Api.cpp" 
 
 	# Managers
 	"src/Core/Managers/AssetsManager.cpp" "src/Core/Managers/InputManager.cpp" 

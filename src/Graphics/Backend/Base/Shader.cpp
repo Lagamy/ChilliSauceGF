@@ -1,9 +1,11 @@
 #include "Shader.h"
 #include "Globals.h"
 
+namespace Graphics
+{
 Shader::Shader(const std::string& shaderPath) 
 {
-	const std::vector<char> code = DiskUtilities::readFile(shaderPath);
+	const std::vector<char> code = Disk::readFile(shaderPath);
 	// Build Shader Module
 	VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
 	shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -24,4 +26,5 @@ Shader::~Shader()
 VkShaderModule Shader::get() const 
 {
 	return this->vkHandle;
+}
 }

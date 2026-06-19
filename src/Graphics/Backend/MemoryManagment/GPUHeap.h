@@ -4,6 +4,8 @@
 #include "Image.h"
 #include <vulkan/vulkan.h>
 
+namespace Graphics
+{
 struct GPUHeap 
 {
 	MemoryBlock memory;
@@ -15,3 +17,4 @@ struct GPUHeap
 	void create();
 	void destroy();
 };
+}

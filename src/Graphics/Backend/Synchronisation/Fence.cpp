@@ -2,6 +2,8 @@
 #include "Globals.h"
 #include <vulkan/vulkan_core.h>
 
+namespace Graphics
+{
 void Fence::create()
 {
     VkFenceCreateInfo fenceCreateInfo = {};
@@ -34,4 +36,5 @@ Fence::~Fence()
     {
         this->destroy();
     }	
+}
 }

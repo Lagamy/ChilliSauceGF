@@ -1,7 +1,9 @@
 #include "StaticAllocator.h"
-#include "Globals.h"
+#include "Api.h"
 #include <stdexcept>
 
+namespace Graphics
+{
 uint32_t StaticAllocator::addUpload(const char* name_, const void* data_, VkDeviceSize size_, UploadTypeEnum uploadType_) 
 {
 	this->uploadEntriesGroups[uploadType_].emplace_back(name_, data_, size_, this->gpuHeap.bufferSizes[uploadType_]);
@@ -9,11 +11,20 @@ uint32_t StaticAllocator::addUpload(const char* name_, const void* data_, VkDevi
 	return this->uploadEntriesGroups.size();
 }
 
-UploadEntry& StaticAllocator::getUploadEntry(uint32_t id_, UploadTypeEnum uploadType_) 
+const UploadEntry& StaticAllocator::getUploadEntry(uint32_t id_, UploadTypeEnum uploadType_) 
 {
 	return this->uploadEntriesGroups[uploadType_][id_];
 }
 
+MemoryBlock& StaticAllocator::getMemoryBlock()
+{
+	return this->gpuHeap.memory; 
+}
+
+Buffer& StaticAllocator::getBuffer(UploadTypeEnum uploadType_)
+{
+	return this->gpuHeap.buffersPerType[uploadType_];
+}
 
 void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 {
@@ -65,4 +76,5 @@ void StaticAllocator::deallocate()
 	this->gpuHeap.destroy(); 
 	this->stagingHeap.destroy();
 	this->allocated = false; 
+}
 }

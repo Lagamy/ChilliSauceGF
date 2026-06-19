@@ -3,13 +3,14 @@
 #include "vulkan/vulkan.h" 
 #include <stdexcept>
 
-
+namespace Graphics
+{
 struct Fence {
     VkFence vkHandle = VK_NULL_HANDLE;
-
-    void create();
+    
     void destroy();
     const VkFence& get();
-
+	Fence();
 	~Fence();
 };
+}

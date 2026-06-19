@@ -5,6 +5,8 @@
 #include "Utilities.h"
 #include "RenderTarget.h"
 
+namespace Graphics
+{
 struct Swapchain {
 	VkSwapchainKHR vkHandle = VK_NULL_HANDLE; // Handle 
 	VkFormat imageFormat;
@@ -19,3 +21,4 @@ struct Swapchain {
 	void destroy();
 	VkSwapchainKHR get() const;
 };
+}

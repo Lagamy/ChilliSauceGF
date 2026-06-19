@@ -1,8 +1,11 @@
 #include "Triangle.h"
-#include "Globals.h"
+#include "Utilities.h"
 #include "GraphicsPipeline.h"
+#include "Utilities.h"
 #include <vulkan/vulkan_core.h>
 
+namespace Graphics
+{
 void Triangle::load()
 {
 	Shader vertexShader = Shader("Assets/shaders/triangle");
@@ -23,12 +26,10 @@ void Triangle::load()
 	/**************/
 
 	/* Upload Mesh */
-	mesh.vbMemoryId = Demo::renderer.gpuMemoryManager.addEntry("Triangle", sizeof(Vertex) * mesh.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, false); 
-	Demo::renderer.gpuMemoryManager.upload(mesh.vbMemoryId, mesh.vertices.data()); 
+	mesh.vbMemoryId = Demo::renderer.gpuMemoryManager.staticAllocator.addUpload("Triangle Vertices", mesh.vertices.data(), sizeof(Vertex) * mesh.vertices.size(), VERTEX); 
 		
 	// Create Index Buffer and fill it with data.
-	mesh.ibMemoryId = Demo::renderer.gpuMemoryManager.addEntry("Triangle", sizeof(mesh.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, false); 
-	Demo::renderer.gpuMemoryManager.upload(mesh.ibMemoryId, mesh.indices.data());
+	mesh.ibMemoryId = Demo::renderer.gpuMemoryManager.staticAllocator.addUpload("Triangle Indices", mesh.indices.data(), sizeof(uint32_t) * mesh.indices.size(), INDEX); 
 	/**************/
 	
 	/* Configure RenderPass*/
@@ -82,12 +83,14 @@ void Triangle::recordCMDs(VkCommandBuffer& cmdBuffer_)
 	vkCmdBindPipeline(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, Demo::renderer.graphicsPipeline.get());
 	
 	// Bind vertex buffer 
-	VkBuffer vertexBuffers[] = { Demo::renderer.gpuMemoryManager.getEntry(this->mesh.vbMemoryId).buffer.get() }; 
-	VkDeviceSize vOffsets[] = { 0 }; 
+	const UploadEntry& vertexUpload = Demo::renderer.gpuMemoryManager.staticAllocator.getUploadEntry(this->mesh.vbMemoryId, VERTEX); 
+	VkBuffer vertexBuffers[] = { Demo::renderer.gpuMemoryManager.staticAllocator.getBuffer(VERTEX).get() };
+	VkDeviceSize vOffsets[] = { vertexUpload.heapStartingByte }; 
 	vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
-	
+
 	// Bind index buffer 
-	vkCmdBindIndexBuffer(cmdBuffer_, Demo::renderer.gpuMemoryManager.getEntry(this->mesh.ibMemoryId).buffer.get(), 0, VK_INDEX_TYPE_UINT32);
+	const UploadEntry& indexUpload = Demo::renderer.gpuMemoryManager.staticAllocator.getUploadEntry(this->mesh.ibMemoryId, INDEX); 
+	vkCmdBindIndexBuffer(cmdBuffer_, Demo::renderer.gpuMemoryManager.staticAllocator.getBuffer(INDEX).get(), indexUpload.heapStartingByte, VK_INDEX_TYPE_UINT32);
 	
 	// Viewport and Scissor (for dynamic) 
 	// VkViewport viewport = {}; 
@@ -116,4 +119,5 @@ Triangle::Triangle()
 {
 	Demo::renderer.demoManager.loadDemo = [this]() { load(); };
 	Demo::renderer.demoManager.submitToGPU = [this]() { submit(); };
+}
 }

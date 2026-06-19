@@ -1,6 +1,8 @@
 #include "PipelineLayout.h"
 #include "Globals.h"
 
+namespace Graphics
+{
 void PipelineLayout::create()
 {
 	VkPipelineLayoutCreateInfo layoutCreateInfo = {};
@@ -29,4 +31,5 @@ void PipelineLayout::destroy()
 VkPipelineLayout PipelineLayout::get() const
 {
 	return this->vkHandle;
+}
 }

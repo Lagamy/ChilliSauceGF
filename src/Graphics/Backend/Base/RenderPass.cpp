@@ -16,6 +16,8 @@ When you present it to the display engine, it needs a linear or present layout t
 #include "RenderPass.h" 
 #include "Globals.h"
 
+namespace Graphics
+{
 void RenderPass::addSubpass(SubPassDescriptionInfo subpassDescriptionInfo_, SubPassLayoutTransitionInfo subpassTransitionInfo_)
 {
 	this->subpassDependencies.emplace_back();
@@ -272,4 +274,5 @@ void RenderPass::destroy() {
 VkRenderPass RenderPass::get() const
 {
 	return vkHandle;
+}
 }

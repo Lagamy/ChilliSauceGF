@@ -1,7 +1,8 @@
 #include "SubPass.h"
 #include "RenderPass.h"
 
-
+namespace Graphics
+{
 SubPass::SubPass(VkSubpassDescription& rDescription_, VkSubpassDependency& rLayoutTransition_, SubPassDescriptionInfo subpassDescriptionInfo_, SubPassLayoutTransitionInfo subpassTransitionInfo_)
 	: rDescription(rDescription_), rLayoutTransition(rLayoutTransition_)
 {
@@ -58,4 +59,5 @@ void SubPass::initLayoutTrasition(VkSubpassDependency& rPreviousSubpassDependanc
 	this->rLayoutTransition.srcSubpass = id_ - 1;
 	this->rLayoutTransition.srcStageMask = rPreviousSubpassDependancy_.dstStageMask;
 	this->rLayoutTransition.srcAccessMask = rPreviousSubpassDependancy_.dstAccessMask;
+}
 }

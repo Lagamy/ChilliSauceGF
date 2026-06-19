@@ -4,6 +4,8 @@
 	createImage() does not allocate memory, and youll need vkAllocateMemory + vkBindImageMemory before using the image.
 */
 
+namespace Graphics
+{
 void Image::init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_) {
 	metadata = {}; 
 	metadata.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -126,4 +128,4 @@ void Image::destroy()
 	vkDestroyImage(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
 	this->vkHandle = VK_NULL_HANDLE; 
 }
-
+}

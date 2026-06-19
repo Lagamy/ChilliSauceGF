@@ -3,9 +3,12 @@
 #include <vulkan/vulkan.hpp>
 #include <array>
 
-template <typename CommandPool>
-struct CommandPoolsPack { 
-	std::array<CommandPool, 3> pools;
+namespace Graphics
+{
+template<typename CmdPool> 
+
+struct CmdPoolsPack { 
+	std::array<CmdPool, 3> pools;
 	
 	void create() 
 	{ 
@@ -21,8 +24,9 @@ struct CommandPoolsPack {
 		this->pools[2].destroy(); 	
 	}
 	
-	CommandPool& getPoolByQueue(QueueFamilyEnum queueFamily_)
+	CmdPool& getPoolByQueue(QueueFamilyEnum queueFamily_)
 	{
 		return this->pools[queueFamily_];
 	}
-}; 
+};
+}

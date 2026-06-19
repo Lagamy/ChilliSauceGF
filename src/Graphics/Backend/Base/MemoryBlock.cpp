@@ -3,6 +3,8 @@
 #include "Globals.h"
 #include <string>
 
+namespace Graphics
+{
 void MemoryBlock::create(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, const char* name_)
 {
 	VkMemoryAllocateInfo memAllocInfo = {};
@@ -77,4 +79,5 @@ uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReq
 VkDeviceSize MemoryBlock::toBytes(size_t size_, StorageUnitEnum unit_)
 {
 	return size_ << (10 * static_cast<uint8_t>(unit_));
+}
 }

@@ -1,13 +1,16 @@
 #pragma once
 #include "Pool.h"
-#include "CommandPoolsPack.h"
-#include "OneShotCommandPool.h"
+#include "CmdPoolsPack.h"
 #include "FrameCommandPool.h"
+#include "OneShotCommandPool.h"
 #include "CommandBufferBlueprint.h"
 #include "Semaphore.h"
 #include "Utilities.h"
 
+namespace Graphics
+{
 struct FrameResources {
-	CommandPoolsPack<FrameCommandPool> frameCmdPools; 
+	CmdPoolsPack<FrameCommandPool> frameCmdPools; 
 	PoolId frameFinishedFenceId; 
 };
+}

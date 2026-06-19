@@ -1,5 +1,7 @@
 #include "DemoManager.h"
 
+namespace Graphics
+{
 uint32_t DemoManager::addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)
 {
 	if(poolType_ == FRAME)
@@ -21,4 +23,4 @@ uint32_t DemoManager::addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, Queue
 		}
 	}
 }
-
+}

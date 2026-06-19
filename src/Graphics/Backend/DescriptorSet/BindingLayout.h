@@ -7,6 +7,8 @@
 #include <vector>
 #include <string>
 
+namespace Graphics
+{
 enum ResourceSourceEnum { 
 	ASSET,
 	DESCRIPTOR_SET
@@ -39,3 +41,4 @@ public:
 	BindingLayout(uint32_t bindingId_, ResourceTypeEnum resourceType_, VkDescriptorType descriptorType_, uint32_t descriptorCount_, VkShaderStageFlags shaderStageFlags_, Sampler* pSampler_);
 	VkDescriptorSetLayoutBinding get() const;
 };
+}

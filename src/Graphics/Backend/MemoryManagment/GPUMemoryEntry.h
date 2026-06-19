@@ -4,6 +4,8 @@
 #include "MemoryBlock.h"
 #include "Buffer.h" 
 
+namespace Graphics
+{
 struct GPUMemoryEntry {
 	Buffer buffer; 
 
@@ -18,3 +20,4 @@ struct GPUMemoryEntry {
 	GPUMemoryEntry(const char* name_, VkDeviceSize size_, StorageUnitEnum unit_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
 	~GPUMemoryEntry();
 };
+}

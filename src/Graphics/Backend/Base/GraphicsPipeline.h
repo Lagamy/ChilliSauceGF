@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <vulkan/vulkan_core.h>
   
+namespace Graphics
+{
 struct GraphicsPipeline {
 	VkPipeline vkHandle = VK_NULL_HANDLE;
 	PipelineLayout pipelineLayout;
@@ -31,3 +33,4 @@ struct GraphicsPipeline {
 	GraphicsPipeline() = default; 
 	VkPipeline get() const;
 };
+}

@@ -1,5 +1,7 @@
 #include "Instance.h"
 
+namespace Graphics
+{
 void Instance::setup() {
 	/* Application Info*/
 // Most data here doesn't affect the program and is for developer convenience 
@@ -116,4 +118,4 @@ bool Instance::checkInstanceExtensionSupport(std::vector<const char*>* extension
 VkInstance Instance::get() const {
 	return vkHandle;
 }
-
+}

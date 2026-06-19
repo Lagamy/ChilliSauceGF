@@ -1,6 +1,8 @@
 #include "Device.h"
 #include "Globals.h"
 
+namespace Graphics
+{
 void Device::setup() {
 	getPhysicalDevice();
 	createLogicalDevice();
@@ -42,7 +44,7 @@ void Device::getPhysicalDevice() {
 
 void Device::createLogicalDevice() {
 	// Get queue family indices for the chosen Physical Device
-	GraphicsUtilities::QueueFamilyIndicies familyIndices = GraphicsUtilities::getQueueFamilies(this->physicalDevice);
+	QueueFamilyIndicies familyIndices = getQueueFamilies(this->physicalDevice);
 
 	// Queues the logical device needs to create, and info to do so(Only 1 now, will add more later!)
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -102,9 +104,9 @@ bool Device::checkDeviceSuitable(VkPhysicalDevice device_) {
 	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 	*/
 
-	GraphicsUtilities::QueueFamilyIndicies indices = GraphicsUtilities::getQueueFamilies(device_);
+	QueueFamilyIndicies indices = getQueueFamilies(device_);
 	bool extensionsSupported = checkDeviceExtensionsSupport(device_);
-	GraphicsUtilities::SwapchainDetails swapchainDetails = GraphicsUtilities::getSwapchainDetails(device_);
+	SwapchainDetails swapchainDetails = GetSwapchainDetails(device_);
 	bool swapchainValid = !swapchainDetails.imageFormats.empty() && !swapchainDetails.presentationModes.empty(); // Is Swapchain with our params - possible to create on that device. 
 	return indices.isValid() && extensionsSupported && swapchainValid;
 }
@@ -208,3 +210,4 @@ QueueFamilyIndicies Device::getQueueFamilies(VkPhysicalDevice & rDevice)
 	}
 	return indicies;
 }
+};

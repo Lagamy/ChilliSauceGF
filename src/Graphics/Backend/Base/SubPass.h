@@ -3,6 +3,8 @@
 #include <vector>
 #include <span>
 
+namespace Graphics
+{
 enum class DepthStencilAccessTypeEnum {
 	DEPTH_STENCIL_OPTIMAL = VkImageLayout::VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 	DEPTH_READ_ONLY = VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,
@@ -41,3 +43,4 @@ struct SubPass {
 	void initFirstLayoutTrasition();
 
 };
+}

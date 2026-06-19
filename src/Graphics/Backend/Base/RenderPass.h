@@ -8,7 +8,8 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 
-
+namespace Graphics
+{
 struct RenderPass {
 private:
 	VkRenderPass vkHandle = VK_NULL_HANDLE;
@@ -46,3 +47,4 @@ public:
 	void loadFromBinnary(); 
 	VkRenderPass get() const;
 };
+}

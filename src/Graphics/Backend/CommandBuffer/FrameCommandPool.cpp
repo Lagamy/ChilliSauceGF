@@ -1,6 +1,8 @@
 #include "FrameCommandPool.h"
 #include "Globals.h"
 
+namespace Graphics
+{
 void FrameCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_)
 {
 	this->queueFamilyEnum = queueFamilyEnum_; 
@@ -84,4 +86,5 @@ void FrameCommandPool::recordCmdBuffers()
 
 const VkCommandPool& FrameCommandPool::get() {
     return this->vkHandle; 
+}
 }

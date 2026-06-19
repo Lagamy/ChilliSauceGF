@@ -1,6 +1,8 @@
 #include "ImageView.h"
 #include "Globals.h"
 
+namespace Graphics
+{
 ImageView::ImageView(const char* name_, VkImage& rImage_, VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageViewType dimensionType_, VkImageViewCreateFlags flags_) {
 	metadata = {};
 	metadata.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -65,4 +67,5 @@ ImageView::ImageView(const char* name_, VkImage& rImage_, VkFormat format_, VkIm
 ImageView::~ImageView()
 {
 	vkDestroyImageView(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
+}
 }

@@ -1,12 +1,15 @@
 #include "Renderer.h"
 #include "CommandBufferBlueprint.h"
 #include "HelperGlobals.h"
+#include "Semaphore.h"
 #include "Triangle.h"
 #include "Globals.h"
 #include "Utilities.h"
 #include <limits>
 #include <vulkan/vulkan_core.h>
 
+// namespace Graphics
+// {
 void Renderer::setup() 
 {
 	// Vulkan setup 
@@ -18,7 +21,7 @@ void Renderer::setup()
 	this->gpuMemoryManager.create(); 
 
 	// Scene/Renderer setup 
-	demoManager.loadDemo();
+	this->demoManager.loadDemo();
 	
 
 	// Renderpass and Graphics pipeline are defined defined by Scene
@@ -33,27 +36,29 @@ void Renderer::setup()
 	for (auto& rFrameResources : this->framesResources)
 	{
 		rFrameResources.frameCmdPools.create(); // CMDPools init for each queue family per frame in flight  
-		rFrameResources.frameFinished.create();
+		rFrameResources.frameFinishedFenceId = this->syncManager.addFence("Frame Finished");
 	}
-	this->imageAvailable.create();
+	this->imageAvailableSemaphoreId = this->syncManager.addSemaphore("Image Available"); 
+	this->gpuMemoryManager.submitStaticUploadCmds(); // Upload all preloaded with scene / static assets to the GPU
 }
 
 void Renderer::draw() 
 {
 	vkAcquireNextImageKHR(
 		this->mainDevice.logicalDevice, this->swapchain.get(), std::numeric_limits<uint64_t>::max(), 
-		this->imageAvailable.get(), VK_NULL_HANDLE, &currentFrameAtFlight
+		this->syncManager.getSemaphore(this->imageAvailableSemaphoreId).get(), VK_NULL_HANDLE, &currentFrameAtFlight
 	);
-	
-	demoManager.submitToGPU();	
+	this->resetCurrentFrameCmdPools();
+	this->recordCurrentFrameCmdPools(); 
+
+	demoManager.submitToGPU();
 }
 
 void Renderer::shutdown() 
 {
-	this->imageAvailable.destroy();
+	this->syncManager.destroy();
 	for (auto& rFrameResources : this->framesResources)
 	{
-		rFrameResources.frameFinished.destroy();
 		rFrameResources.frameCmdPools.destroy(); // CMDPools init for each queue family per frame in flight  
 	}
 	this->oneShotCommandPools.destroy();
@@ -67,70 +72,8 @@ void Renderer::shutdown()
 	this->instance.destroy();
 }
 
-VkCommandBuffer& Renderer::getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_)
-{
-	if(poolType_ == FRAME)
-	{
-		return this->framesResources[this->currentFrameAtFlight].frameCmdPools.getPoolByQueue(queueFamily_).commandBuffers.buffers[id_];
-	}
-	else
-	{
-		return this->oneShotCommandPools.getPoolByQueue(queueFamily_).commandBuffers.buffers[id_];
-	}
-}
-
-VkCommandPool& Renderer::getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_)
-{
-	if(poolType_ == FRAME)
-	{
-		return this->framesResources[this->currentFrameAtFlight].frameCmdPools.getPoolByQueue(queueFamily_).get();
-	}
-	else
-	{
-		return this->oneShotCommandPools.getPoolByQueue(queueFamily_).get();
-	}
-}
-
-void Renderer::recordOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_)
-{
-	this->oneShotCommandPools.pools[queueFamily_].recordCmdBuffer(id_);
-}
-
-void Renderer::recordFrameCmdPools()
-{
-	for(auto& rFrameCmdPool : this->framesResources[this->currentFrameAtFlight].frameCmdPools.pools)
-	{
-		rFrameCmdPool.recordCmdBuffers();
-	}
-}
-
-void Renderer::resetOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_)
-{
-
-	this->oneShotCommandPools.pools[queueFamily_].resetCmdBuffer(id_);
-}
-
-void Renderer::resetFrameCmdPools()
-{
-	for(auto& rFrameCmdPool : this->framesResources[this->currentFrameAtFlight].frameCmdPools.pools)
-	{
-		rFrameCmdPool.resetCmdPool(this->framesResources[this->currentFrameAtFlight].frameFinished);
-	}
-}
-
-VkCommandPool& Renderer::getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_)
-{
-	if(poolType_ == ONESHOT) 
-	{
-		this->oneShotCommandPools.getPoolByQueue(queueFamily_);
-	}
-	else 
-	{
-		this->framesResources[this->currentFrameAtFlight].frameCmdPools.getPoolByQueue(queueFamily_);
-	} 
-}
-
 Renderer::~Renderer() 
 {
 	this->shutdown(); 
 }
+// }

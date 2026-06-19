@@ -28,6 +28,8 @@ Basically what imageViews are bound together for this rendepass
 #include <vulkan/vulkan.h>
 #include "RenderPass.h"
 
+namespace Graphics
+{
 struct Framebuffer {
     VkFramebuffer vkHandle = VK_NULL_HANDLE;
     std::vector<VkImageView> attachments; 
@@ -37,3 +39,4 @@ struct Framebuffer {
     VkFramebuffer get() const;
     ~Framebuffer(); 
 };
+}

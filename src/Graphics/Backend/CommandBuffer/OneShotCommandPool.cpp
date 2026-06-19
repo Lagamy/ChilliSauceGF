@@ -3,6 +3,8 @@
 #include <limits>
 #include <vulkan/vulkan_core.h>
 
+namespace Graphics
+{
 void OneShotCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_)
 {
 	this->queueFamilyEnum = queueFamilyEnum_; 
@@ -70,9 +72,9 @@ void OneShotCommandPool::allocateCmdBuffersFromBlueprints()
     }
 }
 
-void OneShotCommandPool::resetCmdBuffer(uint32_t id_, Fence& finishSignalFence)
+void OneShotCommandPool::resetCmdBuffer(uint32_t id_, Fence& rFinishSignalFence_)
 {
-	vkWaitForFences(Demo::renderer.mainDevice.logicalDevice, 1, &finishSignalFence.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
+	vkWaitForFences(Demo::renderer.mainDevice.logicalDevice, 1, &rFinishSignalFence_.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
 	vkResetCommandBuffer(this->commandBuffers.buffers[id_], 0); 
 	this->commandBuffers.recorded[id_] = false;
 }
@@ -86,4 +88,5 @@ void OneShotCommandPool::recordCmdBuffer(uint32_t id_)
 
 VkCommandPool& OneShotCommandPool::get() {
     return this->vkHandle; 
+}
 }

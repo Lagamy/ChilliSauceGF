@@ -2,6 +2,8 @@
 #include <vulkan/vulkan.h>
 #include <stdio.h>
 
+namespace Graphics
+{
 struct DebugMessenger { 
 	VkDebugUtilsMessengerCreateInfoEXT createInfo;
 
@@ -16,4 +18,5 @@ struct DebugMessenger {
 	}	
 	
 	void init(); 
-}; 
+};
+}

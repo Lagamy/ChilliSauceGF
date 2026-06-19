@@ -5,14 +5,14 @@
 #include <array>
 #include <vulkan/vulkan_core.h>
 
-	
+namespace Graphics
+{
 struct Triangle { 
 	Mesh mesh;
 	
 	void load(); 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_);
-	void submit();
+	void submit(); // Triggers every frame
 	Triangle(); 
 }; 
-
-inline Triangle triangle; 
+}

@@ -27,7 +27,8 @@ Depth/stencil separation:
 	// SAMPLED = VkImageUsageFlagBits::VK_IMAGE_USAGE_SAMPLED_BIT,
 	// STORAGE = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT
 // };
-
+namespace Graphics
+{
 struct Image {
 private:
 	VkImage vkHandle = VK_NULL_HANDLE; // How data will be laid out in memory. 
@@ -48,3 +49,4 @@ public:
 	VkImageCreateInfo getImageMetadata() const; 
 	VkImageViewCreateInfo getViewMetadata(size_t id_) const;
 };
+}

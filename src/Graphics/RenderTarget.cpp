@@ -1,5 +1,7 @@
 #include "RenderTarget.h"
 
+namespace Graphics
+{
 RenderTarget::RenderTarget()
 {
 	this->imageAvailable.create(); 
@@ -11,4 +13,5 @@ RenderTarget::~RenderTarget()
 	this->image.destroy(); 
 	this->drawFinished.destroy(); 
 	this->imageAvailable.destroy();
+}
 }

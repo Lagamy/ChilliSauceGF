@@ -4,7 +4,8 @@
 #include "RenderPass.h"
 #include <vulkan/vulkan_core.h>
 
-
+namespace Graphics
+{
 void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 {
 	Shader& rVertexShader = *this->pVertexShader;
@@ -213,4 +214,4 @@ VkPipeline GraphicsPipeline::get() const
 {
 	return vkHandle;
 }
-
+}

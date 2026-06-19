@@ -2,6 +2,8 @@
 #include "Globals.h"
 #include "Utilities.h"
 
+namespace Graphics
+{
 void GPUHeap::create()
 {
 	this->buffersPerType[VERTEX].create(this->bufferSizes[VERTEX], VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Vertex Buffer");
@@ -38,4 +40,5 @@ void GPUHeap::destroy()
 	{
 		rImage.destroy(); 
 	}
+}
 }

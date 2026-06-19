@@ -1,9 +1,11 @@
 #include "Utilities.h"
 #include "Globals.h"
+#include "Pool.h"
+#include "Semaphore.h"
 #include <vulkan/vulkan_core.h>
 
 /* Device filters */
-	namespace GraphicsUtilities
+	namespace Graphics
 	{
 		QueueFamilyIndicies getQueueFamilies(VkPhysicalDevice device_)
 		{
@@ -57,23 +59,23 @@
 			SwapchainDetails swapchainDetails;
 
 			// Getting surface Capabilities for given Surface on the given Physical Device 
-			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_, Demo::renderer.surface.get(), &swapchainDetails.surfaceCapabilities);
+			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_, Globals::renderer.surface.get(), &swapchainDetails.surfaceCapabilities);
 
 			// Getting surface Image Formats for given Surface on the given Physical Device  
 			uint32_t formatCount;
-			vkGetPhysicalDeviceSurfaceFormatsKHR(device_, Demo::renderer.surface.get(), &formatCount, nullptr);
+			vkGetPhysicalDeviceSurfaceFormatsKHR(device_, Globals::renderer.surface.get(), &formatCount, nullptr);
 			if (formatCount > 0) {
 				swapchainDetails.imageFormats.resize(formatCount);
-				vkGetPhysicalDeviceSurfaceFormatsKHR(device_, Demo::renderer.surface.get(), &formatCount, swapchainDetails.imageFormats.data());
+				vkGetPhysicalDeviceSurfaceFormatsKHR(device_, Globals::renderer.surface.get(), &formatCount, swapchainDetails.imageFormats.data());
 			}
 
 			// Getting Presentation Modes for given Surface on the given Physical Device  
 			uint32_t presentationModeCount;
-			vkGetPhysicalDeviceSurfacePresentModesKHR(device_, Demo::renderer.surface.get(), &presentationModeCount, nullptr);
+			vkGetPhysicalDeviceSurfacePresentModesKHR(device_, Globals::renderer.surface.get(), &presentationModeCount, nullptr);
 			if (presentationModeCount > 0)
 			{
 				swapchainDetails.presentationModes.resize(presentationModeCount);
-				vkGetPhysicalDeviceSurfacePresentModesKHR(device_, Demo::renderer.surface.get(), &presentationModeCount, swapchainDetails.presentationModes.data());
+				vkGetPhysicalDeviceSurfacePresentModesKHR(device_, Globals::renderer.surface.get(), &presentationModeCount, swapchainDetails.presentationModes.data());
 			}
 			return swapchainDetails;
 		}
@@ -128,7 +130,7 @@
 			{
 				// If value can vary - we need to set it manually 
 				int width, height;
-				glfwGetFramebufferSize(App::appWindow, &width, &height); // Get inner window size   
+				glfwGetFramebufferSize(Globals::appWindow, &width, &height); // Get inner window size   
 
 				VkExtent2D newExtent = {};
 				newExtent.width = static_cast<uint32_t>(width);
@@ -166,7 +168,7 @@
 	
 	}
 
-	namespace DiskUtilities
+	namespace Disk
 	{
 		std::vector<char> readFile(const std::string& rFilename) {
 			// Open stream from given file 

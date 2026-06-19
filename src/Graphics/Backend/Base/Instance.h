@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdexcept>
 
+namespace Graphics
+{
 struct Instance {
 private:
 	VkInstance vkHandle = VK_NULL_HANDLE;
@@ -17,3 +19,4 @@ public:
 
 	VkInstance get() const;
 };
+}

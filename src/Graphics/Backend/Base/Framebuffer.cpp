@@ -4,7 +4,8 @@
 #include <cstdint>
 #include <stdexcept>
 
-
+namespace Graphics
+{
 void Framebuffer::create(uint32_t width_, uint32_t height_, uint32_t layers_, RenderPass& rRenderpass_)
 {
     VkFramebufferCreateInfo frameBufferCreateInfo = {};
@@ -37,4 +38,5 @@ VkFramebuffer Framebuffer::get() const
 Framebuffer::~Framebuffer()
 {
     this->destroy(); 
+}
 }
