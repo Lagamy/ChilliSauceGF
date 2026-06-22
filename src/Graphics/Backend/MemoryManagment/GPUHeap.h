@@ -2,6 +2,7 @@
 #include "MemoryBlock.h"
 #include "Buffer.h"
 #include "Image.h"
+#include "Utilities.h"
 #include <vulkan/vulkan.h>
 
 namespace Graphics

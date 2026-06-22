@@ -1,6 +1,6 @@
 #include "GPUMemoryManager.h"
 #include "Fence.h"
-#include "Globals.h"
+#include "Api.h"
 #include "MemoryBlock.h"
 #include "Utilities.h"
 #include <limits>
@@ -10,13 +10,13 @@ namespace Graphics
 {
 void GPUMemoryManager::create()
 {
-	this->staticUploadCmdBufferId = Demo::renderer.demoManager.addCmdBufferBlueprint(
+	this->staticUploadCmdBufferId = addCmdBufferBlueprint(
 		ONESHOT,
 		TRANSFER, 
 		[this](VkCommandBuffer& cmd) { this->staticAllocator.recordCMDs(cmd); } 
 	);
 
-	this->updateCmdBufferId = Demo::renderer.demoManager.addCmdBufferBlueprint(
+	this->updateCmdBufferId = addCmdBufferBlueprint(
 		ONESHOT,
 		TRANSFER, 
 		[this](VkCommandBuffer& cmd) { recordUpdatesCMDs(cmd); } 
@@ -53,20 +53,20 @@ void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_)
 
 void GPUMemoryManager::submitStaticUploadCmds()
 {
-	Fence& rUploadFinished = Demo::renderer.syncManager.fences.get(this->staticAllocator.uploadFinishedFence);
-	vkResetFences(Demo::renderer.mainDevice.logicalDevice, 1, &rUploadFinished.get());
+	Fence& rUploadFinished = getFence(this->staticAllocator.uploadFinishedFence);
+	vkResetFences(getMainDevice().logicalDevice, 1, &rUploadFinished.get());
 	// Submit command buffer to the Transfer Queue
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &Demo::renderer.getCommandBuffer(TRANSFER, ONESHOT, 0);
+	submitInfo.pCommandBuffers = &getCommandBuffer(TRANSFER, ONESHOT, 0);
 
 	// Submit transfer command to transfer Queue and wait till it finishes(Not optimal)
-	vkQueueSubmit(Demo::renderer.mainDevice.queues.transferQueue, 1, &submitInfo, rUploadFinished.get());
+	vkQueueSubmit(getMainDevice().queues.transferQueue, 1, &submitInfo, rUploadFinished.get());
 
-	vkWaitForFences(Demo::renderer.mainDevice.logicalDevice, 1, &rUploadFinished.get(), VK_TRUE, std::numeric_limits<uint64_t>::max()); // Block this CPU thread until the GPU signals this fence.
+	vkWaitForFences(getMainDevice().logicalDevice, 1, &rUploadFinished.get(), VK_TRUE, std::numeric_limits<uint64_t>::max()); // Block this CPU thread until the GPU signals this fence.
 	// Free temporary command buffer back to pool(transferCommandBuffer object no longer exists on GPU side)
-	vkFreeCommandBuffers(Demo::renderer.mainDevice.logicalDevice, Demo::renderer.getCommandPool(TRANSFER, ONESHOT), 1, &Demo::renderer.getCommandBuffer(TRANSFER, ONESHOT, 0));
+	vkFreeCommandBuffers(getMainDevice().logicalDevice, getCommandPool(TRANSFER, ONESHOT), 1, &getCommandBuffer(TRANSFER, ONESHOT, 0));
 	
 }
 
@@ -78,13 +78,13 @@ void GPUMemoryManager::submitUpdateCmdsIfNeeded()
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &Demo::renderer.getCommandBuffer(TRANSFER, ONESHOT, 0);
+		submitInfo.pCommandBuffers = &getCommandBuffer(TRANSFER, ONESHOT, 0);
 
 		// Submit transfer command to transfer Queue and wait till it finishes(Not optimal) 
-		vkQueueSubmit(Demo::renderer.mainDevice.queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueSubmit(getMainDevice().queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
 
 		// Free temporary command buffer back to pool(transferCommandBuffer object no longer exists on GPU side)
-		vkFreeCommandBuffers(Demo::renderer.mainDevice.logicalDevice, Demo::renderer.getCommandPool(TRANSFER, ONESHOT), 1, &Demo::renderer.getCommandBuffer(TRANSFER, ONESHOT, 0));
+		vkFreeCommandBuffers(getMainDevice().logicalDevice, getCommandPool(TRANSFER, ONESHOT), 1, &getCommandBuffer(TRANSFER, ONESHOT, 0));
 		this->updateNeeded = false;
 	}
 }

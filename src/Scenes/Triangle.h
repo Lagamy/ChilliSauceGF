@@ -1,9 +1,11 @@
 #pragma once 
 #include "Mesh.h"
-#include <cstdint>
+#include "GraphicsPipeline.h"
+#include "Utilities.h"
+#include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 #include <array>
-#include <vulkan/vulkan_core.h>
+#include <cstdint>
 
 namespace Graphics
 {
@@ -13,6 +15,5 @@ struct Triangle {
 	void load(); 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_);
 	void submit(); // Triggers every frame
-	Triangle(); 
 }; 
 }

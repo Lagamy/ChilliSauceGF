@@ -1,6 +1,4 @@
 #pragma once 
-#include <cstdint>
-#include <vector>
 #include "GPUMemoryManager.h"
 #include "DemoManager.h"
 #include "Pool.h"
@@ -13,22 +11,28 @@
 #include "GraphicsPipeline.h"
 #include "Utilities.h"
 #include "SyncManager.h"
+#include <limits>
+#include <vulkan/vulkan_core.h>
+#include <cstdint>
+#include <vector>
 
+namespace Graphics 
+{
 struct Renderer {
-	Graphics::Instance instance; // Connects this programm and the Vulkan library and encapsulates all Vulkan actions in that instance/app. (So different programs using Vulkan aren’t fighting)
-	Graphics::Device mainDevice;
-	Graphics::Surface surface;
-	Graphics::Swapchain swapchain;
-	Graphics::GPUMemoryManager gpuMemoryManager;
-	Graphics::SyncManager syncManager; 
+	Instance instance; // Connects this programm and the Vulkan library and encapsulates all Vulkan actions in that instance/app. (So different programs using Vulkan aren’t fighting)
+	Device mainDevice;
+	Surface surface;
+	Swapchain swapchain;
+	GPUMemoryManager gpuMemoryManager;
+	SyncManager syncManager; 
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
-	Graphics::RenderPass renderpass;
-	Graphics::GraphicsPipeline graphicsPipeline; 
+	RenderPass renderpass;
+	GraphicsPipeline graphicsPipeline; 
 
-	Graphics::DemoManager demoManager;
-	std::vector<Graphics::FrameResources> framesResources; // Initialized by defined RenderFlows 
-	Graphics::CmdPoolsPack<Graphics::OneShotCommandPool> oneShotCommandPools; 
+	DemoManager demoManager;
+	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
+	CmdPoolsPack<OneShotCommandPool> oneShotCommandPools; 
 
 	uint32_t framesAtFlightCount = 3;
 	uint32_t currentFrameAtFlight; 
@@ -45,5 +49,6 @@ struct Renderer {
 	void initRenderFlow(); // init all command buffer blueprints
 
 	~Renderer();
+	Renderer();
 };
-
+}

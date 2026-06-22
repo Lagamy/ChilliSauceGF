@@ -1,6 +1,5 @@
 #include "GraphicsPipeline.h"
-#include "Globals.h"
-#include "HelperGlobals.h"
+#include "Api.h"
 #include "RenderPass.h"
 #include <vulkan/vulkan_core.h>
 
@@ -69,15 +68,15 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 	VkViewport viewport = {};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = static_cast<float>(Demo::renderer.swapchain.extent.width);
-	viewport.height = static_cast<float>(Demo::renderer.swapchain.extent.height);
+	viewport.width = static_cast<float>(getSwapchain().extent.width);
+	viewport.height = static_cast<float>(getSwapchain().extent.height);
 	viewport.minDepth = 0.0f; // min framebuffer depth
 	viewport.maxDepth = 1.0f; // max framebuffer depth
 
 	// Create a scissor
 	VkRect2D scissor = {};
 	scissor.offset = { 0, 0 }; // Offset to use region from
-	scissor.extent = Demo::renderer.swapchain.extent; // Extent to describe to which region to capture/use 
+	scissor.extent = getSwapchain().extent; // Extent to describe to which region to capture/use 
 
 	// Viewport State creation info
 	VkPipelineViewportStateCreateInfo viewportCreateInfo = {};
@@ -180,7 +179,7 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 	}
 
 	// You can create multiple different Pipelines at once from a list of them.
-	VkResult result = vkCreateGraphicsPipelines(Demo::renderer.mainDevice.logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &vkHandle); // PipelineCache - store info about that Pipeline for reuse(So it create copies of this pipeline later on really fast) 
+	VkResult result = vkCreateGraphicsPipelines(getMainDevice().logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &vkHandle); // PipelineCache - store info about that Pipeline for reuse(So it create copies of this pipeline later on really fast) 
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a Graphics Pipeline!");
@@ -206,7 +205,7 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 void GraphicsPipeline::destroy() 
 {
 	pipelineLayout.destroy(); 
-	vkDestroyPipeline(Demo::renderer.mainDevice.logicalDevice, vkHandle, nullptr);
+	vkDestroyPipeline(getMainDevice().logicalDevice, vkHandle, nullptr);
     vkHandle = VK_NULL_HANDLE; 
 }
 

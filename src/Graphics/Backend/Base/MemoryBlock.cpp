@@ -1,6 +1,6 @@
 // TODO: Study this more, for more robust memory handling. 
 #include "MemoryBlock.h"
-#include "Globals.h"
+#include "Api.h"
 #include <string>
 
 namespace Graphics
@@ -15,7 +15,7 @@ void MemoryBlock::create(size_t size_, StorageUnitEnum unit_, std::span<VkMemory
 	
 
 	// Allocate memory to VkDeviceMemory 
-	VkResult result = vkAllocateMemory(Demo::renderer.mainDevice.logicalDevice, &memAllocInfo, nullptr, &this->vkHandle);
+	VkResult result = vkAllocateMemory(getMainDevice().logicalDevice, &memAllocInfo, nullptr, &this->vkHandle);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error(std::format("Failed to allocate {} Memory Block!", name_));
@@ -25,7 +25,7 @@ void MemoryBlock::create(size_t size_, StorageUnitEnum unit_, std::span<VkMemory
 
 void MemoryBlock::destroy()
 {
-	vkFreeMemory(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
+	vkFreeMemory(getMainDevice().logicalDevice, this->vkHandle, nullptr);
 	this->vkHandle = VK_NULL_HANDLE;
 }
 
@@ -48,7 +48,7 @@ uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReq
 
 	// The physical device exposes several memory heaps, each with different properties(device-local, host-visible, etc.) vkGetPhysicalDeviceMemoryProperties retrieves all of them.
 	VkPhysicalDeviceMemoryProperties memoryProperties;
-	vkGetPhysicalDeviceMemoryProperties(Demo::renderer.mainDevice.physicalDevice, &memoryProperties);
+	vkGetPhysicalDeviceMemoryProperties(getMainDevice().physicalDevice, &memoryProperties);
 
 	// When allocating memory for a buffer or image, Vulkan gives us a bitmask(allowedTypes_) describing which memory types can be used. 
 	// So we need to loop through all available memory types on this device and finds one whose bit is set in allowedTypes_ and whose property flags include all of the desired properties_.

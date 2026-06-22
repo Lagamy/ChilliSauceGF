@@ -1,5 +1,5 @@
 #include "Buffer.h"
-#include "Globals.h"
+#include "Api.h"
 
 namespace Graphics
 {
@@ -12,7 +12,7 @@ namespace Graphics
 		bufferCreateInfo.sharingMode = bufferSharingMode_; // Can it share with multiple queue families or not(VK_SHARING_MODE_EXCLUSIVE = not) 
 
 		// TODO: Inegrate an engine wide error context provider(So name of component pops up - which was unable to create buffer)     
-		VkResult result = vkCreateBuffer(Demo::renderer.mainDevice.logicalDevice, &bufferCreateInfo, nullptr, &this->vkHandle);
+		VkResult result = vkCreateBuffer(getMainDevice().logicalDevice, &bufferCreateInfo, nullptr, &this->vkHandle);
 		if (result != VK_SUCCESS)
 		{
 			throw std::runtime_error(std::format("Failed to create {} Buffer!", name_));
@@ -21,7 +21,7 @@ namespace Graphics
 
 	void Buffer::destroy()
 	{
-		vkDestroyBuffer(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr); // Destroys on GPU side 
+		vkDestroyBuffer(getMainDevice().logicalDevice, this->vkHandle, nullptr); // Destroys on GPU side 
 		this->vkHandle = VK_NULL_HANDLE;
 	}
 

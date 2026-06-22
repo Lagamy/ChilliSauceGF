@@ -1,6 +1,5 @@
 #include "GPUHeap.h"
-#include "Globals.h"
-#include "Utilities.h"
+#include "Api.h"
 
 namespace Graphics
 {
@@ -12,8 +11,8 @@ void GPUHeap::create()
 	// this->buffersPerType[STORAGE].create(this->bufferSizes[STORAGE], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Vertex Buffer");
 	
 	std::array<VkMemoryRequirements, 2> memReqs; 
-	vkGetBufferMemoryRequirements(Demo::renderer.mainDevice.logicalDevice, this->buffersPerType[VERTEX].get(), &memReqs[VERTEX]);
-	vkGetBufferMemoryRequirements(Demo::renderer.mainDevice.logicalDevice, this->buffersPerType[INDEX].get(), &memReqs[INDEX]);
+	vkGetBufferMemoryRequirements(getMainDevice().logicalDevice, this->buffersPerType[VERTEX].get(), &memReqs[VERTEX]);
+	vkGetBufferMemoryRequirements(getMainDevice().logicalDevice, this->buffersPerType[INDEX].get(), &memReqs[INDEX]);
 	// vkGetBufferMemoryRequirements(Demo::renderer.mainDevice.logicalDevice, this->buffersPerType[VERTEX].get(), memReqs[UNIFORM]);
 	// vkGetBufferMemoryRequirements(Demo::renderer.mainDevice.logicalDevice, this->buffersPerType[VERTEX].get(), memReqs[STORAGE]);
 	
@@ -23,7 +22,7 @@ void GPUHeap::create()
 	size_t offset = 0; 
 	for(uint32_t i = 0; i < this->buffersPerType.size(); i++)
 	{
-		vkBindBufferMemory(Demo::renderer.mainDevice.logicalDevice, this->buffersPerType[i].get(), this->memory.get(), offset);
+		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffersPerType[i].get(), this->memory.get(), offset);
 		offset += this->bufferSizes[i];
 	}
 }

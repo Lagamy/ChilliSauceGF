@@ -1,7 +1,6 @@
 // Manages demo setup and connects it to the renderer.
 #pragma once 
 
-#include "Pool.h"
 #include "Utilities.h"
 #include "CmdBufferBlueprintsPack.h"
 #include <vector>

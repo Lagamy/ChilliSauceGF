@@ -3,6 +3,8 @@
 #include "GPUMemoryEntry.h"
 #include "MemoryBlock.h"
 #include "Utilities.h"
+#include "PoolId.h"
+#include <stdexcept>
 
 namespace Graphics
 {

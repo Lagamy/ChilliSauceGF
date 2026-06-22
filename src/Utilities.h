@@ -26,6 +26,10 @@ namespace Graphics
 		ONESHOT
 	};
 
+	inline std::vector<const char*> requiredDeviceExtensions = { // If you choose Ray tracing to be enabled -> this would change
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME	
+	};
+
 	enum AttachmentTypeEnum {
 		COLOR,
 		DEPTH,
@@ -88,6 +92,18 @@ namespace Graphics
 	
 	/* Helper methods */
 	// Device suitable params functions 
+	// indicies (locations) of Queue Families (if they exist at all);
+	struct QueueFamilyIndicies {
+		int32_t graphicsFamily = -1;	 // Location of Graphics Queue Family(includes Transfer capabilities by Vulkan Standard)
+		int32_t presentationFamily = -1; // Location of Presentation Queue Family(not a real Queue Family, more of "Queue that supports Presentation")
+		int32_t transferFamily = -1;
+		int32_t computeFamily = -1;
+
+		bool isValid() {
+			return this->graphicsFamily >= 0 && this->presentationFamily >= 0 && this->transferFamily >= 0 && this->computeFamily >= 0;
+		}
+		// Todo: if there are no Transfer or Compute queues - assign their indices to available Graphics queue, so further code works anyways, just on one queue. 
+	};
 	QueueFamilyIndicies getQueueFamilies(VkPhysicalDevice& rDevice_);
 	SwapchainDetails getSwapchainDetails(VkPhysicalDevice& rDevice_);
 

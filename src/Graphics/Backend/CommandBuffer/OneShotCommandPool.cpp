@@ -1,5 +1,6 @@
 #include "OneShotCommandPool.h"
-#include "Globals.h"
+#include "Api.h"
+#include "Utilities.h"
 #include <limits>
 #include <vulkan/vulkan_core.h>
 
@@ -14,12 +15,12 @@ void OneShotCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum que
 
 	switch(this->queueFamilyEnum)
 	{
-		case GRAPHICS: poolCreateInfo.queueFamilyIndex = Demo::renderer.mainDevice.queueFamilyIndicies.graphicsFamily; break; 
-		case COMPUTE: poolCreateInfo.queueFamilyIndex = Demo::renderer.mainDevice.queueFamilyIndicies.computeFamily; break; 
-		case TRANSFER: poolCreateInfo.queueFamilyIndex = Demo::renderer.mainDevice.queueFamilyIndicies.transferFamily; break; 
+		case GRAPHICS: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndicies.graphicsFamily; break; 
+		case COMPUTE: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndicies.computeFamily; break; 
+		case TRANSFER: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndicies.transferFamily; break; 
 	}
 
-    VkResult result = vkCreateCommandPool(Demo::renderer.mainDevice.logicalDevice, &poolCreateInfo, nullptr, &this->vkHandle);
+    VkResult result = vkCreateCommandPool(getMainDevice().logicalDevice, &poolCreateInfo, nullptr, &this->vkHandle);
     if (result != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to create a Command Pool!");
@@ -31,7 +32,7 @@ void OneShotCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum que
 
 void OneShotCommandPool::destroy()
 {
-    vkDestroyCommandPool(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
+    vkDestroyCommandPool(getMainDevice().logicalDevice, this->vkHandle, nullptr);
     this->vkHandle = VK_NULL_HANDLE;
 }
 
@@ -39,9 +40,9 @@ void OneShotCommandPool::allocateCmdBuffersFromBlueprints()
 {
     // Allocate CommandBuffers from the pool in GPU, and recieve handles for them. 
 	std::vector<CommandBufferBlueprint>& rBlueprints = 
-		this->queueFamilyEnum == GRAPHICS ? Demo::renderer.demoManager.oneShotCmdBufferBlueprints.graphics: 
-		this->queueFamilyEnum == COMPUTE ? Demo::renderer.demoManager.oneShotCmdBufferBlueprints.compute: 
-		Demo::renderer.demoManager.oneShotCmdBufferBlueprints.transfer; 
+		this->queueFamilyEnum == GRAPHICS ? getCmdBufferBlueprints(ONESHOT).graphics: 
+		this->queueFamilyEnum == COMPUTE ? getCmdBufferBlueprints(ONESHOT).compute: 
+		getCmdBufferBlueprints(ONESHOT).transfer; 
 		
     if (rBlueprints.size() != 0)
     {
@@ -57,7 +58,7 @@ void OneShotCommandPool::allocateCmdBuffersFromBlueprints()
         commandBufferAllocateInfo.level = this->level;
         commandBufferAllocateInfo.commandBufferCount = static_cast<uint32_t>(commandBufferHandles.size());
 
-        VkResult result = vkAllocateCommandBuffers(Demo::renderer.mainDevice.logicalDevice, &commandBufferAllocateInfo, commandBufferHandles.data());
+        VkResult result = vkAllocateCommandBuffers(getMainDevice().logicalDevice, &commandBufferAllocateInfo, commandBufferHandles.data());
         if (result != VK_SUCCESS)
         {
             throw std::runtime_error("Failed to create Command Buffer/s!");
@@ -74,7 +75,7 @@ void OneShotCommandPool::allocateCmdBuffersFromBlueprints()
 
 void OneShotCommandPool::resetCmdBuffer(uint32_t id_, Fence& rFinishSignalFence_)
 {
-	vkWaitForFences(Demo::renderer.mainDevice.logicalDevice, 1, &rFinishSignalFence_.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
+	vkWaitForFences(getMainDevice().logicalDevice, 1, &rFinishSignalFence_.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
 	vkResetCommandBuffer(this->commandBuffers.buffers[id_], 0); 
 	this->commandBuffers.recorded[id_] = false;
 }

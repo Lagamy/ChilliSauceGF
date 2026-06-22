@@ -40,7 +40,8 @@ add_executable(PBRVulkanDemo
 	"src/main.cpp" "src/Core.cpp" "src/Utilities.cpp" "src/Api.cpp" 
 
 	# Managers
-	"src/Core/Managers/AssetsManager.cpp" "src/Core/Managers/InputManager.cpp" 
+	# "src/Core/Managers/AssetsManager.cpp"
+	"src/Core/Managers/InputManager.cpp" 
 
 	# Graphics
 	"src/Graphics/Backend/Base/Device.cpp" "src/Graphics/Backend/Base/Instance.cpp" 
@@ -48,13 +49,14 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/Backend/Base/Surface.cpp" "src/Graphics/Backend/Image/Image.cpp"  
 	"src/Graphics/Backend/Base/MemoryBlock.cpp" "src/Graphics/Backend/Base/Buffer.cpp" 
 	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/Backend/Base/Framebuffer.cpp"
-	"src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
+	# "src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
 	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" 
 	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.h" "src/Graphics/DemoManager.cpp" 
 	"src/Graphics/Backend/Image/ImageView.cpp" "src/Graphics/Backend/Base/Shader.cpp" 
 	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
-	"src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" "src/Graphics/Backend/MemoryManagment/GPUHeap.cpp"
+	# "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" 
+	"src/Graphics/Backend/MemoryManagment/GPUHeap.cpp"
 	"src/Graphics/Backend/MemoryManagment/GPUMemoryEntry.cpp" "src/Graphics/Backend/MemoryManagment/StaticAllocator.cpp"
 	"src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/Image/Sampler.cpp" 
 
@@ -70,7 +72,7 @@ set(MISC_DIR "${SRC_DIR}/Misc")
 set(SCENES_DIR "${SRC_DIR}/Scenes")
 
 # Core
-set(ASSETS_DIR "${CORE_DIR}/Assets")
+# set(ASSETS_DIR "${CORE_DIR}/Assets")
 set(MANAGERS_DIR "${CORE_DIR}/Managers")
 set(RESOURCES_DIR "${CORE_DIR}/Resources")
 
@@ -80,7 +82,7 @@ set(BACKEND_DIR "${GRAPHICS_DIR}/Backend")
 set(IMAGE_DIR "${BACKEND_DIR}/Image")
 set(BASE_DIR "${BACKEND_DIR}/Base")
 set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
-set(DESCRIPTORSET_DIR "${BACKEND_DIR}/DescriptorSet")
+# set(DESCRIPTORSET_DIR "${BACKEND_DIR}/DescriptorSet")
 set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
 set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
 set(MEMORY_MANAGMENT_DIR "${BACKEND_DIR}/MemoryManagment")
@@ -98,12 +100,13 @@ target_include_directories(PBRVulkanDemo PRIVATE
 	${MISC_DIR} ${TEST_DIR}
 
 	# Core
-	${ASSETS_DIR} ${MANAGERS_DIR} ${RESOURCES_DIR}
+	# ${ASSETS_DIR} 
+	${MANAGERS_DIR} ${RESOURCES_DIR}
 
 	# Graphics
 	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} 
-	${DESCRIPTORSET_DIR} ${SYNCHRONISATION_DIR} ${VALIDATION_DIR}
-	${MEMORY_MANAGMENT_DIR}
+	# ${DESCRIPTORSET_DIR} 
+	${SYNCHRONISATION_DIR} ${VALIDATION_DIR} ${MEMORY_MANAGMENT_DIR}
 
 	# Scenes 
 	${SCENES_DIR}

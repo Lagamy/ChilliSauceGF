@@ -14,7 +14,7 @@ When you present it to the display engine, it needs a linear or present layout t
 
 */
 #include "RenderPass.h" 
-#include "Globals.h"
+#include "Api.h"
 
 namespace Graphics
 {
@@ -149,7 +149,7 @@ void RenderPass::create() {
 
 	createInfo.dependencyCount = static_cast<uint32_t>(this->subpassDependencies.size());
 	createInfo.pDependencies = this->subpassDependencies.data();	// Describes when changes between different subpasses need to occure. 
-	VkResult result = vkCreateRenderPass(Demo::renderer.mainDevice.logicalDevice, &createInfo, nullptr, &vkHandle);
+	VkResult result = vkCreateRenderPass(getMainDevice().logicalDevice, &createInfo, nullptr, &vkHandle);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create RenderPass!");
@@ -266,7 +266,7 @@ size_t RenderPass::getResolveAttachmentIdFromFinal(size_t localId_)
 
 
 void RenderPass::destroy() {
-	vkDestroyRenderPass(Demo::renderer.mainDevice.logicalDevice, vkHandle, nullptr);
+	vkDestroyRenderPass(getMainDevice().logicalDevice, vkHandle, nullptr);
 	vkHandle = VK_NULL_HANDLE;
 }
 

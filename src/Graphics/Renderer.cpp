@@ -1,15 +1,11 @@
 #include "Renderer.h"
-#include "CommandBufferBlueprint.h"
-#include "HelperGlobals.h"
-#include "Semaphore.h"
-#include "Triangle.h"
-#include "Globals.h"
-#include "Utilities.h"
-#include <limits>
-#include <vulkan/vulkan_core.h>
+#include "Api.h"
 
-// namespace Graphics
-// {
+
+namespace Graphics
+{
+
+Renderer::Renderer() {};
 void Renderer::setup() 
 {
 	// Vulkan setup 
@@ -48,8 +44,8 @@ void Renderer::draw()
 		this->mainDevice.logicalDevice, this->swapchain.get(), std::numeric_limits<uint64_t>::max(), 
 		this->syncManager.getSemaphore(this->imageAvailableSemaphoreId).get(), VK_NULL_HANDLE, &currentFrameAtFlight
 	);
-	this->resetCurrentFrameCmdPools();
-	this->recordCurrentFrameCmdPools(); 
+	resetCurrentFrameCmdPools();
+	recordCurrentFrameCmdPools(); 
 
 	demoManager.submitToGPU();
 }
@@ -76,4 +72,4 @@ Renderer::~Renderer()
 {
 	this->shutdown(); 
 }
-// }
+}

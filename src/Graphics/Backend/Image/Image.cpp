@@ -1,5 +1,5 @@
 #include "Image.h"
-#include "Globals.h"
+#include "Api.h"
 /*
 	createImage() does not allocate memory, and youll need vkAllocateMemory + vkBindImageMemory before using the image.
 */
@@ -125,7 +125,7 @@ VkImageViewCreateInfo Image::getViewMetadata(size_t id_) const
 void Image::destroy()
 {
 	this->imageViews.clear(); 
-	vkDestroyImage(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
+	vkDestroyImage(getMainDevice().logicalDevice, this->vkHandle, nullptr);
 	this->vkHandle = VK_NULL_HANDLE; 
 }
 }

@@ -1,5 +1,5 @@
 #include "ImageView.h"
-#include "Globals.h"
+#include "Api.h"
 
 namespace Graphics
 {
@@ -55,7 +55,7 @@ ImageView::ImageView(const char* name_, VkImage& rImage_, VkFormat format_, VkIm
 	metadata.subresourceRange.layerCount = 1; // Amount of layers image has. 
 	// Create image view and return it 
 	VkImageView imageView;
-	VkResult result = vkCreateImageView(Demo::renderer.mainDevice.logicalDevice, &metadata, nullptr, &imageView);
+	VkResult result = vkCreateImageView(getMainDevice().logicalDevice, &metadata, nullptr, &imageView);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create image view!");
@@ -66,6 +66,6 @@ ImageView::ImageView(const char* name_, VkImage& rImage_, VkFormat format_, VkIm
 
 ImageView::~ImageView()
 {
-	vkDestroyImageView(Demo::renderer.mainDevice.logicalDevice, this->vkHandle, nullptr);
+	vkDestroyImageView(getMainDevice().logicalDevice, this->vkHandle, nullptr);
 }
 }

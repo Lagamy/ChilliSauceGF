@@ -1,5 +1,5 @@
 #include "PipelineLayout.h"
-#include "Globals.h"
+#include "Api.h"
 
 namespace Graphics
 {
@@ -12,7 +12,7 @@ void PipelineLayout::create()
 	layoutCreateInfo.pushConstantRangeCount = 0;
 	layoutCreateInfo.pPushConstantRanges = nullptr;
 
-	VkResult result = vkCreatePipelineLayout(Demo::renderer.mainDevice.logicalDevice, &layoutCreateInfo, nullptr, &vkHandle);
+	VkResult result = vkCreatePipelineLayout(getMainDevice().logicalDevice, &layoutCreateInfo, nullptr, &vkHandle);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Loyaut for Graphics Pipeline for {}!");
@@ -23,7 +23,7 @@ void PipelineLayout::destroy()
 {
 	if (vkHandle != VK_NULL_HANDLE)
 	{
-		vkDestroyPipelineLayout(Demo::renderer.mainDevice.logicalDevice, vkHandle, nullptr);
+		vkDestroyPipelineLayout(getMainDevice().mainDevice.logicalDevice, vkHandle, nullptr);
 		this->vkHandle = VK_NULL_HANDLE;
 	}
 }

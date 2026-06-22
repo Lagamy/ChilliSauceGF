@@ -1,5 +1,5 @@
 #include "Device.h"
-#include "Globals.h"
+#include "Api.h"
 
 namespace Graphics
 {
@@ -19,7 +19,7 @@ void Device::getPhysicalDevice() {
 	// Enumerate Physical devices the vkInstance can access 
 	uint32_t deviceCount = 0;
 	// Get number of physical devices, so we can create an array of a correct size. 
-	vkEnumeratePhysicalDevices(Demo::renderer.instance.get(), &deviceCount, nullptr);
+	vkEnumeratePhysicalDevices(getInstance().get(), &deviceCount, nullptr);
 
 	// If no devices available, then none support Vulkan! 
 	if (deviceCount == 0)
@@ -29,7 +29,7 @@ void Device::getPhysicalDevice() {
 
 	// Get a list of all available physical devices
 	std::vector<VkPhysicalDevice> availablePhysicalDeviceList(deviceCount);
-	vkEnumeratePhysicalDevices(Demo::renderer.instance.get(), &deviceCount, availablePhysicalDeviceList.data());
+	vkEnumeratePhysicalDevices(getInstance().get(), &deviceCount, availablePhysicalDeviceList.data());
 
 	for (const auto& device : availablePhysicalDeviceList)
 	{
@@ -71,8 +71,8 @@ void Device::createLogicalDevice() {
 	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data(); // List of queue infos, so device can create required queues
 
 	// Logical Device extensions
-	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(Demo::requiredDeviceExtensions.size()); // Number of enabled Logical Device Extensions(Swapchain, RTX, DSSL, etc) 
-	deviceCreateInfo.ppEnabledExtensionNames = Demo::requiredDeviceExtensions.data(); // List of enabled Extensions 
+	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()); // Number of enabled Logical Device Extensions(Swapchain, RTX, DSSL, etc) 
+	deviceCreateInfo.ppEnabledExtensionNames = requiredDeviceExtensions.data(); // List of enabled Extensions 
 
 	// Physical Device Features - the Logical Device will be using 
 	VkPhysicalDeviceFeatures deviceFeatures = {};
@@ -106,7 +106,7 @@ bool Device::checkDeviceSuitable(VkPhysicalDevice device_) {
 
 	QueueFamilyIndicies indices = getQueueFamilies(device_);
 	bool extensionsSupported = checkDeviceExtensionsSupport(device_);
-	SwapchainDetails swapchainDetails = GetSwapchainDetails(device_);
+	SwapchainDetails swapchainDetails = getSwapchainDetails(device_);
 	bool swapchainValid = !swapchainDetails.imageFormats.empty() && !swapchainDetails.presentationModes.empty(); // Is Swapchain with our params - possible to create on that device. 
 	return indices.isValid() && extensionsSupported && swapchainValid;
 }
@@ -124,7 +124,7 @@ bool Device::checkDeviceExtensionsSupport(VkPhysicalDevice _device) {
 
 	std::vector<VkExtensionProperties> allSupportedExtensions(extensionCount);
 	vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, allSupportedExtensions.data());
-	for (const auto& requiredExtension : Demo::requiredDeviceExtensions)
+	for (const auto& requiredExtension : requiredDeviceExtensions)
 	{
 		bool hasExtension = false;
 		for (const auto& extension : allSupportedExtensions)
@@ -184,7 +184,7 @@ QueueFamilyIndicies Device::getQueueFamilies(VkPhysicalDevice & rDevice)
 			VkBool32 presentationSupport = VK_FALSE;
 
 			// Check if [i] Queue of this Device supports Surfaces 
-			vkGetPhysicalDeviceSurfaceSupportKHR(rDevice, i, Demo::renderer.surface.get(), &presentationSupport);
+			vkGetPhysicalDeviceSurfaceSupportKHR(rDevice, i, getSurface().get(), &presentationSupport);
 			if (presentationSupport == VK_TRUE)
 			{
 				indicies.presentationFamily = i;

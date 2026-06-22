@@ -1,6 +1,5 @@
 #include "StaticAllocator.h"
 #include "Api.h"
-#include <stdexcept>
 
 namespace Graphics
 {
@@ -44,9 +43,9 @@ void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 		for(auto& rUpload : this->uploadEntriesGroups[i])
 		{
 			void* pStagingMemPoint; // Create an empty typeless pointer.
-			vkMapMemory(Demo::renderer.mainDevice.logicalDevice, stagingHeap.memoryBlock.get(), rUpload.heapStartingByte, rUpload.size, 0, &pStagingMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
+			vkMapMemory(getMainDevice().logicalDevice, stagingHeap.memoryBlock.get(), rUpload.heapStartingByte, rUpload.size, 0, &pStagingMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
 			memcpy(pStagingMemPoint, static_cast<const char*>(rUpload.data), rUpload.size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
-			vkUnmapMemory(Demo::renderer.mainDevice.logicalDevice, stagingHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
+			vkUnmapMemory(getMainDevice().logicalDevice, stagingHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
 		}
 
 		

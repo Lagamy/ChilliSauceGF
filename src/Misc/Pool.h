@@ -1,4 +1,5 @@
 #pragma once 
+#include "PoolId.h"
 #include <unordered_map>
 #include <vector> 
 #include <queue>
@@ -6,12 +7,6 @@
 #include <stdexcept>
 #include <sstream>
 
-
-struct PoolId
-{
-	uint32_t id; 
-	uint32_t generation;
-};
 
 inline bool operator==(const PoolId& a, const PoolId& b)
 {
@@ -28,13 +23,12 @@ struct Pool {
 	std::vector<T> objects;
 	std::vector<uint32_t> generation; 
 	std::vector<bool> alive; 
-	std::queue<uint32_t> freeSlots;
-
+	std::vector<uint32_t> freeSlots;	
 	std::vector<std::string> names;
-	std::unordered_map<std::string, PoolId> nameToId; 
+	std::unordered_map<std::string, PoolId> nameToId;
+	std::string name;
 
-	std::string name; 
-
+	Pool(){};
 	PoolId add(const T& object_, const char* name_) { 
 		PoolId pId;
 		if(this->freeSlots.empty())
@@ -48,11 +42,11 @@ struct Pool {
 		}
 		else 
 		{
-			pId.id = this->freeSlots.front(); 
+			pId.id = this->freeSlots.back(); 
 			this->objects[pId.id] = object_;
 			this->alive[pId.id] = true; 
 			pId.generation = this->generation[pId.id];
-			this->freeSlots.pop(); 
+			freeSlots.pop_back();	
 		}
 		this->nameToId.emplace(name_, pId); 
 		return pId; 
@@ -67,7 +61,7 @@ struct Pool {
 		}
 		this->alive[pId_.id] = false;
 		this->generation[pId_.id]++; 
-		this->freeSlots.emplace(pId_.id);
+		this->freeSlots.emplace_back(pId_.id);
 		this->nameToId.erase(this->names[pId_.id]);
 	}
 
@@ -76,8 +70,7 @@ struct Pool {
 		this->objects.clear();
 		this->alive.clear(); 
 		this->generation.clear();
-		std::queue<uint32_t> empty;
-   		std::swap(this->freeSlots, empty);
+   		this->freeSlots.clear();
 		this->name.clear(); 
 		this->nameToId.clear();
 	}
@@ -96,7 +89,7 @@ struct Pool {
 			errorMessageStream << name << " Pool: slot with id: " << pId_.id << " has bigger generation(" << pId_.generation << "), than passed one(" << this->generation[pId_.id] << ").\n";
 			throw std::runtime_error(errorMessageStream.str());
 		}
-		return this->objects[pId_];
+		return this->objects[pId_.id];
 	}
 
 	PoolId getIdByName(const char* name_)
