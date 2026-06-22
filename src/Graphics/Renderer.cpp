@@ -1,11 +1,12 @@
 #include "Renderer.h"
 #include "Api.h"
+#include <limits>
+#include <vulkan/vulkan_core.h>
 
 
 namespace Graphics
 {
 
-Renderer::Renderer() {};
 void Renderer::setup() 
 {
 	// Vulkan setup 
@@ -31,27 +32,33 @@ void Renderer::setup()
 	this->oneShotCommandPools.create();
 	for (auto& rFrameResources : this->framesResources)
 	{
-		rFrameResources.frameCmdPools.create(); // CMDPools init for each queue family per frame in flight  
-		rFrameResources.frameFinishedFenceId = this->syncManager.addFence("Frame Finished");
+		rFrameResources.setup();
 	}
-	this->imageAvailableSemaphoreId = this->syncManager.addSemaphore("Image Available"); 
 	this->gpuMemoryManager.submitStaticUploadCmds(); // Upload all preloaded with scene / static assets to the GPU
 }
 
 void Renderer::draw() 
 {
+	
 	vkAcquireNextImageKHR(
 		this->mainDevice.logicalDevice, this->swapchain.get(), std::numeric_limits<uint64_t>::max(), 
-		this->syncManager.getSemaphore(this->imageAvailableSemaphoreId).get(), VK_NULL_HANDLE, &currentFrameAtFlight
+		this->syncManager.getSemaphore(this->framesResources[currentFrame].frameAvailableSemaphoreId).vkHandle, VK_NULL_HANDLE, &imageIndex
 	);
+	VkFence* pCurrentFrameAvailable = &this->syncManager.getFence(this->framesResources[this->currentFrame].frameAvailableFenceId).vkHandle;
+
+	vkWaitForFences(this->mainDevice.logicalDevice, 1, pCurrentFrameAvailable, VK_TRUE, std::numeric_limits<uint64_t>::max()); // wait for frame available fence signal
+	vkResetFences(this->mainDevice.logicalDevice, 1, pCurrentFrameAvailable); // unsignal fence
+	// NOTE: you need to pass this fence with frame submit in your demo code. Otherwise - nothing will signal this fence and app will freeze
 	resetCurrentFrameCmdPools();
 	recordCurrentFrameCmdPools(); 
 
-	demoManager.submitToGPU();
+	this->demoManager.submitToGPU();
+	this->currentFrame = (this->currentFrame + 1) % this->framesAtFlightCount; 
 }
 
 void Renderer::shutdown() 
 {
+	vkDeviceWaitIdle(this->mainDevice.logicalDevice);
 	this->syncManager.destroy();
 	for (auto& rFrameResources : this->framesResources)
 	{

@@ -3,7 +3,6 @@
 #include "GPUMemoryEntry.h"
 #include "MemoryBlock.h"
 #include "Utilities.h"
-#include "PoolId.h"
 #include <stdexcept>
 
 namespace Graphics
@@ -15,8 +14,6 @@ struct StaticAllocator {
 	std::array<std::vector<UploadEntry>, 4> uploadEntriesGroups;
 	GPUMemoryEntry stagingHeap; 
 	GPUHeap gpuHeap;
-	PoolId uploadFinishedSemaphore; 
-	PoolId uploadFinishedFence;
 	bool allocated = false; 
 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_);

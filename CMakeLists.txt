@@ -60,8 +60,8 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/Backend/MemoryManagment/GPUMemoryEntry.cpp" "src/Graphics/Backend/MemoryManagment/StaticAllocator.cpp"
 	"src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/Image/Sampler.cpp" 
 
-	#Scenes
-	"src/Scenes/Triangle.cpp"
+	#Demos
+	"src/Demos/Triangle.cpp"
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -69,7 +69,7 @@ set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(CORE_DIR "${SRC_DIR}/Core")
 set(GRAPHICS_DIR "${SRC_DIR}/Graphics")
 set(MISC_DIR "${SRC_DIR}/Misc")
-set(SCENES_DIR "${SRC_DIR}/Scenes")
+set(DEMOS_DIR "${SRC_DIR}/Demos")
 
 # Core
 # set(ASSETS_DIR "${CORE_DIR}/Assets")
@@ -108,8 +108,8 @@ target_include_directories(PBRVulkanDemo PRIVATE
 	# ${DESCRIPTORSET_DIR} 
 	${SYNCHRONISATION_DIR} ${VALIDATION_DIR} ${MEMORY_MANAGMENT_DIR}
 
-	# Scenes 
-	${SCENES_DIR}
+	# Demos
+	${DEMOS_DIR}
 )
 
 # Put the executable into /bin

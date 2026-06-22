@@ -1,5 +1,5 @@
 #include "Utilities.h"
-#include "Globals.h"
+#include "Api.h"
 #include "Pool.h"
 #include "Semaphore.h"
 #include <vulkan/vulkan_core.h>
@@ -37,7 +37,7 @@
 					VkBool32 presentationSupport = VK_FALSE;
 
 					// Check if [i] Queue of this Device supports Surfaces 
-					vkGetPhysicalDeviceSurfaceSupportKHR(device_, i, Demo::renderer.surface.get(), &presentationSupport);
+					vkGetPhysicalDeviceSurfaceSupportKHR(device_, i, getSurface().get(), &presentationSupport);
 					if (presentationSupport == VK_TRUE)
 					{
 						indicies.presentationFamily = i;

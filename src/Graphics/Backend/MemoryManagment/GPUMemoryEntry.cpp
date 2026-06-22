@@ -3,7 +3,7 @@
 
 namespace Graphics
 {
-GPUMemoryEntry::GPUMemoryEntry(const char* name_, VkDeviceSize size_, StorageUnitEnum unit_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuShared_)
+void GPUMemoryEntry::create(const char* name_, VkDeviceSize size_, StorageUnitEnum unit_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuShared_)
 {
 	this->cpuShared = cpuShared_; 
 	this->size = size_; 

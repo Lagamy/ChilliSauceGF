@@ -8,8 +8,11 @@
 
 namespace Graphics
 {
+
 void GPUMemoryManager::create()
 {
+	this->staticUploadFinishedSemaphoreId = addSemaphore("Static Upload Finished");
+	this->staticUploadFinishedFenceId = addFence("Static Upload Finished", VK_FENCE_CREATE_SIGNALED_BIT); 
 	this->staticUploadCmdBufferId = addCmdBufferBlueprint(
 		ONESHOT,
 		TRANSFER, 
@@ -53,21 +56,23 @@ void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_)
 
 void GPUMemoryManager::submitStaticUploadCmds()
 {
-	Fence& rUploadFinished = getFence(this->staticAllocator.uploadFinishedFence);
+
+	Fence& rUploadFinished = getFence(this->staticUploadFinishedFenceId);
+	vkWaitForFences(getMainDevice().logicalDevice, 1, &rUploadFinished.get(), VK_TRUE, std::numeric_limits<uint64_t>::max()); // Block this CPU thread until the GPU signals this fence.
+	// Free temporary command buffer back to pool(transferCommandBuffer object will no longer exist on GPU side)
+	vkFreeCommandBuffers(getMainDevice().logicalDevice, getCommandPool(TRANSFER, ONESHOT), 1, &getCommandBuffer(TRANSFER, ONESHOT, this->staticUploadCmdBufferId));
+
 	vkResetFences(getMainDevice().logicalDevice, 1, &rUploadFinished.get());
 	// Submit command buffer to the Transfer Queue
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &getCommandBuffer(TRANSFER, ONESHOT, 0);
+	submitInfo.signalSemaphoreCount = 1; 
+	submitInfo.pSignalSemaphores = &getSemaphore(this->staticUploadFinishedSemaphoreId).vkHandle; 
 
 	// Submit transfer command to transfer Queue and wait till it finishes(Not optimal)
 	vkQueueSubmit(getMainDevice().queues.transferQueue, 1, &submitInfo, rUploadFinished.get());
-
-	vkWaitForFences(getMainDevice().logicalDevice, 1, &rUploadFinished.get(), VK_TRUE, std::numeric_limits<uint64_t>::max()); // Block this CPU thread until the GPU signals this fence.
-	// Free temporary command buffer back to pool(transferCommandBuffer object no longer exists on GPU side)
-	vkFreeCommandBuffers(getMainDevice().logicalDevice, getCommandPool(TRANSFER, ONESHOT), 1, &getCommandBuffer(TRANSFER, ONESHOT, 0));
-	
 }
 
 void GPUMemoryManager::submitUpdateCmdsIfNeeded()
@@ -84,7 +89,7 @@ void GPUMemoryManager::submitUpdateCmdsIfNeeded()
 		vkQueueSubmit(getMainDevice().queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
 
 		// Free temporary command buffer back to pool(transferCommandBuffer object no longer exists on GPU side)
-		vkFreeCommandBuffers(getMainDevice().logicalDevice, getCommandPool(TRANSFER, ONESHOT), 1, &getCommandBuffer(TRANSFER, ONESHOT, 0));
+		vkFreeCommandBuffers(getMainDevice().logicalDevice, getCommandPool(TRANSFER, ONESHOT), 1, &getCommandBuffer(TRANSFER, ONESHOT, this->staticUploadCmdBufferId));
 		this->updateNeeded = false;
 	}
 }

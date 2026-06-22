@@ -10,7 +10,7 @@ struct SyncManager {
 	Pool<Semaphore> semaphores;
 
 	PoolId addSemaphore(const char* name_); 
-	PoolId addFence(const char* name_);
+	PoolId addFence(const char* name_, VkFenceCreateFlags flags_);
 	Semaphore& getSemaphore(PoolId id_);  
 	Fence& getFence(PoolId id_); 
 	void destroy();

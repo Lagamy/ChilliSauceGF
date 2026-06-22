@@ -5,7 +5,7 @@
 #include "Shader.h"
 #include "PipelineLayout.h"
 #include "Fence.h"
-#include "HelperGlobals.h"
+#include "Utilities.h"
 #include <cstdint>
 #include <vulkan/vulkan_core.h>
   
@@ -21,7 +21,7 @@ struct GraphicsPipeline {
 	Shader* pVertexShader;
 	Shader* pFragmentShader;
 
-	Fence notInUse; // So we don't rebuild Pipeline, Descriptors and the sets when they are used by the GPU  
+	PoolId notInUseFenceId; // So we don't rebuild Pipeline, Descriptors and the sets when they are used by the GPU  
 	
 	// void createPipelineLayout(VkPushConstantRange* pushConstRangeList_, uint32_t pushConstRangeCount_, std::string context);
 	

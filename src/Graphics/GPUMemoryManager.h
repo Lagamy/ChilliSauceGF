@@ -28,17 +28,16 @@ struct UpdateEntry
 
 
 struct GPUMemoryManager { 
-	
 	StaticAllocator staticAllocator;
 	std::vector<UpdateEntry> updateEntries; 
 	bool updateNeeded = false;
 	void submitTransferCmds();
 	uint32_t updateCmdBufferId;
 	uint32_t staticUploadCmdBufferId; 
-
-	PoolId updateFinishedSemaphore; 
-	PoolId updateFinishedFence; 
-
+	PoolId updateFinishedSemaphoreId; 
+	PoolId updateFinishedFenceId; 
+	PoolId staticUploadFinishedSemaphoreId; 
+	PoolId staticUploadFinishedFenceId;
 
 	void addUpdate(PoolId entryId_, const void* data_); // full upload
 	void addUpdate(PoolId entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload

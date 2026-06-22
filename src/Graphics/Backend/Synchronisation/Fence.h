@@ -10,7 +10,7 @@ struct Fence {
     
     void destroy();
     const VkFence& get();
-	Fence();
+	Fence(VkFenceCreateFlags flags_);
 	~Fence();
 };
 }

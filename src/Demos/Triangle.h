@@ -11,7 +11,8 @@ namespace Graphics
 {
 struct Triangle { 
 	Mesh mesh;
-	
+	uint32_t cmdBufferId;  
+
 	void load(); 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_);
 	void submit(); // Triggers every frame

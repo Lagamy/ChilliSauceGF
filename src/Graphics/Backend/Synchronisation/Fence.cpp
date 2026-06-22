@@ -3,11 +3,11 @@
 
 namespace Graphics
 {
-Fence::Fence()
+Fence::Fence(VkFenceCreateFlags flags_)
 {
     VkFenceCreateInfo fenceCreateInfo = {};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Makes Fence signaled once created
+    fenceCreateInfo.flags = flags_; 
 
     VkResult result = vkCreateFence(getMainDevice().logicalDevice, &fenceCreateInfo, nullptr, &this->vkHandle);
     if (result != VK_SUCCESS)

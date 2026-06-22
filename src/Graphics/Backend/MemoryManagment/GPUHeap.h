@@ -17,5 +17,6 @@ struct GPUHeap
 
 	void create();
 	void destroy();
+	GPUHeap();
 };
 }

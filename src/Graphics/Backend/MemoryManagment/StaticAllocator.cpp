@@ -65,7 +65,7 @@ void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 
 void StaticAllocator::allocate()
 {
-	this->stagingHeap = GPUMemoryEntry("Static Staging Heap", this->gpuHeap.size, BYTE, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, true);
+	this->stagingHeap.create("Static Staging Heap", this->gpuHeap.size, BYTE, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, true);
 	this->gpuHeap.create();
 	this->allocated = true; 
 }

@@ -24,6 +24,12 @@ namespace Graphics
 	{
 		return Globals::renderer.swapchain; 
 	}
+	
+	GPUMemoryManager& getGPUMemoryManager()
+	{
+		return Globals::renderer.gpuMemoryManager; 
+	}
+
 	// For now i only need 1 of each
 	GraphicsPipeline& getGraphicsPipeline()
 	{
@@ -66,9 +72,14 @@ namespace Graphics
 		}
 	}
 
-	uint32_t getCurrentFrameInFlight()
+	uint32_t& getCurrentImageIndex()
 	{
-		return Globals::renderer.currentFrameAtFlight; 
+		return Globals::renderer.imageIndex; 
+	}
+
+	FrameResources& getCurrentFrameResources()
+	{
+		return Globals::renderer.framesResources[getCurrentImageIndex()]; 
 	}
 
 	const VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_)
@@ -76,7 +87,7 @@ namespace Graphics
 			
 		if(poolType_ == FRAME)
 		{
-			return Globals::renderer.framesResources[Globals::renderer.currentFrameAtFlight].frameCmdPools.getPoolByQueue(queueFamily_).commandBuffers.buffers[id_];
+			return Globals::renderer.framesResources[Globals::renderer.currentFrame].frameCmdPools.getPoolByQueue(queueFamily_).commandBuffers.buffers[id_];
 		}
 		else
 		{
@@ -88,7 +99,7 @@ namespace Graphics
 	{
 		if(poolType_ == FRAME)
 		{
-			return Globals::renderer.framesResources[Globals::renderer.currentFrameAtFlight].frameCmdPools.getPoolByQueue(queueFamily_).get();
+			return Globals::renderer.framesResources[Globals::renderer.currentFrame].frameCmdPools.getPoolByQueue(queueFamily_).get();
 		}
 		else
 		{
@@ -104,7 +115,7 @@ namespace Graphics
 		
 	void recordCurrentFrameCmdPools()
 	{
-		for(auto& rFrameCmdPool : Globals::renderer.framesResources[Globals::renderer.currentFrameAtFlight].frameCmdPools.pools)
+		for(auto& rFrameCmdPool : Globals::renderer.framesResources[Globals::renderer.currentFrame].frameCmdPools.pools)
 		{
 			rFrameCmdPool.recordCmdBuffers();
 		}
@@ -118,9 +129,9 @@ namespace Graphics
 		
 	void resetCurrentFrameCmdPools()
 	{
-		for(auto& rFrameCmdPool : Globals::renderer.framesResources[Globals::renderer.currentFrameAtFlight].frameCmdPools.pools)
+		for(auto& rFrameCmdPool : Globals::renderer.framesResources[Globals::renderer.currentFrame].frameCmdPools.pools)
 		{
-			Fence& rCurrentFrameFinishFence = Globals::renderer.syncManager.getFence(Globals::renderer.framesResources[Globals::renderer.currentFrameAtFlight].frameFinishedFenceId);
+			Fence& rCurrentFrameFinishFence = Globals::renderer.syncManager.getFence(Globals::renderer.framesResources[Globals::renderer.currentFrame].frameFinishedFenceId);
 			rFrameCmdPool.resetCmdPool(rCurrentFrameFinishFence);
 		}
 	}
@@ -131,9 +142,9 @@ namespace Graphics
 		Globals::renderer.syncManager.addSemaphore(name_);
 	}
 		
-	PoolId addFence(const char* name_)
+	PoolId addFence(const char* name_, VkFenceCreateFlags flags_)
 	{
-		Globals::renderer.syncManager.addFence(name_);
+		Globals::renderer.syncManager.addFence(name_, flags_);
 	}
 
 	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)
