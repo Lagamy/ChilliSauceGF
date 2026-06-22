@@ -1,5 +1,6 @@
 ﻿// Basically a settings/requirments header  
 #pragma once 
+#include "PoolId.h"
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
@@ -24,10 +25,6 @@ namespace Graphics
 	{
 		FRAME, 
 		ONESHOT
-	};
-
-	inline std::vector<const char*> requiredDeviceExtensions = { // If you choose Ray tracing to be enabled -> this would change
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME	
 	};
 
 	enum AttachmentTypeEnum {
@@ -116,6 +113,16 @@ namespace Graphics
 	// Write Descriptor Set Data(By binding it to a Buffer with that data).
 	void writeBufferDescriptorSet(VkDescriptorSet& rSet, VkBuffer& rBuffer, VkDeviceSize _dataSize, uint32_t _binding, VkDescriptorType _descriptorType, uint32_t _arrayElement);
 	
+
+	inline std::vector<const char*> requiredDeviceExtensions = { // If you choose Ray tracing to be enabled -> this would change
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME	
+	};
+
+	inline const uint32_t UninitializedId = std::numeric_limits<uint32_t>::max(); 
+	inline const PoolId UninitializedPoolId = PoolId{UninitializedId, UninitializedId};
+	inline uint64_t assetDelayBeforeUnload; // Can change between scenes.(Flexability). Used for assets with STREAMING lifetimeType
+
+
 }
 
 // namespace DebugUtilities
