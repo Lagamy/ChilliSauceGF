@@ -91,8 +91,8 @@ void Swapchain::create() {
 	for (uint32_t i = 0; i < images.size(); i++)
 	{
 		// Add initialized images to swapchain rendertargets 
-		this->renderTargets[i].image.setImage(images[i]);
-		this->renderTargets[i].image.addView("Swapchain", this->imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 0);
+		this->renderTargets[i].setImage(images[i]);
+		this->renderTargets[i].addView("Swapchain", this->imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 0);
 	}
 	//printf("Swapchain Image Count: %u\n", swapchainImageCount);
 }
@@ -117,7 +117,7 @@ void Swapchain::destroy()
 {
 	for (auto& swapchainRenderTarget : this->renderTargets)
 	{
-		vkDestroyImageView(getMainDevice().logicalDevice, swapchainRenderTarget.image.getImageView(0), nullptr);
+		vkDestroyImageView(getMainDevice().logicalDevice, swapchainRenderTarget.getImageView(0), nullptr);
 		//vkDestroyImage(Globals::device.logicalDevice, swapchainImage.image, nullptr); // vkDestroySwapchainKHR also destroys images
 	}
 	vkDestroySwapchainKHR(getMainDevice().logicalDevice, this->vkHandle, nullptr);

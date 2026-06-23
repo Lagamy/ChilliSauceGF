@@ -3,7 +3,7 @@
 #include "Framebuffer.h"
 #include "RenderPass.h"
 #include "Utilities.h"
-#include "RenderTarget.h"
+#include "Image.h"
 
 namespace Graphics
 {
@@ -12,7 +12,7 @@ struct Swapchain {
 	VkFormat imageFormat;
 	VkExtent2D extent; // Resolution  
 
-	std::vector<RenderTarget> renderTargets;
+	std::vector<Image> renderTargets;
 	std::vector<Framebuffer> framebuffers;
 
 	void create();

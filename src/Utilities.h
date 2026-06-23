@@ -101,8 +101,8 @@ namespace Graphics
 		}
 		// Todo: if there are no Transfer or Compute queues - assign their indices to available Graphics queue, so further code works anyways, just on one queue. 
 	};
-	QueueFamilyIndicies getQueueFamilies(VkPhysicalDevice& rDevice_);
-	SwapchainDetails getSwapchainDetails(VkPhysicalDevice& rDevice_);
+	QueueFamilyIndicies getQueueFamilies(VkPhysicalDevice device_);
+	SwapchainDetails getSwapchainDetails(VkPhysicalDevice device_);
 
 	// Swapchain suitable params functions 
 	VkSurfaceFormatKHR chooseBestSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& rAvailableFormats_);

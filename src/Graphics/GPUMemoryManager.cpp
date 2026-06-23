@@ -19,11 +19,11 @@ void GPUMemoryManager::create()
 		[this](VkCommandBuffer& cmd) { this->staticAllocator.recordCMDs(cmd); } 
 	);
 
-	this->updateCmdBufferId = addCmdBufferBlueprint(
-		ONESHOT,
-		TRANSFER, 
-		[this](VkCommandBuffer& cmd) { recordUpdatesCMDs(cmd); } 
-	);
+	// this->updateCmdBufferId = addCmdBufferBlueprint(
+		// ONESHOT,
+		// TRANSFER, 
+		// [this](VkCommandBuffer& cmd) { recordUpdatesCMDs(cmd); } 
+	// );
 }
 
 void GPUMemoryManager::destroy() 
@@ -32,8 +32,8 @@ void GPUMemoryManager::destroy()
 }
 
 
-void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_)
-{
+// void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_)
+// {
 	// Info to begin the command buffer record 
 	// VkCommandBufferBeginInfo beginInfo = {};
 	// beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -52,7 +52,7 @@ void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_)
 	// Command to copy from srcBuffer to dstBuffer 
 	// vkCmdCopyBuffer(cmdBuffer_, this->stagingHeap.memoryEntry.buffer.get(), rMemoryEntry.buffer.get(), 1, &bufferCopyRegion);
 	// vkEndCommandBuffer(cmdBuffer_);
-}
+// }
 
 void GPUMemoryManager::submitStaticUploadCmds()
 {

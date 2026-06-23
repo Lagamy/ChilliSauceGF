@@ -8,8 +8,8 @@ namespace Graphics
 {
 	void Triangle::load()
 	{
-		Shader vertexShader = Shader("Assets/shaders/triangle");
-		Shader fragmentShader = Shader("Assets/shaders/triangle");
+		Shader vertexShader = Shader("Assets/shaders/triangle/vert.spv");
+		Shader fragmentShader = Shader("Assets/shaders/triangle/frag.spv");
 		RenderPass& rRenderPass = getRenderPass();
 		GraphicsPipeline& rGraphicsPipeline = getGraphicsPipeline();
 	

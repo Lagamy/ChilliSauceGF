@@ -59,23 +59,23 @@
 			SwapchainDetails swapchainDetails;
 
 			// Getting surface Capabilities for given Surface on the given Physical Device 
-			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_, Globals::renderer.surface.get(), &swapchainDetails.surfaceCapabilities);
+			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_, getSurface().get(), &swapchainDetails.surfaceCapabilities);
 
 			// Getting surface Image Formats for given Surface on the given Physical Device  
 			uint32_t formatCount;
-			vkGetPhysicalDeviceSurfaceFormatsKHR(device_, Globals::renderer.surface.get(), &formatCount, nullptr);
+			vkGetPhysicalDeviceSurfaceFormatsKHR(device_, getSurface().get(), &formatCount, nullptr);
 			if (formatCount > 0) {
 				swapchainDetails.imageFormats.resize(formatCount);
-				vkGetPhysicalDeviceSurfaceFormatsKHR(device_, Globals::renderer.surface.get(), &formatCount, swapchainDetails.imageFormats.data());
+				vkGetPhysicalDeviceSurfaceFormatsKHR(device_, getSurface().get(), &formatCount, swapchainDetails.imageFormats.data());
 			}
 
 			// Getting Presentation Modes for given Surface on the given Physical Device  
 			uint32_t presentationModeCount;
-			vkGetPhysicalDeviceSurfacePresentModesKHR(device_, Globals::renderer.surface.get(), &presentationModeCount, nullptr);
+			vkGetPhysicalDeviceSurfacePresentModesKHR(device_, getSurface().get(), &presentationModeCount, nullptr);
 			if (presentationModeCount > 0)
 			{
 				swapchainDetails.presentationModes.resize(presentationModeCount);
-				vkGetPhysicalDeviceSurfacePresentModesKHR(device_, Globals::renderer.surface.get(), &presentationModeCount, swapchainDetails.presentationModes.data());
+				vkGetPhysicalDeviceSurfacePresentModesKHR(device_, getSurface().get(), &presentationModeCount, swapchainDetails.presentationModes.data());
 			}
 			return swapchainDetails;
 		}

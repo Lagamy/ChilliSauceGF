@@ -18,7 +18,7 @@ struct FrameCommandPool {
 	FrameCommandBuffers commandBuffers;
 	
     void create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_);
-    void resetCmdPool(Fence& rFrameFinishedFence_); // You need to rerecord buffers each draw, cause games are dynamic. An entity that uses distinct Graphics Pipeline might spawn, and invalidate previous recorded one. + Performance cost is negligable.  
+    void resetCmdPool(); // You need to rerecord buffers each draw, cause games are dynamic. An entity that uses distinct Graphics Pipeline might spawn, and invalidate previous recorded one. + Performance cost is negligable.  
 	void recordCmdBuffers();
 	void dealocateCmdBuffers();
     void destroy();

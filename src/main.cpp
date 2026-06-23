@@ -1,7 +1,10 @@
-#pragma once
-#include "Globals.h"
+#include "Core.h"
 
 int main()
 {
-	return 0;
+	printf("Print test"); 
+	Core core; 
+	core.setup();
+	core.run();
+	core.shutdown();
 }

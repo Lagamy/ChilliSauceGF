@@ -69,11 +69,10 @@ void FrameCommandPool::allocateCmdBuffersFromBlueprints()
     }
 }
 
-void FrameCommandPool::resetCmdPool(Fence& rFrameFinishedFence_)
+void FrameCommandPool::resetCmdPool()
 {
 
-	vkWaitForFences(getMainDevice().logicalDevice, 1, &rFrameFinishedFence_.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
-	vkResetCommandPool(getMainDevice().logicalDevice, this->get(), 0); 
+	vkResetCommandPool(getMainDevice().logicalDevice, this->vkHandle, 0); 
 }
 
 void FrameCommandPool::recordCmdBuffers()

@@ -23,7 +23,7 @@ void PipelineLayout::destroy()
 {
 	if (vkHandle != VK_NULL_HANDLE)
 	{
-		vkDestroyPipelineLayout(getMainDevice().mainDevice.logicalDevice, vkHandle, nullptr);
+		vkDestroyPipelineLayout(getMainDevice().logicalDevice, vkHandle, nullptr);
 		this->vkHandle = VK_NULL_HANDLE;
 	}
 }

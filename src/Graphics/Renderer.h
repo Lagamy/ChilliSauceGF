@@ -19,7 +19,6 @@
 namespace Graphics 
 {
 struct Renderer {
-	Renderer(){};
 	Instance instance; // Connects this programm and the Vulkan library and encapsulates all Vulkan actions in that instance/app. (So different programs using Vulkan aren’t fighting)
 	Device mainDevice;
 	Surface surface;

@@ -1,16 +1,24 @@
 #include "Core.h"
+#include "Globals.h"
+#include <GLFW/glfw3.h>
 
 void Core::setup()
 {
-	Demo::renderer.setup(); // Sets up instance, chooses device, created swapchain.  	
+	this->buildWindow();
+	Globals::renderer.setup(); // Sets up instance, chooses device, created swapchain.  	
 }
 
 
 void Core::run()
 {
-	Demo::renderer.run(); 
+	Globals::renderer.draw(); 
 }
 
+void Core::shutdown()
+{
+	Globals::renderer.shutdown();
+	glfwDestroyWindow(Globals::appWindow);
+}
 
 void Core::buildWindow() {
 
@@ -28,7 +36,7 @@ void Core::buildWindow() {
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); 
 
 	// Create window 
-	App::appWindow = glfwCreateWindow(App::windowWidth, App::windowHeight, App::processName.c_str(), nullptr, nullptr);
+	Globals::appWindow = glfwCreateWindow(Globals::windowWidth, Globals::windowHeight, Globals::processName.c_str(), nullptr, nullptr);
 	
 	glfwPollEvents();
 };

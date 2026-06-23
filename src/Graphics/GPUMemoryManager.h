@@ -43,7 +43,7 @@ struct GPUMemoryManager {
 	void addUpdate(PoolId entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload
 
 	// For device local uploads
-	void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_);
+	// void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_);
 	void submitStaticUploadCmds(); 
 	void submitUpdateCmdsIfNeeded();
 

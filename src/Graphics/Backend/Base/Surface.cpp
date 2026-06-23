@@ -7,7 +7,7 @@ namespace Graphics
 {
 void Surface::create() {
 	// Creating surface createInfo struct, using built in GLFW function and runs vulkan create surface function)
-	VkResult result = glfwCreateWindowSurface(getInstance().get(), App::appWindow, nullptr, &this->vkHandle);
+	VkResult result = glfwCreateWindowSurface(getInstance().get(), getWindowPointer(), nullptr, &this->vkHandle);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to crearte a surface!");

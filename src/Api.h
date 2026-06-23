@@ -2,6 +2,7 @@
 #include "PoolId.h"
 #include "Utilities.h"
 #include "Globals.h"
+#include "GLFW/glfw3.h"
 #include <vulkan/vulkan.h>
 
 
@@ -10,6 +11,7 @@ namespace Graphics
 {
 	/* Main API*/
 	// Get 
+	GLFWwindow* getWindowPointer(); 
 	Instance& getInstance();
 	Device& getMainDevice(); 
 	Surface& getSurface();
@@ -30,8 +32,8 @@ namespace Graphics
 	GraphicsPipeline& getGraphicsPipeline(); 
 	RenderPass& getRenderPass();
 	
-	
-	
+
+
 	// Record 
 	void recordOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_);
 	void recordCurrentFrameCmdPools(); 

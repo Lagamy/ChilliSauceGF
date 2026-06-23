@@ -5,6 +5,11 @@
 namespace Graphics
 {
 	// Get 
+	GLFWwindow* getWindowPointer()
+	{
+		return Globals::appWindow; 
+	}
+
 	Instance& getInstance()
 	{
 		return Globals::renderer.instance; 
@@ -58,18 +63,19 @@ namespace Graphics
 
 	const UploadEntry& getUploadEntry(uint32_t id_, AllocatorTypeEnum allocatorType_, UploadTypeEnum uploadType_)
 	{
-		if(allocatorType_ == STATIC)
-		{
+		//if(allocatorType_ == STATIC)
+		//{
 			return Globals::renderer.gpuMemoryManager.staticAllocator.getUploadEntry(id_, uploadType_);
-		}
+		//}
+
 	}
 	
 	Buffer& getUploadHeapBuffer(AllocatorTypeEnum allocatorType_, UploadTypeEnum uploadType_)
 	{
-		if(allocatorType_ == STATIC)
-		{
+		//if(allocatorType_ == STATIC)
+		//{
 			return Globals::renderer.gpuMemoryManager.staticAllocator.getBuffer(uploadType_);
-		}
+		//}
 	}
 
 	uint32_t& getCurrentImageIndex()
@@ -131,32 +137,31 @@ namespace Graphics
 	{
 		for(auto& rFrameCmdPool : Globals::renderer.framesResources[Globals::renderer.currentFrame].frameCmdPools.pools)
 		{
-			Fence& rCurrentFrameFinishFence = Globals::renderer.syncManager.getFence(Globals::renderer.framesResources[Globals::renderer.currentFrame].frameFinishedFenceId);
-			rFrameCmdPool.resetCmdPool(rCurrentFrameFinishFence);
+			rFrameCmdPool.resetCmdPool();
 		}
 	}
 
 	// Add
 	PoolId addSemaphore(const char* name_)
 	{
-		Globals::renderer.syncManager.addSemaphore(name_);
+		return Globals::renderer.syncManager.addSemaphore(name_);
 	}
 		
 	PoolId addFence(const char* name_, VkFenceCreateFlags flags_)
 	{
-		Globals::renderer.syncManager.addFence(name_, flags_);
+		return Globals::renderer.syncManager.addFence(name_, flags_);
 	}
 
 	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)
 	{
-		Globals::renderer.demoManager.addCmdBufferBlueprint(poolType_, queueFamilyEnum_, commandsToRecord_);
+		return Globals::renderer.demoManager.addCmdBufferBlueprint(poolType_, queueFamilyEnum_, commandsToRecord_);
 	}
 
 	uint32_t addUpload(const char* name_, AllocatorTypeEnum allocatorType_, const void* data_, VkDeviceSize size_, UploadTypeEnum uploadType_)
 	{
-		if(allocatorType_ == STATIC)
-		{
-			Globals::renderer.gpuMemoryManager.staticAllocator.addUpload(name_, data_, size_, uploadType_);
-		}
+		// if(allocatorType_ == STATIC)
+		// {
+		return Globals::renderer.gpuMemoryManager.staticAllocator.addUpload(name_, data_, size_, uploadType_);
+		// }
 	}
 }

@@ -20,7 +20,7 @@ set(GLFW_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third-party/GLFW")
 
 add_library(glfw3 STATIC IMPORTED)
 set_target_properties(glfw3 PROPERTIES
-    IMPORTED_LOCATION "${GLFW_DIR}/lib/glfw3.lib"
+    IMPORTED_LOCATION "${GLFW_DIR}/lib/libglfw3.a"
     INTERFACE_INCLUDE_DIRECTORIES "${GLFW_DIR}/include"
 )
 
@@ -41,24 +41,25 @@ add_executable(PBRVulkanDemo
 
 	# Managers
 	# "src/Core/Managers/AssetsManager.cpp"
-	"src/Core/Managers/InputManager.cpp" 
+	# "src/Core/Managers/InputManager.cpp" 
 
 	# Graphics
+	"src/Graphics/FrameResources.cpp"
 	"src/Graphics/Backend/Base/Device.cpp" "src/Graphics/Backend/Base/Instance.cpp" 
    	"src/Graphics/Backend/Base/Swapchain.cpp" "src/Graphics/Renderer.cpp"	
-	"src/Graphics/Backend/Base/Surface.cpp" "src/Graphics/Backend/Image/Image.cpp"  
+	"src/Graphics/Backend/Base/Surface.cpp" "src/Graphics/Backend/Image/Image.cpp"
+	"src/Graphics/Backend/Image/ImageView.cpp" "src/Graphics/Backend/Base/Shader.cpp"
 	"src/Graphics/Backend/Base/MemoryBlock.cpp" "src/Graphics/Backend/Base/Buffer.cpp" 
 	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/Backend/Base/Framebuffer.cpp"
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
 	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" 
-	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.h" "src/Graphics/DemoManager.cpp" 
-	"src/Graphics/Backend/Image/ImageView.cpp" "src/Graphics/Backend/Base/Shader.cpp" 
+	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.cpp" "src/Graphics/DemoManager.cpp" 
 	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" 
-	"src/Graphics/Backend/MemoryManagment/GPUHeap.cpp"
+	"src/Graphics/Backend/MemoryManagment/GPUHeap.cpp" "src/Graphics/SyncManager.cpp"
 	"src/Graphics/Backend/MemoryManagment/GPUMemoryEntry.cpp" "src/Graphics/Backend/MemoryManagment/StaticAllocator.cpp"
-	"src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/Image/Sampler.cpp" 
+	"src/Graphics/FrameResources.cpp" "src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
 
 	#Demos
 	"src/Demos/Triangle.cpp"
@@ -118,11 +119,11 @@ set_target_properties(PBRVulkanDemo PROPERTIES
 )
 
 # Create a folder with Media
-add_custom_command(TARGET PBRVulkanDemo POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-  "${CMAKE_SOURCE_DIR}/Assets"
-  "${RUNTIME_OUTPUT_DIRECTORY}/Assets"
-)
+# add_custom_command(TARGET PBRVulkanDemo POST_BUILD
+  # COMMAND ${CMAKE_COMMAND} -E copy_directory
+  # "${CMAKE_SOURCE_DIR}/Assets"
+  # "${RUNTIME_OUTPUT_DIRECTORY}/Assets"
+# )
 
 target_compile_definitions(PBRVulkanDemo PRIVATE
 	$<$<CONFIG:Debug>:DEMO_DEBUG>
