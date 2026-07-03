@@ -12,5 +12,24 @@ struct Semaphore {
     VkSemaphore& get();
 	Semaphore();
     ~Semaphore();
+    Semaphore(const Semaphore&) = delete;
+    Semaphore& operator=(const Semaphore&) = delete;
+
+    Semaphore(Semaphore&& other_) noexcept
+    {
+        this->vkHandle = other_.vkHandle;
+        other_.vkHandle = VK_NULL_HANDLE;
+    }
+    
+    Semaphore& operator=(Semaphore&& other_) noexcept
+    {
+        if (this != &other_)
+        {
+            destroy();
+            vkHandle = other_.vkHandle;
+            other_.vkHandle = VK_NULL_HANDLE;
+        }
+        return *this;
+    };
 };
 }

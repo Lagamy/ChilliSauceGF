@@ -1,5 +1,6 @@
 #include "Api.h"
 #include "Globals.h"
+#include "UploadId.h"
 #include "Utilities.h"
 
 namespace Graphics
@@ -30,6 +31,11 @@ namespace Graphics
 		return Globals::renderer.swapchain; 
 	}
 	
+	DemoManager& getDemoManager()
+	{
+		return Globals::renderer.demoManager;
+	}
+
 	GPUMemoryManager& getGPUMemoryManager()
 	{
 		return Globals::renderer.gpuMemoryManager; 
@@ -61,11 +67,11 @@ namespace Graphics
 		return Globals::renderer.syncManager.getFence(fenceId_);
 	}
 
-	const UploadEntry& getUploadEntry(uint32_t id_, AllocatorTypeEnum allocatorType_, UploadTypeEnum uploadType_)
+	const UploadEntry& getUploadEntry(UploadId id_)
 	{
-		//if(allocatorType_ == STATIC)
+		//if(id_allocatorType == STATIC)
 		//{
-			return Globals::renderer.gpuMemoryManager.staticAllocator.getUploadEntry(id_, uploadType_);
+			return Globals::renderer.gpuMemoryManager.staticAllocator.getUploadEntry(id_);
 		//}
 
 	}
@@ -157,7 +163,7 @@ namespace Graphics
 		return Globals::renderer.demoManager.addCmdBufferBlueprint(poolType_, queueFamilyEnum_, commandsToRecord_);
 	}
 
-	uint32_t addUpload(const char* name_, AllocatorTypeEnum allocatorType_, const void* data_, VkDeviceSize size_, UploadTypeEnum uploadType_)
+	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, UploadTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
 	{
 		// if(allocatorType_ == STATIC)
 		// {

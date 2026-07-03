@@ -10,8 +10,15 @@
 #include <sstream>
 #include <iomanip>
 #include <concepts>
+#ifdef _WIN32
+    #include <windows.h>
+#else
+    #include <unistd.h>
+    #include <limits.h>
+#endif
 
 //#include "DescriptorSetLayout.h"
+const uint32_t uninitializedId = std::numeric_limits<uint32_t>::max();
 namespace Graphics
 {
 	enum QueueFamilyEnum : uint8_t
@@ -48,15 +55,6 @@ namespace Graphics
 		// TEXTURE = 4
 	};
 
-	struct UploadEntry 
-	{ 
-		std::string name; 
-		const void* data; 
-		size_t heapStartingByte = 0; 
-		VkDeviceSize size; 
-		UploadEntry(const char* name_, const void* data_, VkDeviceSize size_, size_t currentBuffSize_); 
-	};
-
 
 	/* Helper structs */
 
@@ -90,7 +88,7 @@ namespace Graphics
 	/* Helper methods */
 	// Device suitable params functions 
 	// indicies (locations) of Queue Families (if they exist at all);
-	struct QueueFamilyIndicies {
+	struct QueueFamilyIndices {
 		int32_t graphicsFamily = -1;	 // Location of Graphics Queue Family(includes Transfer capabilities by Vulkan Standard)
 		int32_t presentationFamily = -1; // Location of Presentation Queue Family(not a real Queue Family, more of "Queue that supports Presentation")
 		int32_t transferFamily = -1;
@@ -101,7 +99,7 @@ namespace Graphics
 		}
 		// Todo: if there are no Transfer or Compute queues - assign their indices to available Graphics queue, so further code works anyways, just on one queue. 
 	};
-	QueueFamilyIndicies getQueueFamilies(VkPhysicalDevice device_);
+	QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device_);
 	SwapchainDetails getSwapchainDetails(VkPhysicalDevice device_);
 
 	// Swapchain suitable params functions 
@@ -112,7 +110,7 @@ namespace Graphics
 	// Utills 
 	// Write Descriptor Set Data(By binding it to a Buffer with that data).
 	void writeBufferDescriptorSet(VkDescriptorSet& rSet, VkBuffer& rBuffer, VkDeviceSize _dataSize, uint32_t _binding, VkDescriptorType _descriptorType, uint32_t _arrayElement);
-	
+	VkDeviceSize alignUp(VkDeviceSize value, VkDeviceSize alignment); // Adds missing bytes starting bytes, and end bytes
 
 	inline std::vector<const char*> requiredDeviceExtensions = { // If you choose Ray tracing to be enabled -> this would change
             VK_KHR_SWAPCHAIN_EXTENSION_NAME	
@@ -194,7 +192,9 @@ namespace Graphics
 
 namespace Disk
 {
+	std::string findExecutablePath(); 
 	std::vector<char> readFile(const std::string& rFilename_);
+    inline std::string executablePath = Disk::findExecutablePath();
 }
 
 

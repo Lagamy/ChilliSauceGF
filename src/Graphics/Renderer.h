@@ -16,10 +16,11 @@
 #include <cstdint>
 #include <vector>
 
+
 namespace Graphics 
 {
 struct Renderer {
-	Instance instance; // Connects this programm and the Vulkan library and encapsulates all Vulkan actions in that instance/app. (So different programs using Vulkan aren’t fighting)
+	Instance instance; // Connects this programm and the Vulkan library and encapsulates all Vulkan actions in that instance/app. (So different programs using Vulkan arenï¿½t fighting)
 	Device mainDevice;
 	Surface surface;
 	Swapchain swapchain;

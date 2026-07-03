@@ -3,13 +3,15 @@
 #include "Pool.h"
 #include "Semaphore.h"
 #include <vulkan/vulkan_core.h>
+#include <iostream>
+#include <filesystem>
 
 /* Device filters */
 	namespace Graphics
 	{
-		QueueFamilyIndicies getQueueFamilies(VkPhysicalDevice device_)
+		QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device_)
 		{
-			QueueFamilyIndicies indicies;
+			QueueFamilyIndices indicies;
 
 			// Get all Queue Family Property's info for given device
 			uint32_t queueFamiliesCount = 0;
@@ -121,27 +123,21 @@
 
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& rSurfaceCapabilities)
 		{
-			// If extent is at numeric limit - it can vary. Otherwise it just the size of the window. 
-			if (rSurfaceCapabilities.currentExtent.width == std::numeric_limits<uint32_t>::max())
-			{
-				return rSurfaceCapabilities.currentExtent;
-			}
-			else
-			{
-				// If value can vary - we need to set it manually 
-				int width, height;
-				glfwGetFramebufferSize(Globals::appWindow, &width, &height); // Get inner window size   
 
-				VkExtent2D newExtent = {};
-				newExtent.width = static_cast<uint32_t>(width);
-				newExtent.height = static_cast<uint32_t>(height);
+			// If value can vary - we need to set it manually 
+			int width, height;
+			glfwGetFramebufferSize(Globals::appWindow, &width, &height); // Get inner window size   
+			//printf("width: %i, height: %i", width, height);
 
-				// Surface also defines max and min, so im clamping it to make sure - its within the boundaries 
-				newExtent.width = std::max(rSurfaceCapabilities.minImageExtent.width, std::min(rSurfaceCapabilities.maxImageExtent.width, newExtent.width));
-				newExtent.height = std::max(rSurfaceCapabilities.minImageExtent.height, std::min(rSurfaceCapabilities.maxImageExtent.height, newExtent.height));
+			VkExtent2D newExtent = {};
+			newExtent.width = static_cast<uint32_t>(width);
+			newExtent.height = static_cast<uint32_t>(height);
 
-				return newExtent;
-			}
+			// Surface also defines max and min, so im clamping it to make sure - its within the boundaries 
+			newExtent.width = std::max(rSurfaceCapabilities.minImageExtent.width, std::min(rSurfaceCapabilities.maxImageExtent.width, newExtent.width));
+			newExtent.height = std::max(rSurfaceCapabilities.minImageExtent.height, std::min(rSurfaceCapabilities.maxImageExtent.height, newExtent.height));
+
+			return newExtent;
 		}
 
 		// Utills
@@ -165,15 +161,49 @@
 			// // Update Descriptor Set with new Binding info. (Improve later on) 
 			// vkUpdateDescriptorSets(Engine::renderer.mainDevice.logicalDevice, 1, &setWrite, 0, nullptr);
 		// }
+
+		VkDeviceSize alignUp(VkDeviceSize value, VkDeviceSize alignment)
+		{
+    		return ((value + alignment - 1) / alignment) * alignment;
+		}
 	
 	}
 
 	namespace Disk
 	{
+
+		std::string findExecutablePath()
+		{
+		    std::string fullPath;
+		
+			#ifdef _WIN32
+		    	char buffer[MAX_PATH];
+		    	DWORD length = GetModuleFileNameA(NULL, buffer, MAX_PATH);
+		
+		    	if (length == 0)
+		        	throw std::runtime_error("Failed to get executable path (Windows)");
+		
+		    	fullPath = std::string(buffer, length);
+		
+			#else
+		    	char buffer[PATH_MAX];
+		    	ssize_t length = readlink("/proc/self/exe", buffer, PATH_MAX);
+		
+		    	if (length == -1)
+		        	throw std::runtime_error("Failed to get executable path (Linux)");
+		
+		    	fullPath = std::string(buffer, length);
+			#endif
+		
+			return std::filesystem::path(fullPath)
+		        .parent_path()
+		        .string();
+		}
+
 		std::vector<char> readFile(const std::string& rFilename) {
 			// Open stream from given file 
+			//std::cout << "CWD: " << std::filesystem::current_path() << std::endl;
 			std::ifstream file(rFilename, std::ios::binary | std::ios::ate); // ate - move char pointer at end of the file(to identify file size via positions of char at the end). So it starts reading file from end 
-
 			// Check if file stream has successfully opened
 			if (!file.is_open())
 			{

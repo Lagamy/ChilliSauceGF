@@ -29,28 +29,36 @@ struct Pool {
 	std::string name;
 
 	Pool(){};
-	PoolId add(const T& object_, const char* name_) { 
-		PoolId pId;
-		if(this->freeSlots.empty())
-		{
-			pId.id = this->objects.size(); 
-			this->objects.emplace_back(object_); 
-			this->alive.emplace_back(true);
-			this->names.emplace_back(name_); 
-			pId.generation = 1; 
-			this->generation.emplace_back(pId.generation);
-		}
-		else 
-		{
-			pId.id = this->freeSlots.back(); 
-			this->objects[pId.id] = object_;
-			this->alive[pId.id] = true; 
-			pId.generation = this->generation[pId.id];
-			freeSlots.pop_back();	
-		}
-		this->nameToId.emplace(name_, pId); 
-		return pId; 
-	}
+	template <typename... Args>
+    PoolId add(const char* name_, Args&&... args)
+    {
+        PoolId id;
+
+        if (freeSlots.empty())
+        {
+            id.id = static_cast<uint32_t>(objects.size());
+            id.generation = 1;
+
+            objects.emplace_back(std::forward<Args>(args)...);
+            alive.emplace_back(true);
+            generation.emplace_back(id.generation);
+            names.emplace_back(name_);
+        }
+        else
+        {
+            id.id = freeSlots.back();
+            freeSlots.pop_back();
+
+            // reconstruct in-place
+            objects[id.id] = T(std::forward<Args>(args)...);
+            alive[id.id] = true;
+
+            id.generation = generation[id.id];
+        }
+
+        nameToId[name_] = id;
+        return id;
+    }
 
 	void remove(PoolId pId_) {
 		if(pId_.id > this->objects.size() || this->alive[pId_.id] == false || this->generation[pId_.id] > pId_.generation)

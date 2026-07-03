@@ -50,10 +50,10 @@ void Swapchain::create() {
 	swapchainCreateInfo.clipped = VK_TRUE;														// Don't draw part of image, that is not in view(e.g behind another window) 
 
 	// Graphics queue will draw to those images, and Presentation Queue will Present them using Swapchain. 
-	QueueFamilyIndicies indicies = getQueueFamilies(getMainDevice().physicalDevice);
+	QueueFamilyIndices indices = getQueueFamilies(getMainDevice().physicalDevice);
 	// If Graphics and Presentation queue is same - we dont need to share image with other queues. 
 	// Otherwise - it needs to be shared between 2 queues (Slower) 
-	if (indicies.graphicsFamily == indicies.presentationFamily)
+	if (indices.graphicsFamily == indices.presentationFamily)
 	{
 		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		// 0 and nulltr, since we are not sharing this image with any other queue
@@ -62,13 +62,15 @@ void Swapchain::create() {
 	}
 	else
 	{
-		uint32_t queueFamilyIndicies[] = {
-			static_cast<uint32_t>(indicies.graphicsFamily),
-			static_cast<uint32_t>(indicies.presentationFamily)
+		uint32_t queueFamilyIndices[] = {
+			static_cast<uint32_t>(indices.graphicsFamily),
+			static_cast<uint32_t>(indices.presentationFamily),
+			static_cast<uint32_t>(indices.transferFamily),
+			static_cast<uint32_t>(indices.computeFamily)
 		};
 		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		swapchainCreateInfo.queueFamilyIndexCount = 2;
-		swapchainCreateInfo.pQueueFamilyIndices = queueFamilyIndicies;
+		swapchainCreateInfo.pQueueFamilyIndices = queueFamilyIndices;
 	}
 	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE; // Pass responsability and all data from old Swapchain before destruction to this one.(Usefull when resizing the window) 
 

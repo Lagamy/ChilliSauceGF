@@ -7,9 +7,13 @@ namespace Graphics
 {
 struct Shader {
 	VkShaderModule vkHandle;
-	VkShaderModule get() const; 
+	std::string path; 
 
-	Shader(const std::string& shaderPath);
+	VkShaderModule get() const; 
+	void create(); 
+	void destroy();
+
+	Shader(const std::string shaderPath_);
 	~Shader();
 };
 }

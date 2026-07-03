@@ -1,7 +1,7 @@
 // Represents resources that are in GPU currently
 #pragma once 
 #include "CommandBufferBlueprint.h"
-#include "GPUMemoryEntry.h"
+#include "StagingHeap.h"
 #include "MemoryBlock.h"
 #include "Pool.h"
 #include "SyncManager.h"

@@ -14,25 +14,29 @@ SubPass::SubPass(VkSubpassDescription& rDescription_, VkSubpassDependency& rLayo
 	{
 		this->colorAttachmentsRefs[i] = {};
 		this->colorAttachmentsRefs[i].attachment = subpassDescriptionInfo_.pRenderPass->getColorAttachmentIdFromFinal(subpassDescriptionInfo_.colorAttachmentsToUseIds[i]);
-		this->colorAttachmentsRefs[i].layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+		this->colorAttachmentsRefs[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	}
 
-	this->depthStencilAttachmentRef = {};
-	this->depthStencilAttachmentRef.attachment = subpassDescriptionInfo_.pRenderPass->getDepthStencilAttachmentIdFromFinal(subpassDescriptionInfo_.depthStencilAttachmentToUseId);
-	this->depthStencilAttachmentRef.layout = static_cast<VkImageLayout>(subpassDescriptionInfo_.depthStencilAccessType);
+	
 
 	for (size_t i = 0; i < subpassDescriptionInfo_.resolveAttachmentsToUseIds.size(); i++)
 	{
 		this->resolveAttachmentsRefs[i] = {};
-		this->resolveAttachmentsRefs[i].attachment = subpassDescriptionInfo_.pRenderPass->getColorAttachmentIdFromFinal(subpassDescriptionInfo_.resolveAttachmentsToUseIds[i]);
-		this->resolveAttachmentsRefs[i].layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+		this->resolveAttachmentsRefs[i].attachment = subpassDescriptionInfo_.pRenderPass->getResolveAttachmentIdFromFinal(subpassDescriptionInfo_.resolveAttachmentsToUseIds[i]);
+		this->resolveAttachmentsRefs[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	}
 
 	this->rDescription = {};
 	this->rDescription.pipelineBindPoint = subpassDescriptionInfo_.pipelineBindPoint;	// Pipeline type subpass is about to be bound to. 
 	this->rDescription.pColorAttachments = this->colorAttachmentsRefs.data();	// Provide attachment references list
 	this->rDescription.colorAttachmentCount = this->colorAttachmentsRefs.size();
-	this->rDescription.pDepthStencilAttachment = &this->depthStencilAttachmentRef;  // Vulkan does not support writing to multiple depth/stencil attachments simultaneously. So only 1 depth/stencil allowed
+	if(subpassDescriptionInfo_.depthStencilAttachmentToUseId != uninitializedId)
+	{
+		this->depthStencilAttachmentRef = {};
+		this->depthStencilAttachmentRef.attachment = subpassDescriptionInfo_.pRenderPass->getDepthStencilAttachmentIdFromFinal(subpassDescriptionInfo_.depthStencilAttachmentToUseId);
+		this->depthStencilAttachmentRef.layout = static_cast<VkImageLayout>(subpassDescriptionInfo_.depthStencilAccessType);
+		this->rDescription.pDepthStencilAttachment = &this->depthStencilAttachmentRef;  // Vulkan does not support writing to multiple depth/stencil attachments simultaneously. So only 1 depth/stencil allowed
+	}
 	this->rDescription.pResolveAttachments = this->resolveAttachmentsRefs.data();  // Resolve attachments are strictly 1:1 paired with color attachments
 	this->rDescription.pInputAttachments = subpassDescriptionInfo_.pInputAttachmentsRefs;
 	this->rDescription.inputAttachmentCount = subpassDescriptionInfo_.inputAttachmentsRefcount;

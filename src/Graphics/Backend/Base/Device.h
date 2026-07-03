@@ -13,7 +13,7 @@ namespace Graphics
 	struct Device {
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 		VkDevice logicalDevice = VK_NULL_HANDLE;
-		QueueFamilyIndicies queueFamilyIndicies;
+		QueueFamilyIndices queueFamilyIndices;
 		Queues queues = {};
 	
 		void setup();
@@ -22,7 +22,7 @@ namespace Graphics
 		void createLogicalDevice();
 		bool checkDeviceSuitable(VkPhysicalDevice device_);
 		bool checkDeviceExtensionsSupport(VkPhysicalDevice device_); // Just Swapchain for now.  
-		QueueFamilyIndicies getQueueFamilies(VkPhysicalDevice& rDevice_);
+		QueueFamilyIndices getQueueFamilies(VkPhysicalDevice& rDevice_);
 	
 	};
 };

@@ -3,16 +3,18 @@
 
 namespace Graphics
 {
-uint32_t StaticAllocator::addUpload(const char* name_, const void* data_, VkDeviceSize size_, UploadTypeEnum uploadType_) 
+UploadId StaticAllocator::addUpload(const char* name_, const void* data_, VkDeviceSize size_, UploadTypeEnum uploadType_) 
 {
+
 	this->uploadEntriesGroups[uploadType_].emplace_back(name_, data_, size_, this->gpuHeap.bufferSizes[uploadType_]);
 	this->gpuHeap.bufferSizes[uploadType_] += size_; 
-	return this->uploadEntriesGroups.size();
+	this->stagingHeap.size += size_; 
+	return {STATIC, uploadType_, this->uploadEntriesGroups[uploadType_].size() - 1};
 }
 
-const UploadEntry& StaticAllocator::getUploadEntry(uint32_t id_, UploadTypeEnum uploadType_) 
+const UploadEntry& StaticAllocator::getUploadEntry(UploadId id_) 
 {
-	return this->uploadEntriesGroups[uploadType_][id_];
+	return this->uploadEntriesGroups[id_.uploadType][id_.id];
 }
 
 MemoryBlock& StaticAllocator::getMemoryBlock()
@@ -65,7 +67,7 @@ void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 
 void StaticAllocator::allocate()
 {
-	this->stagingHeap.create("Static Staging Heap", this->gpuHeap.size, BYTE, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, true);
+	this->stagingHeap.create("Static Staging Heap", VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE);
 	this->gpuHeap.create();
 	this->allocated = true; 
 }

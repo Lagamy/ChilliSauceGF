@@ -12,9 +12,9 @@ void FrameCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum queue
 
 	switch(this->queueFamilyEnum)
 	{
-		case GRAPHICS: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndicies.graphicsFamily; break; 
-		case COMPUTE: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndicies.computeFamily; break; 
-		case TRANSFER: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndicies.transferFamily; break; 
+		case GRAPHICS: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.graphicsFamily; break; 
+		case COMPUTE: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.computeFamily; break; 
+		case TRANSFER: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.transferFamily; break; 
 	}
 
     VkResult result = vkCreateCommandPool(getMainDevice().logicalDevice, &poolCreateInfo, nullptr, &this->vkHandle);
@@ -44,9 +44,9 @@ void FrameCommandPool::allocateCmdBuffersFromBlueprints()
     if (rBlueprints.size() != 0)
     {
         std::vector<VkCommandBuffer> commandBufferHandles;
- 		this->commandBuffers.buffers.reserve(rBlueprints.size());
-        this->commandBuffers.commandsToRecord.reserve(rBlueprints.size());
-        
+ 		this->commandBuffers.buffers.resize(rBlueprints.size());
+        this->commandBuffers.commandsToRecord.resize(rBlueprints.size());
+        commandBufferHandles.resize(rBlueprints.size());
 
         VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
         commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -63,8 +63,8 @@ void FrameCommandPool::allocateCmdBuffersFromBlueprints()
         // Initialize our array with CommandBuffer objects
         for (size_t i = 0; i < commandBufferHandles.size(); i++)
         {
-             this->commandBuffers.buffers.emplace_back(commandBufferHandles[i]);
-			this->commandBuffers.commandsToRecord.emplace_back(rBlueprints[i].commandsToRecord); 
+            this->commandBuffers.buffers[i] = commandBufferHandles[i];
+			this->commandBuffers.commandsToRecord[i] = rBlueprints[i].commandsToRecord; 
         }
     }
 }

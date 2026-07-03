@@ -6,10 +6,23 @@
 
 namespace Graphics
 {
+	Triangle::Triangle()
+	{
+		getDemoManager().loadDemo = [this]() { this->load(); }; 
+		getDemoManager().submitToGPU = [this]() { this->submit(); }; 
+	}
+
+	Triangle::~Triangle()
+	{
+		this->vertexShader.destroy();
+		this->fragmentShader.destroy();
+	}
+
 	void Triangle::load()
 	{
-		Shader vertexShader = Shader("Assets/shaders/triangle/vert.spv");
-		Shader fragmentShader = Shader("Assets/shaders/triangle/frag.spv");
+		//std::cout << "path: " << std::string(Disk::getExecutablePath() + "/Assets/shaders/triangle/vert.spv") << std::endl;
+		this->vertexShader.create(); 
+		this->fragmentShader.create(); 
 		RenderPass& rRenderPass = getRenderPass();
 		GraphicsPipeline& rGraphicsPipeline = getGraphicsPipeline();
 	
@@ -26,10 +39,10 @@ namespace Graphics
 		/**************/
 
 		/* Upload Mesh */
-		mesh.vbMemoryId = addUpload("Triangle Vertices", STATIC, mesh.vertices.data(), sizeof(Vertex) * mesh.vertices.size(), VERTEX); 
+		mesh.vbMemoryId = addUpload("Triangle Vertices", STATIC, VERTEX, mesh.vertices.data(), sizeof(Vertex) * mesh.vertices.size()); 
 		
 		// Create Index Buffer and fill it with data.
-		mesh.ibMemoryId = addUpload("Triangle Indices", STATIC, mesh.indices.data(), sizeof(uint32_t) * mesh.indices.size(), INDEX); 
+		mesh.ibMemoryId = addUpload("Triangle Indices", STATIC, INDEX, mesh.indices.data(), sizeof(uint32_t) * mesh.indices.size()); 
 		/**************/
 	
 		/* Configure RenderPass*/
@@ -83,13 +96,13 @@ namespace Graphics
 		vkCmdBindPipeline(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, getGraphicsPipeline().get());
 		
 		// Bind vertex buffer 
-		const UploadEntry& vertexUpload = getUploadEntry(this->mesh.vbMemoryId, STATIC, VERTEX); 
+		const UploadEntry& vertexUpload = getUploadEntry(this->mesh.vbMemoryId); 
 		VkBuffer vertexBuffers[] = { getUploadHeapBuffer(STATIC, VERTEX).get() };
 		VkDeviceSize vOffsets[] = { vertexUpload.heapStartingByte }; 
 		vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
 
 		// Bind index buffer 
-		const UploadEntry& indexUpload = getUploadEntry(this->mesh.ibMemoryId, STATIC, INDEX); 
+		const UploadEntry& indexUpload = getUploadEntry(this->mesh.ibMemoryId); 
 		vkCmdBindIndexBuffer(cmdBuffer_, getUploadHeapBuffer(STATIC, INDEX).get(), indexUpload.heapStartingByte, VK_INDEX_TYPE_UINT32);
 	
 		// Viewport and Scissor (for dynamic) 

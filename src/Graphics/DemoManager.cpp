@@ -1,25 +1,26 @@
 #include "DemoManager.h"
+#include "Utilities.h"
 
 namespace Graphics
 {
 uint32_t DemoManager::addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)
 {
-	if(poolType_ == FRAME)
+	if(poolType_ == ONESHOT)
 	{
 		switch (queueFamilyEnum_)
 		{
 			case GRAPHICS: this->oneShotCmdBufferBlueprints.graphics.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->oneShotCmdBufferBlueprints.graphics.size() - 1;
-			case TRANSFER: this->oneShotCmdBufferBlueprints.transfer.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->oneShotCmdBufferBlueprints.graphics.size() - 1;
-			default: this->oneShotCmdBufferBlueprints.compute.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->oneShotCmdBufferBlueprints.graphics.size() - 1;
+			case TRANSFER: this->oneShotCmdBufferBlueprints.transfer.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->oneShotCmdBufferBlueprints.transfer.size() - 1;
+			default: this->oneShotCmdBufferBlueprints.compute.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->oneShotCmdBufferBlueprints.compute.size() - 1;
 		}
 	}
 	else 
 	{
 		switch (queueFamilyEnum_)
 		{
-			case GRAPHICS: this->frameCmdBufferBlueprints.graphics.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->oneShotCmdBufferBlueprints.graphics.size() - 1;
-			case TRANSFER: this->frameCmdBufferBlueprints.transfer.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->oneShotCmdBufferBlueprints.graphics.size() - 1;
-			default: this->frameCmdBufferBlueprints.compute.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->oneShotCmdBufferBlueprints.graphics.size() - 1;
+			case GRAPHICS: this->frameCmdBufferBlueprints.graphics.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->frameCmdBufferBlueprints.graphics.size() - 1;
+			case TRANSFER: this->frameCmdBufferBlueprints.transfer.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->frameCmdBufferBlueprints.transfer.size() - 1;
+			default: this->frameCmdBufferBlueprints.compute.emplace_back(commandsToRecord_, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); return this->frameCmdBufferBlueprints.compute.size() - 1;
 		}
 	}
 }

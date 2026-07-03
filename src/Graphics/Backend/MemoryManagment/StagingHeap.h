@@ -6,18 +6,17 @@
 
 namespace Graphics
 {
-struct GPUMemoryEntry {
+struct StagingHeap {
 	Buffer buffer; 
 
 	MemoryBlock memoryBlock;
 	VkDeviceSize size; 
 	StorageUnitEnum unit;
 	void* pCpuSharedData; // Pointer to GPU buffered that was mapped to the CPU
-	bool cpuShared;
 	bool created;
 	
 	void destroy();
-	void create(const char* name_, VkDeviceSize size_, StorageUnitEnum unit_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, bool cpuVisible_); 
-	~GPUMemoryEntry();
+	void create(const char* name_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_); 
+	~StagingHeap();
 };
 }

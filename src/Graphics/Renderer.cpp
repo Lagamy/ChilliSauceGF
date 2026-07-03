@@ -3,7 +3,6 @@
 #include <limits>
 #include <vulkan/vulkan_core.h>
 
-
 namespace Graphics
 {
 
@@ -19,12 +18,12 @@ void Renderer::setup()
 
 	// Scene/Renderer setup 
 	this->demoManager.loadDemo();
-	
+	this->gpuMemoryManager.staticAllocator.allocate(); 
 
 	// Renderpass and Graphics pipeline are defined defined by Scene
 	this->renderpass.create();
 	this->swapchain.createFramebuffers(this->renderpass);
-	this->graphicsPipeline.create(this->renderpass, 1);
+	this->graphicsPipeline.create(this->renderpass, 0);
 
 	this->framesResources.resize(this->framesAtFlightCount);
 

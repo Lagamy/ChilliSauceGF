@@ -58,7 +58,7 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" 
 	"src/Graphics/Backend/MemoryManagment/GPUHeap.cpp" "src/Graphics/SyncManager.cpp"
-	"src/Graphics/Backend/MemoryManagment/GPUMemoryEntry.cpp" "src/Graphics/Backend/MemoryManagment/StaticAllocator.cpp"
+	"src/Graphics/Backend/MemoryManagment/StagingHeap.cpp" "src/Graphics/Backend/MemoryManagment/StaticAllocator.cpp"
 	"src/Graphics/FrameResources.cpp" "src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
 
 	#Demos

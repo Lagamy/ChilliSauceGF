@@ -1,5 +1,6 @@
 #include "Device.h"
 #include "Api.h"
+#include <vulkan/vulkan_core.h>
 
 namespace Graphics
 {
@@ -44,11 +45,11 @@ void Device::getPhysicalDevice() {
 
 void Device::createLogicalDevice() {
 	// Get queue family indices for the chosen Physical Device
-	QueueFamilyIndicies familyIndices = getQueueFamilies(this->physicalDevice);
+	this->queueFamilyIndices = getQueueFamilies(this->physicalDevice);
 
 	// Queues the logical device needs to create, and info to do so(Only 1 now, will add more later!)
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	std::set<int32_t> neededQueueIndexes = { familyIndices.graphicsFamily, familyIndices.presentationFamily }; // So if some family indices are pointing to the same Queue - We wouldn't create it multiple times.
+	std::set<int32_t> neededQueueIndexes = { this->queueFamilyIndices.graphicsFamily, this->queueFamilyIndices.presentationFamily }; // So if some family indices are pointing to the same Queue - We wouldn't create it multiple times.
 
 	for (int queueFamilyIndex : neededQueueIndexes)
 	{
@@ -88,8 +89,11 @@ void Device::createLogicalDevice() {
 	// Queues are created at the same time as the device..
 	// So we want handle to queues
 	// From our logical device, of given Queue Family, of given Queue Index(0, since we only got one), place reference in given VkQueue
-	vkGetDeviceQueue(this->logicalDevice, familyIndices.graphicsFamily, 0, &this->queues.graphicsQueue);
-	vkGetDeviceQueue(this->logicalDevice, familyIndices.presentationFamily, 0, &this->queues.presentQueue);
+	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.graphicsFamily, 0, &this->queues.graphicsQueue);
+	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.transferFamily, 0, &this->queues.transferQueue); // Maybe same as graphics queue(depends on device)
+	// vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.commandFamily, 0, &this->queues.commandQueue);
+	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.presentationFamily, 0, &this->queues.presentQueue);
+	
 }
 
 
@@ -104,7 +108,7 @@ bool Device::checkDeviceSuitable(VkPhysicalDevice device_) {
 	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 	*/
 
-	QueueFamilyIndicies indices = getQueueFamilies(device_);
+	QueueFamilyIndices indices = getQueueFamilies(device_);
 	bool extensionsSupported = checkDeviceExtensionsSupport(device_);
 	SwapchainDetails swapchainDetails = getSwapchainDetails(device_);
 	bool swapchainValid = !swapchainDetails.imageFormats.empty() && !swapchainDetails.presentationModes.empty(); // Is Swapchain with our params - possible to create on that device. 
@@ -142,9 +146,9 @@ bool Device::checkDeviceExtensionsSupport(VkPhysicalDevice _device) {
 	return true;
 }
 
-QueueFamilyIndicies Device::getQueueFamilies(VkPhysicalDevice & rDevice)
+QueueFamilyIndices Device::getQueueFamilies(VkPhysicalDevice & rDevice)
 {
-	QueueFamilyIndicies indicies;
+	QueueFamilyIndices indicies;
 
 	// Get all Queue Family Property's info for given device
 	uint32_t queueFamiliesCount = 0;

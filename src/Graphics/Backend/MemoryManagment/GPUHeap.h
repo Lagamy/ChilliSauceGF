@@ -10,9 +10,10 @@ namespace Graphics
 struct GPUHeap 
 {
 	MemoryBlock memory;
-	VkDeviceSize size; 
-	std::array<Buffer, 4> buffersPerType;
-	std::array<uint32_t, 5> bufferSizes; 
+	std::array<Buffer, 2> buffersPerType;
+	std::array<uint32_t, 2> bufferSizes;
+	std::array<uint32_t, 2> bufferOffsets;
+	VkDeviceSize size = 0;
 	std::vector<Image> images;
 
 	void create();

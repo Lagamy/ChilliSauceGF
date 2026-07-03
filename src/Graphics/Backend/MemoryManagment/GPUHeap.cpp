@@ -1,5 +1,7 @@
 #include "GPUHeap.h"
 #include "Api.h"
+#include "Utilities.h"
+#include <vulkan/vulkan_core.h>
 
 namespace Graphics
 {
@@ -17,14 +19,19 @@ void GPUHeap::create()
 	// vkGetBufferMemoryRequirements(Demo::renderer.mainDevice.logicalDevice, this->buffersPerType[VERTEX].get(), memReqs[UNIFORM]);
 	// vkGetBufferMemoryRequirements(Demo::renderer.mainDevice.logicalDevice, this->buffersPerType[VERTEX].get(), memReqs[STORAGE]);
 	
-	this->size = this->bufferSizes[VERTEX] + this->bufferSizes[INDEX] /* + this->bufferSizes[UNIFORM] + this->bufferSizes[STORAGE]*/; 
+	// this->size = this->bufferSizes[VERTEX] + this->bufferSizes[INDEX] /* + this->bufferSizes[UNIFORM] + this->bufferSizes[STORAGE]*/; 
+	this->size = 0;
+	for(uint8_t i = 0; i < this->buffersPerType.size(); i++)
+	{
+		this->bufferOffsets[i] = alignUp(this->size, memReqs[i].alignment);
+		this->size += this->bufferOffsets[i] + memReqs[i].size; 
+	}
+	 
 	this->memory.create(this->size, BYTE, memReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "GPU Heap");
 
-	size_t offset = 0; 
-	for(uint32_t i = 0; i < this->buffersPerType.size(); i++)
+	for(uint8_t i = 0; i < this->buffersPerType.size(); i++)
 	{
-		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffersPerType[i].get(), this->memory.get(), offset);
-		offset += this->bufferSizes[i];
+		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffersPerType[i].get(), this->memory.get(), this->bufferOffsets[i]);
 	}
 }
 

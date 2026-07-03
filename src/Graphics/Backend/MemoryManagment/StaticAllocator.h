@@ -1,8 +1,10 @@
 #pragma once
+#include "UploadEntry.h"
 #include "GPUHeap.h"
-#include "GPUMemoryEntry.h"
+#include "StagingHeap.h"
 #include "MemoryBlock.h"
 #include "Utilities.h"
+#include "UploadId.h"
 #include <stdexcept>
 
 namespace Graphics
@@ -12,7 +14,7 @@ namespace Graphics
 
 struct StaticAllocator { 
 	std::array<std::vector<UploadEntry>, 4> uploadEntriesGroups;
-	GPUMemoryEntry stagingHeap; 
+	StagingHeap stagingHeap; 
 	GPUHeap gpuHeap;
 	bool allocated = false; 
 
@@ -21,8 +23,8 @@ struct StaticAllocator {
 
 	MemoryBlock& getMemoryBlock(); 
 	Buffer& getBuffer(UploadTypeEnum uploadType_);
-	uint32_t addUpload(const char* name_, const void* data_, VkDeviceSize size_, UploadTypeEnum uploadType_);
-	const UploadEntry& getUploadEntry(uint32_t id_, UploadTypeEnum uploadType_);	
+	UploadId addUpload(const char* name_, const void* data_, VkDeviceSize size_, UploadTypeEnum uploadType_);
+	const UploadEntry& getUploadEntry(UploadId id_);	
 	void allocate(); // Run only when you added all UploadEntries for that scene/demo 
 	void deallocate();
 }; 
