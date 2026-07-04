@@ -55,8 +55,8 @@ void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 		// Region of data to copy from and to 
 		VkBufferCopy bufferCopyRegion = {};
 		bufferCopyRegion.srcOffset = offset;
-		offset += this->gpuHeap.bufferSizes[i];
-		bufferCopyRegion.dstOffset = offset - 1;
+		offset += this->gpuHeap.bufferSizes[i];		
+		bufferCopyRegion.dstOffset = 0; // its buffer local offset 
 		bufferCopyRegion.size = this->gpuHeap.bufferSizes[i];
 
 		// Command to copy from srcBuffer to dstBuffer

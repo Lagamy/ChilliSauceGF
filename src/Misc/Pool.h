@@ -39,24 +39,21 @@ struct Pool {
             id.id = static_cast<uint32_t>(objects.size());
             id.generation = 1;
 
-            objects.emplace_back(std::forward<Args>(args)...);
-            alive.emplace_back(true);
-            generation.emplace_back(id.generation);
-            names.emplace_back(name_);
+            this->objects.emplace_back(std::forward<Args>(args)...);
+            this->alive.emplace_back(true);
+            this->generation.emplace_back(id.generation);
         }
         else
         {
             id.id = freeSlots.back();
-            freeSlots.pop_back();
-
+            this->freeSlots.pop_back();
             // reconstruct in-place
-            objects[id.id] = T(std::forward<Args>(args)...);
-            alive[id.id] = true;
-
+            this->objects[id.id] = T(std::forward<Args>(args)...);
+            this->alive[id.id] = true;
             id.generation = generation[id.id];
+			names[id.id] = name_;
         }
-
-        nameToId[name_] = id;
+		nameToId.emplace(name_, id);
         return id;
     }
 

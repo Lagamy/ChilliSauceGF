@@ -13,7 +13,7 @@ namespace Graphics
 // Forward decloration 
 
 struct StaticAllocator { 
-	std::array<std::vector<UploadEntry>, 4> uploadEntriesGroups;
+	std::array<std::vector<UploadEntry>, 2> uploadEntriesGroups;
 	StagingHeap stagingHeap; 
 	GPUHeap gpuHeap;
 	bool allocated = false; 

@@ -65,7 +65,7 @@ uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReq
 
 		// bitshift 1 by i each iteration to go Type by Type through memoryProperties.memoryTypes, and check if it is equal to least 1 type of allowedTypes_ via logical "and"(&);
 		if ((allowedTypes & (1 << i)) // Index of memory type must match corresponding bit in allowedTypes 
-			&& (memoryProperties.memoryTypes[i].propertyFlags & properties_) != properties_) // filter out memoryTypes.propertyFlags to include only flags from properties_ if they exist in memoryTypes.propertyFlags, and check if all _property flags are there.  
+			&& (memoryProperties.memoryTypes[i].propertyFlags & properties_) == properties_) // filter out memoryTypes.propertyFlags to include only flags from properties_ if they exist in memoryTypes.propertyFlags, and check if all _property flags are there.  
 		{
 			// This memory type is valid, so retun its index 
 			return i;

@@ -17,6 +17,7 @@ namespace Graphics
 		{
 			throw std::runtime_error(std::format("Failed to create {} Buffer!", name_));
 		}
+		vkGetBufferMemoryRequirements(getMainDevice().logicalDevice, this->vkHandle, &memoryReqs); 
 	}
 
 	void Buffer::destroy()
