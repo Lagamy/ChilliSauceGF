@@ -19,6 +19,13 @@ RenderPass (defines *how* attachments are used)
 Framebuffer (binds *actual* images to those attachments)
 
 Basically what imageViews are bound together for this rendepass 
+
+Why its that way: 
+If Vulkan had to check:
+renderpass <-> imageviews compatibility every frame
+that would mean runtime graph validation inside the driver every draw call.
+
+Framebuffer moves that cost to Creation time
 */
 
 
@@ -26,14 +33,15 @@ Basically what imageViews are bound together for this rendepass
 
 #include <vector>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include "RenderPass.h"
 
 namespace Graphics
 {
 struct Framebuffer {
     VkFramebuffer vkHandle = VK_NULL_HANDLE;
-    std::vector<VkImageView> attachments; 
-    void create(uint32_t width_, uint32_t height_, uint32_t layers_, RenderPass& rRenderpass_);
+     
+    void create(uint32_t width_, uint32_t height_, uint32_t layers_, std::span<VkImageView> attachments_, RenderPass& rRenderpass_);
     void destroy();
 
     VkFramebuffer get() const;

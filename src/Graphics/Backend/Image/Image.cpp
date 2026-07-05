@@ -1,5 +1,6 @@
 #include "Image.h"
 #include "Api.h"
+#include <vulkan/vulkan_core.h>
 /*
 	createImage() does not allocate memory, and youll need vkAllocateMemory + vkBindImageMemory before using the image.
 */
@@ -98,33 +99,86 @@ void Image::setImage(VkImage& srcImage_)
 
 void Image::addView(const char* name_, VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageViewType dimensionType_, VkImageViewCreateFlags flags_)
 {
-	this->imageViews.emplace_back(name_, this->vkHandle, format_, aspectFlags_, dimensionType_, flags_); 
+	
+	VkImageViewCreateInfo metadata = {};
+	metadata.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	metadata.image = this->vkHandle;
+	metadata.viewType = dimensionType_; // Dimensions of image(1d for line, 2d for textures, 3d for voluometric, etc). How to interpret image memory. 
+
+	/*
+	VkImageView.format allows reinterpretation of the image's data in some cases.
+
+	Example cases :
+		SRGB vs UNORM:
+			Image stored as VK_FORMAT_R8G8B8A8_UNORM
+			I want a shader to read it as linear(no gamma correction): VK_FORMAT_R8G8B8A8_SRGB
+
+		Depth / stencil views:
+			Image is VK_FORMAT_D32_SFLOAT_S8_UINT
+			I want a depth - only view: VK_FORMAT_D32_SFLOAT
+			Or stencil - only view: VK_FORMAT_S8_UINT
+
+		Typeless or mutable formats:
+			Image created with VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT
+			You can make multiple views with compatible formats:
+				For example, a 32 - bit float image can be viewed as R32_SFLOAT or R32_UINT
+	*/
+	metadata.format = format_;
+	
+	/*	
+	Lets me enable special capabilities for the image view.
+	Example usage: 
+
+	VK_IMAGE_VIEW_CREATE_FRAGMENT_DENSITY_MAP_DYNAMIC_BIT_EXT:
+		For fragment density maps (used in VR / foveated rendering)
+		Allows the view to be updated dynamically
+
+	VK_IMAGE_VIEW_CREATE_FRAGMENT_DENSITY_MAP_DEFERRED_BIT_EXT:
+		Works with the dynamic flag to defer certain updates
+	*/
+
+	metadata.flags = flags_;
+	// Swiziling 
+	metadata.components.r = VK_COMPONENT_SWIZZLE_IDENTITY; // Allows remaping of rgba vars to other rgba values(make it so r = blue channel) 
+	metadata.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+	metadata.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+	metadata.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+	// Subresources allow the view to view only a part of an - image 
+	metadata.subresourceRange.aspectMask = aspectFlags_; // Which aspect of image to view (e.g. COLOR_BIT for viewing color, DEPTH_BIT for viewing depth, etc)
+	metadata.subresourceRange.baseMipLevel = 0; // Start mipmap level to view 
+	metadata.subresourceRange.levelCount = 1; // Only 1 level for now. (Till i implement linear filtering)
+	metadata.subresourceRange.baseArrayLayer = 0; // Start array level to view
+	metadata.subresourceRange.layerCount = 1; // Amount of layers image has. 
+	// Create image view and return it 
+	VkImageView imageView;
+	VkResult result = vkCreateImageView(getMainDevice().logicalDevice, &metadata, nullptr, &imageView);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create image view!");
+	}
+	this->viewHandles.emplace_back(imageView); 
+	this->viewMetadatas.emplace_back(metadata); 
+	this->viewNames.emplace_back(name_); 
 }
 
-VkImage Image::getImage() const
-{
-    return this->vkHandle; 
-}
 
 VkImageView Image::getImageView(size_t id_) const
 {
-	return this->imageViews[id_].vkHandle;
+	return this->viewHandles[id_];
 }
 
-VkImageCreateInfo Image::getImageMetadata() const
-{
-	return this->metadata; 
-}
-
-
-VkImageViewCreateInfo Image::getViewMetadata(size_t id_) const
+VkImage Image::get() const  
 { 
-	return this->imageViews[id_].metadata; 
+	return this->vkHandle; 
 }
-
 void Image::destroy()
 {
-	this->imageViews.clear(); 
+	for(int i = 0; i < this->viewHandles.size(); i++)
+	{
+		//this->imageViews.clear(); 
+		vkDestroyImageView(getMainDevice().logicalDevice, this->viewHandles[i], nullptr); 
+		this->viewHandles[i] = VK_NULL_HANDLE; 
+	}
 	vkDestroyImage(getMainDevice().logicalDevice, this->vkHandle, nullptr);
 	this->vkHandle = VK_NULL_HANDLE; 
 }

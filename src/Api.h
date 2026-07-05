@@ -34,7 +34,7 @@ namespace Graphics
 	GraphicsPipeline& getGraphicsPipeline(); 
 	RenderPass& getRenderPass();
 	
-
+	void setFramesAtFlightCount(uint32_t count_); 
 
 	// Record 
 	void recordOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_);

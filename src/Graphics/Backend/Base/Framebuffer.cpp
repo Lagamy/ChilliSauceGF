@@ -6,13 +6,13 @@
 
 namespace Graphics
 {
-void Framebuffer::create(uint32_t width_, uint32_t height_, uint32_t layers_, RenderPass& rRenderpass_)
+void Framebuffer::create(uint32_t width_, uint32_t height_, uint32_t layers_, std::span<VkImageView> attachments_, RenderPass& rRenderpass_)
 {
     VkFramebufferCreateInfo frameBufferCreateInfo = {};
     frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     frameBufferCreateInfo.renderPass = rRenderpass_.get();
-    frameBufferCreateInfo.attachmentCount = attachments.size();
-    frameBufferCreateInfo.pAttachments = attachments.data();
+    frameBufferCreateInfo.attachmentCount = attachments_.size();
+    frameBufferCreateInfo.pAttachments = attachments_.data();
     frameBufferCreateInfo.width = width_; // EngineGlobals::renderer.swapchain.extent.width
     frameBufferCreateInfo.height = height_; // EngineGlobals::renderer.swapchain.extent.height
     frameBufferCreateInfo.layers = layers_;

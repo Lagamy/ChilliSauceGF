@@ -89,6 +89,7 @@ namespace Graphics
 		return Globals::renderer.imageIndex; 
 	}
 
+
 	FrameResources& getCurrentFrameResources()
 	{
 		return Globals::renderer.framesResources[getCurrentImageIndex()]; 
@@ -118,7 +119,12 @@ namespace Graphics
 			return Globals::renderer.oneShotCommandPools.getPoolByQueue(queueFamily_).get();
 		}
 	}
-	
+
+	void setFramesAtFlightCount(uint32_t count_)
+	{
+		Globals::renderer.framesAtFlightCount = count_;
+	}
+
 	// Record 
 	void recordOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_)
 	{

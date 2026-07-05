@@ -35,7 +35,7 @@ struct Renderer {
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
 	CmdPoolsPack<OneShotCommandPool> oneShotCommandPools; 
 
-	uint32_t framesAtFlightCount = 2; // Max amount of swapchain images in the queue
+	uint32_t framesAtFlightCount; // Max amount of frames that can be in the queue at the same time 
 	uint32_t currentFrame = 0; 
 	uint32_t queueFamiliesCount = 3; 
 	uint32_t imageIndex; // Whichever Driver sees as first to become available. Frames are decoupled from images this way. 

@@ -18,11 +18,9 @@ Depth/stencil separation:
 
 #pragma once
 
-#include "ImageView.h"
-
 #include <vulkan/vulkan.h>
 #include <vector>
-
+#include <string>
 // enum AdditionalUsageEnum : unsigned int {
 	// SAMPLED = VkImageUsageFlagBits::VK_IMAGE_USAGE_SAMPLED_BIT,
 	// STORAGE = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT
@@ -30,23 +28,22 @@ Depth/stencil separation:
 namespace Graphics
 {
 struct Image {
-private:
 	VkImage vkHandle = VK_NULL_HANDLE; // How data will be laid out in memory. 
-	std::vector<ImageView> imageViews; // How to read/interprate it. 
-
 	VkImageCreateInfo metadata; 
 	bool allocated = false; 
-	bool initialized = false; 
-public:
+	bool initialized = false;
+	
+	// ImageViews - How to read/interprate data.
+	std::vector<std::string> viewNames; 
+	std::vector<VkImageView> viewHandles; 
+	std::vector<VkImageViewCreateInfo> viewMetadatas; 
+
 	void init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_);
 	void setImage(VkImage& srcImage_); // Needed for swapchain(We dont create images there - we borrow them from swapchain itself)  
 	void addView(const char* name_, VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageViewType dimensionType_, VkImageViewCreateFlags flags_);
-
 	void destroy();
 
-	VkImage getImage() const;
 	VkImageView getImageView(size_t id_) const;
-	VkImageCreateInfo getImageMetadata() const; 
-	VkImageViewCreateInfo getViewMetadata(size_t id_) const;
+	VkImage get() const;
 };
 }

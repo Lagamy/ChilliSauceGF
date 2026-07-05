@@ -1,4 +1,5 @@
 #include "Core.h"
+#include "Api.h"
 #include "Globals.h"
 #include <GLFW/glfw3.h>
 
@@ -11,7 +12,12 @@ void Core::setup()
 
 void Core::run()
 {
-	Globals::renderer.draw(); 
+	while(!glfwWindowShouldClose(Graphics::getWindowPointer()))
+	{
+		Globals::renderer.draw(); 
+ 		glfwPollEvents();
+	}
+
 }
 
 void Core::shutdown()

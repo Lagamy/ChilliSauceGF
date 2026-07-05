@@ -24,15 +24,13 @@ void Swapchain::create() {
 	// How many images are in swapchain?
 	uint32_t imageCount = swapchainDetails.surfaceCapabilities.minImageCount;
 
-	if (swapchainDetails.surfaceCapabilities.maxImageCount == 0) // If 0 - means no limit for how many images swapchain can have
-	{
-
-	}
 	// If there is space - get 1 more image to allow tripple buffering.  
-	else if (imageCount <= swapchainDetails.surfaceCapabilities.maxImageCount)
+	if (imageCount <= swapchainDetails.surfaceCapabilities.maxImageCount)
 	{
 		imageCount += 1;
 	}
+
+	setFramesAtFlightCount(imageCount);
 
 	// Create swapchain for our Images 
 	VkSwapchainCreateInfoKHR swapchainCreateInfo = {};
@@ -96,14 +94,15 @@ void Swapchain::create() {
 		this->renderTargets[i].setImage(images[i]);
 		this->renderTargets[i].addView("Swapchain", this->imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 0);
 	}
-	//printf("Swapchain Image Count: %u\n", swapchainImageCount);
+	// Create uninitialized framebuffers corresponding to those images 
+	this->framebuffers.resize(swapchainImageCount);
 }
 
 void Swapchain::createFramebuffers(RenderPass& rRenderpass_) 
 { 
-	for(Framebuffer& framebuffer : this->framebuffers) 
+	for(uint32_t i = 0; i < this->framebuffers.size(); i++) 
 	{
-		framebuffer.create(this->extent.width, this->extent.height, 1, rRenderpass_);
+		this->framebuffers[i].create(this->extent.width, this->extent.height, 1, this->renderTargets[i].viewHandles, rRenderpass_);
 	}
 }
 

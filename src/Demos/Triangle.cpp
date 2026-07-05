@@ -81,8 +81,9 @@ namespace Graphics
 		clearColor.color = {0.0f, 0.0f, 0.0f, 1.0f};
 
 		VkRenderPassBeginInfo renderPassInfo = {}; 
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO; 
 		renderPassInfo.renderPass = getRenderPass().get(); 
-		renderPassInfo.framebuffer = getSwapchain().framebuffers[getCurrentImageIndex()].get(); 
+		renderPassInfo.framebuffer = getSwapchain().framebuffers[getCurrentImageIndex()].get(); // We use ImageIndex here and not currentFrameInFlight due to images not really being 1:1 with frames(i can be rendered faster than other for some reason, and so 2 image will be at the third frame) 
 		renderPassInfo.renderArea = { 
 			.offset = {0, 0}, 
 			.extent = getSwapchain().extent
@@ -119,7 +120,8 @@ namespace Graphics
 
 		// Draw
 		vkCmdDrawIndexed(cmdBuffer_, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
-	
+		
+		vkCmdEndRenderPass(cmdBuffer_);
 		vkEndCommandBuffer(cmdBuffer_);
 	}
 
@@ -139,7 +141,8 @@ namespace Graphics
 		submitInfo.waitSemaphoreCount = 2; 
 		submitInfo.pWaitSemaphores = waitSemaphores; 
 		VkPipelineStageFlags waitStages[] = { 
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // frameAvailable
+			VK_PIPELINE_STAGE_VERTEX_SHADER_BIT // staticUploadSemaphore
 		}; 
 		submitInfo.pWaitDstStageMask = waitStages; 
 		submitInfo.commandBufferCount = 1; 
