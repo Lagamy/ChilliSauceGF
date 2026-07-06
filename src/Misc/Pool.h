@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <sstream>
-
+#include <optional>
 
 inline bool operator==(const PoolId& a, const PoolId& b)
 {
@@ -21,9 +21,8 @@ inline bool operator!=(const PoolId& a, const PoolId& b)
 
 template <typename T> 
 struct Pool {
-	std::vector<T> objects;
+	std::vector<std::optional<T>> objects;
 	std::vector<uint32_t> generation; 
-	std::vector<bool> alive; 
 	std::vector<uint32_t> freeSlots;	
 	std::vector<std::string> names;
 	std::unordered_map<std::string, PoolId> nameToId;
@@ -41,7 +40,6 @@ struct Pool {
             id.generation = 1;
 
             this->objects.emplace_back(std::forward<Args>(args)...);
-            this->alive.emplace_back(true);
             this->generation.emplace_back(id.generation);
 			this->names.emplace_back(name_);
         }
@@ -50,8 +48,7 @@ struct Pool {
             id.id = freeSlots.back();
             this->freeSlots.pop_back();
             // reconstruct in-place
-            this->objects[id.id] = T(std::forward<Args>(args)...);
-            this->alive[id.id] = true;
+			objects[id.id].emplace(std::forward<Args>(args)...);
             id.generation = generation[id.id];
 			names[id.id] = name_;
         }
@@ -60,13 +57,13 @@ struct Pool {
     }
 
 	void remove(PoolId pId_) {
-		if(pId_.id > this->objects.size() || this->alive[pId_.id] == false || this->generation[pId_.id] != pId_.generation)
+		if(pId_.id >= this->objects.size() || !objects[pId_.id].has_value()|| this->generation[pId_.id] != pId_.generation)
 		{
 			std::stringstream errorMessageStream;
 			errorMessageStream << name << " Pool: object with id: " << pId_.id << " and generation: " << pId_.generation << " already doesn't exist.\n";
 			throw std::runtime_error(errorMessageStream.str());
 		}
-		this->alive[pId_.id] = false;
+		this->objects[pId_.id].reset();
 		this->generation[pId_.id]++; 
 		this->freeSlots.emplace_back(pId_.id);
 		this->nameToId.erase(this->names[pId_.id]);
@@ -74,7 +71,7 @@ struct Pool {
 	}
 
 	void removeInternal(uint32_t id_) {
-		this->alive[id_] = false;
+		this->objects[id_].reset(); 
 		this->generation[id_]++; 
 		this->freeSlots.emplace_back(id_);
 		this->nameToId.erase(this->names[id_]);
@@ -98,7 +95,7 @@ struct Pool {
 			throw std::runtime_error(errorMessageStream.str());
 		}
 
-		if(pId_.id > this->objects.size() || this->alive[pId_.id] == false)
+		if(pId_.id >= this->objects.size() || !objects[pId_.id].has_value())
 		{
 			std::stringstream errorMessageStream;
 			errorMessageStream << name << " Pool: object with id: " << pId_.id << " doesn't exist.\n";
@@ -110,7 +107,7 @@ struct Pool {
 			errorMessageStream << name << " Pool: slot with id: " << pId_.id << " has bigger generation(" << pId_.generation << "), than passed one(" << this->generation[pId_.id] << ").\n";
 			throw std::runtime_error(errorMessageStream.str());
 		}
-		return this->objects[pId_.id];
+		return this->objects[pId_.id].value();
 	}
 
 	PoolId getIdByName(const char* name_)
