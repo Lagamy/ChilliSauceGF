@@ -24,7 +24,7 @@ struct SubPassDescriptionInfo {
 	RenderPass* pRenderPass;
 	VkPipelineBindPoint pipelineBindPoint;
 	std::vector<uint32_t> colorAttachmentsToUseIds;
-	uint32_t depthStencilAttachmentToUseId = uninitializedId; 
+	uint32_t depthStencilAttachmentToUseId = UninitializedId; 
 	DepthStencilAccessTypeEnum depthStencilAccessType;
 	std::vector<uint32_t> resolveAttachmentsToUseIds;
 	VkAttachmentReference* pInputAttachmentsRefs;

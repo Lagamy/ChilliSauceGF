@@ -12,17 +12,12 @@ namespace Graphics
 		getDemoManager().submitToGPU = [this]() { this->submit(); }; 
 	}
 
-	Triangle::~Triangle()
-	{
-		this->vertexShader.destroy();
-		this->fragmentShader.destroy();
-	}
 
 	void Triangle::load()
 	{
 		//std::cout << "path: " << std::string(Disk::getExecutablePath() + "/Assets/shaders/triangle/vert.spv") << std::endl;
-		this->vertexShader.create(); 
-		this->fragmentShader.create(); 
+		this->vertexShaderId = addShader("Triangle Vertex Shader", "Assets/shaders/triangle/vert.spv"); 
+		this->fragmentShaderId = addShader("Triangle Fragment Shader", "Assets/shaders/triangle/frag.spv"); 
 		RenderPass& rRenderPass = getRenderPass();
 		GraphicsPipeline& rGraphicsPipeline = getGraphicsPipeline();
 	
@@ -61,7 +56,7 @@ namespace Graphics
 		rRenderPass.addSubpass(subpassDescription, subpassLayoutTransition); 
 
 		/* Configure Graphics Pipeline */
-		rGraphicsPipeline = GraphicsPipeline(vertexShader, fragmentShader, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
+		rGraphicsPipeline = GraphicsPipeline(this->vertexShaderId, this->fragmentShaderId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
 
 		/* Initialize Command Buffer Blueprints */
 		this->cmdBufferId = addCmdBufferBlueprint(
@@ -127,28 +122,39 @@ namespace Graphics
 
 	void Triangle::submit() 
 	{
-		VkSemaphore* pFrameFinishedSemaphore = &getSemaphore(getCurrentFrameResources().frameFinishedSemaphoreId).vkHandle;
-		
+		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getSwapchain().imageUseFinishedSemaphoreIds[getCurrentImageIndex()]).vkHandle;
+	
 		// Render Frame 
 		VkSubmitInfo submitInfo = {}; 
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO; 
-		
-		VkSemaphore waitSemaphores[] = {
-			getSemaphore(getCurrentFrameResources().frameAvailableSemaphoreId).vkHandle,
-			getSemaphore(getGPUMemoryManager().staticUploadFinishedSemaphoreId).vkHandle
-		}; 
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO; 		
 
-		submitInfo.waitSemaphoreCount = 2; 
-		submitInfo.pWaitSemaphores = waitSemaphores; 
-		VkPipelineStageFlags waitStages[] = { 
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // frameAvailable
-			VK_PIPELINE_STAGE_VERTEX_SHADER_BIT // staticUploadSemaphore
-		}; 
-		submitInfo.pWaitDstStageMask = waitStages; 
+		if(this->firstFrame)
+		{
+			VkSemaphore waitSemaphores[] = {
+				getSemaphore(getCurrentFrameResources().imageAvailableSemaphoreId).vkHandle,
+				getSemaphore(getGPUMemoryManager().staticUploadFinishedSemaphoreId).vkHandle
+			}; 
+			
+			submitInfo.waitSemaphoreCount = 2; 
+			submitInfo.pWaitSemaphores = waitSemaphores; 
+			VkPipelineStageFlags waitStages[] = { 
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // frameAvailable
+				VK_PIPELINE_STAGE_VERTEX_SHADER_BIT // staticUploadSemaphore
+			}; 
+			submitInfo.pWaitDstStageMask = waitStages;
+		}
+		else 
+		{	
+			submitInfo.waitSemaphoreCount = 1; 
+			submitInfo.pWaitSemaphores = &getSemaphore(getCurrentFrameResources().imageAvailableSemaphoreId).vkHandle; 
+			VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;  
+			submitInfo.pWaitDstStageMask = &waitStage;
+		}
+		 
 		submitInfo.commandBufferCount = 1; 
 		submitInfo.pCommandBuffers = &getCommandBuffer(GRAPHICS, FRAME, this->cmdBufferId);
 		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = pFrameFinishedSemaphore; 
+		submitInfo.pSignalSemaphores = pImageUseFinishedSemaphore; 
 		VkResult result = vkQueueSubmit(getMainDevice().queues.graphicsQueue, 1, &submitInfo, getFence(getCurrentFrameResources().frameAvailableFenceId).vkHandle); // Signal it -> to notify that we can submit this frame
 		if(result != VK_SUCCESS)
 		{
@@ -159,7 +165,8 @@ namespace Graphics
 		VkPresentInfoKHR presentInfo = {}; 
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; 
 		presentInfo.waitSemaphoreCount = 1; 
-		presentInfo.pWaitSemaphores = pFrameFinishedSemaphore; 
+		presentInfo.pWaitSemaphores = pImageUseFinishedSemaphore; 
+		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = &getSwapchain().vkHandle; 
 		presentInfo.pImageIndices = &getCurrentImageIndex();
 
@@ -168,5 +175,6 @@ namespace Graphics
 		{
 			throw std::runtime_error("Triangle: Failed to present Image");
 		}
+		this->firstFrame = false; 
 	}
 }

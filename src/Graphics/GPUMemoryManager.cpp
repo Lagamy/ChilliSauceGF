@@ -4,6 +4,7 @@
 #include "MemoryBlock.h"
 #include "Utilities.h"
 #include <limits>
+#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics
@@ -42,7 +43,13 @@ void GPUMemoryManager::submitStaticUploadCmds()
 	submitInfo.pSignalSemaphores = &getSemaphore(this->staticUploadFinishedSemaphoreId).vkHandle; 
 
 	// Submit transfer command to transfer Queue and wait till it finishes(Not optimal)
-	vkQueueSubmit(getMainDevice().queues.transferQueue, 1, &submitInfo, rUploadFinished.get());
+	VkResult result = vkQueueSubmit(getMainDevice().queues.transferQueue, 1, &submitInfo, rUploadFinished.get());
+	if(result != VK_SUCCESS)
+	{
+		//throw std::runtime_error(""); 
+		throw std::runtime_error("Static allocator: command submit failed.\n");
+		return;
+	}
 }
 
 void GPUMemoryManager::submitUpdateCmdsIfNeeded()

@@ -175,7 +175,7 @@
 		std::string findExecutablePath()
 		{
 		    std::string fullPath;
-		
+			char pathSlash;  
 			#ifdef _WIN32
 		    	char buffer[MAX_PATH];
 		    	DWORD length = GetModuleFileNameA(NULL, buffer, MAX_PATH);
@@ -184,6 +184,7 @@
 		        	throw std::runtime_error("Failed to get executable path (Windows)");
 		
 		    	fullPath = std::string(buffer, length);
+				pathSlash = '\\'
 		
 			#else
 		    	char buffer[PATH_MAX];
@@ -193,11 +194,12 @@
 		        	throw std::runtime_error("Failed to get executable path (Linux)");
 		
 		    	fullPath = std::string(buffer, length);
+				pathSlash = '/'; 
 			#endif
 		
 			return std::filesystem::path(fullPath)
-		        .parent_path()
-		        .string();
+		        .parent_path() 
+		        .string() + pathSlash;
 		}
 
 		std::vector<char> readFile(const std::string& rFilename) {

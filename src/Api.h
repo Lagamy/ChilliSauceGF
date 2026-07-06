@@ -21,6 +21,7 @@ namespace Graphics
 	GPUMemoryManager& getGPUMemoryManager(); 
 	Semaphore& getSemaphore(PoolId semaphoreId_);
 	Fence& getFence(PoolId fenceId_);
+	Shader& getShader(PoolId shaderId_); 
 	CmdBufferBlueprintsPack& getCmdBufferBlueprints(CommandPoolTypeEnum poolType_); 
 	const VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_); 
 	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_);
@@ -47,6 +48,10 @@ namespace Graphics
 	// Add
 	PoolId addSemaphore(const char* name_);
 	PoolId addFence(const char* name_, VkFenceCreateFlags flags_);
+	PoolId addShader(const char* name_, const char* path_); 
 	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);
 	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, UploadTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
+
+	// Remove 
+	void removeShader(PoolId id_);
 };

@@ -4,9 +4,9 @@
 namespace Graphics
 {
 
-
-void Shader::create()
+Shader::Shader(const std::string shaderPath_) 
 {
+	this->path = shaderPath_; 
 	const std::vector<char> code = Disk::readFile(this->path);
 	// Build Shader Module
 	VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
@@ -18,24 +18,14 @@ void Shader::create()
 	{
 		throw std::runtime_error("Failed to create Shader Module!");
 	}
-} 
+}
 
-void Shader::destroy()
+Shader::~Shader() 
 {
 	if(this->vkHandle != VK_NULL_HANDLE)
 	{
 		vkDestroyShaderModule(getMainDevice().logicalDevice, this->vkHandle, nullptr);
 	}
-}
-
-Shader::Shader(const std::string shaderPath_) 
-{
-	this->path = shaderPath_; 
-}
-
-Shader::~Shader() 
-{
-	this->destroy();
 }
 
 VkShaderModule Shader::get() const 

@@ -10,9 +10,6 @@ struct Shader {
 	std::string path; 
 
 	VkShaderModule get() const; 
-	void create(); 
-	void destroy();
-
 	Shader(const std::string shaderPath_);
 	~Shader();
 };

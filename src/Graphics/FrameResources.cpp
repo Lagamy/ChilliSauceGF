@@ -3,11 +3,13 @@
 
 namespace Graphics 
 {
-	void FrameResources::setup()
+	void FrameResources::setup(uint32_t id_)
 	{
+		std::ostringstream name;
+		this->id = id_; 
 		this->frameCmdPools.create();
-		this->frameAvailableSemaphoreId = addSemaphore("Frame Available");
-		this->frameAvailableFenceId = addFence("Frame Available", VK_FENCE_CREATE_SIGNALED_BIT); 
-		this->frameFinishedSemaphoreId = addSemaphore("Frame Finished");
+		name << "Frame " << id_ << " Available"; 
+		this->imageAvailableSemaphoreId = addSemaphore(name.str().c_str());
+		this->frameAvailableFenceId = addFence(name.str().c_str(), VK_FENCE_CREATE_SIGNALED_BIT); 
 	}
 }

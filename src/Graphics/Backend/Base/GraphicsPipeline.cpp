@@ -7,9 +7,6 @@ namespace Graphics
 {
 void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 {
-	Shader& rVertexShader = *this->pVertexShader;
-	Shader& rFragmentShader = *this->pFragmentShader; 
-
 	this->pipelineLayout.create(); // Deal with it when i get to implementing DS support 
 	// Graphics Pipeline requires an array of shader stages creates
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages; 
@@ -17,14 +14,14 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {};
 	shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shaderStageCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;	// Shader Stage name 
-	shaderStageCreateInfo.module = rVertexShader.vkHandle; // Shader module to be used by stage  
+	shaderStageCreateInfo.module = getShader(this->vertexShaderId).get(); // Shader module to be used by stage  
 	shaderStageCreateInfo.pName = "main"; // Name of function in GLSL which would be used as entry point. 
 	shaderStages.emplace_back(shaderStageCreateInfo); 
 
 	shaderStageCreateInfo = {};
 	shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shaderStageCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;	// Shader Stage name 
-	shaderStageCreateInfo.module = rFragmentShader.vkHandle; // Shader module to be used by stage  
+	shaderStageCreateInfo.module = getShader(this->fragmentShaderId).get();; // Shader module to be used by stage  
 	shaderStageCreateInfo.pName = "main"; // Name of function in GLSL which would be used as entry point. 
 	shaderStages.emplace_back(shaderStageCreateInfo); 	
 

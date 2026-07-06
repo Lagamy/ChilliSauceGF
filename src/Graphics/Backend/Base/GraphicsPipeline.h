@@ -18,8 +18,8 @@ struct GraphicsPipeline {
 	// In order to have a cached info for pipeline recreation 
 	VkPrimitiveTopology primitiveType; // What Primitive do verticies represent(Points, lines, triangle, etc) 
 	VkPolygonMode polygonMode; // How to Rasterize Primitives. How primitives are filled during rasterization(Select line for wireframe)
-	Shader* pVertexShader;
-	Shader* pFragmentShader;
+	PoolId vertexShaderId;
+	PoolId fragmentShaderId;
 
 	PoolId notInUseFenceId; // So we don't rebuild Pipeline, Descriptors and the sets when they are used by the GPU  
 	
@@ -29,7 +29,7 @@ struct GraphicsPipeline {
 	void create(RenderPass& rRenderpass_, uint32_t subpassId_);
 	void destroy();
 	
-	GraphicsPipeline(Shader& rVertexShader_, Shader& rFragmentShader_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_) : pVertexShader(&rVertexShader_), pFragmentShader(&rFragmentShader_), primitiveType(primitiveType_), polygonMode(polygonMode_) {};
+	GraphicsPipeline(PoolId vertexShaderId_, PoolId fragmentShaderId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_) : vertexShaderId(vertexShaderId_), fragmentShaderId(fragmentShaderId_), primitiveType(primitiveType_), polygonMode(polygonMode_) {};
 	GraphicsPipeline() = default; 
 	VkPipeline get() const;
 };

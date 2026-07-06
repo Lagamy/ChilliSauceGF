@@ -1,5 +1,6 @@
 #pragma once 
 #include "PoolId.h"
+#include "Utilities.h"
 #include <unordered_map>
 #include <vector> 
 #include <queue>
@@ -42,6 +43,7 @@ struct Pool {
             this->objects.emplace_back(std::forward<Args>(args)...);
             this->alive.emplace_back(true);
             this->generation.emplace_back(id.generation);
+			this->names.emplace_back(name_);
         }
         else
         {
@@ -58,7 +60,7 @@ struct Pool {
     }
 
 	void remove(PoolId pId_) {
-		if(pId_.id > this->objects.size() || this->alive[pId_.id] == false || this->generation[pId_.id] > pId_.generation)
+		if(pId_.id > this->objects.size() || this->alive[pId_.id] == false || this->generation[pId_.id] != pId_.generation)
 		{
 			std::stringstream errorMessageStream;
 			errorMessageStream << name << " Pool: object with id: " << pId_.id << " and generation: " << pId_.generation << " already doesn't exist.\n";
@@ -68,20 +70,34 @@ struct Pool {
 		this->generation[pId_.id]++; 
 		this->freeSlots.emplace_back(pId_.id);
 		this->nameToId.erase(this->names[pId_.id]);
+		this->names[pId_.id] = ""; 
 	}
 
-	void clear()
+	void removeInternal(uint32_t id_) {
+		this->alive[id_] = false;
+		this->generation[id_]++; 
+		this->freeSlots.emplace_back(id_);
+		this->nameToId.erase(this->names[id_]);
+		this->names[id_] = ""; 
+	}
+
+	void clear() 
 	{
-		this->objects.clear();
-		this->alive.clear(); 
-		this->generation.clear();
-   		this->freeSlots.clear();
-		this->name.clear(); 
-		this->nameToId.clear();
+		for(uint32_t i = 0; i < this->objects.size(); i++)
+		{
+			this->removeInternal(i); 
+		}
 	}
 
 	T& get(PoolId pId_)
 	{
+		if(pId_ == UninitializedPoolId)
+		{
+			std::stringstream errorMessageStream;
+			errorMessageStream << name << " Pool: UninitializedPoolId can't be used in get function.\n";
+			throw std::runtime_error(errorMessageStream.str());
+		}
+
 		if(pId_.id > this->objects.size() || this->alive[pId_.id] == false)
 		{
 			std::stringstream errorMessageStream;

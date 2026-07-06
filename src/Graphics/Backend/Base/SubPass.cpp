@@ -1,5 +1,6 @@
 #include "SubPass.h"
 #include "RenderPass.h"
+#include "Utilities.h"
 
 namespace Graphics
 {
@@ -30,7 +31,7 @@ SubPass::SubPass(VkSubpassDescription& rDescription_, VkSubpassDependency& rLayo
 	this->rDescription.pipelineBindPoint = subpassDescriptionInfo_.pipelineBindPoint;	// Pipeline type subpass is about to be bound to. 
 	this->rDescription.pColorAttachments = this->colorAttachmentsRefs.data();	// Provide attachment references list
 	this->rDescription.colorAttachmentCount = this->colorAttachmentsRefs.size();
-	if(subpassDescriptionInfo_.depthStencilAttachmentToUseId != uninitializedId)
+	if(subpassDescriptionInfo_.depthStencilAttachmentToUseId != UninitializedId)
 	{
 		this->depthStencilAttachmentRef = {};
 		this->depthStencilAttachmentRef.attachment = subpassDescriptionInfo_.pRenderPass->getDepthStencilAttachmentIdFromFinal(subpassDescriptionInfo_.depthStencilAttachmentToUseId);

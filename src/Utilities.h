@@ -18,7 +18,8 @@
 #endif
 
 //#include "DescriptorSetLayout.h"
-const uint32_t uninitializedId = std::numeric_limits<uint32_t>::max();
+inline const uint32_t UninitializedId = std::numeric_limits<uint32_t>::max(); 
+inline const PoolId UninitializedPoolId = PoolId{UninitializedId, UninitializedId};
 namespace Graphics
 {
 	enum QueueFamilyEnum : uint8_t
@@ -27,6 +28,8 @@ namespace Graphics
 		TRANSFER = 1,
 		COMPUTE = 2
 	};
+
+	
 
 	enum CommandPoolTypeEnum 
 	{
@@ -116,8 +119,7 @@ namespace Graphics
             VK_KHR_SWAPCHAIN_EXTENSION_NAME	
 	};
 
-	inline const uint32_t UninitializedId = std::numeric_limits<uint32_t>::max(); 
-	inline const PoolId UninitializedPoolId = PoolId{UninitializedId, UninitializedId};
+
 	inline uint64_t assetDelayBeforeUnload; // Can change between scenes.(Flexability). Used for assets with STREAMING lifetimeType
 
 

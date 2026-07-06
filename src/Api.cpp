@@ -1,5 +1,6 @@
 #include "Api.h"
 #include "Globals.h"
+#include "PoolId.h"
 #include "UploadId.h"
 #include "Utilities.h"
 
@@ -67,6 +68,11 @@ namespace Graphics
 		return Globals::renderer.syncManager.getFence(fenceId_);
 	}
 
+	Shader& getShader(PoolId shaderId_)
+	{
+		return Globals::renderer.shadersManager.shaders.get(shaderId_); 
+	}
+
 	const UploadEntry& getUploadEntry(UploadId id_)
 	{
 		//if(id_allocatorType == STATIC)
@@ -92,7 +98,7 @@ namespace Graphics
 
 	FrameResources& getCurrentFrameResources()
 	{
-		return Globals::renderer.framesResources[getCurrentImageIndex()]; 
+		return Globals::renderer.framesResources[Globals::renderer.currentFrame]; 
 	}
 
 	const VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_)
@@ -162,6 +168,17 @@ namespace Graphics
 	PoolId addFence(const char* name_, VkFenceCreateFlags flags_)
 	{
 		return Globals::renderer.syncManager.addFence(name_, flags_);
+	}
+
+
+	PoolId addShader(const char* name_, const char* path_)
+	{
+		return Globals::renderer.shadersManager.shaders.add(name_, Disk::executablePath + path_);  
+	}
+
+	void removeShader(PoolId& id_)
+	{
+		Globals::renderer.shadersManager.shaders.remove(id_); 
 	}
 
 	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)

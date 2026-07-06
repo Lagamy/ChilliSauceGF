@@ -10,11 +10,11 @@
 namespace Graphics
 {
 struct FrameResources {
+	uint32_t id; 
 	CmdPoolsPack<FrameCommandPool> frameCmdPools; 
-	PoolId frameFinishedSemaphoreId;
-	PoolId frameAvailableSemaphoreId; 
+	PoolId imageAvailableSemaphoreId; 
 	PoolId frameAvailableFenceId; 
 
-	void setup();
+	void setup(uint32_t id_);
 };
 }

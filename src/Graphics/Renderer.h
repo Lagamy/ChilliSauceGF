@@ -5,12 +5,14 @@
 #include "RenderPass.h" 
 #include "Instance.h"
 #include "Device.h"
+#include "ShadersManager.h"
 #include "Surface.h"
 #include "Swapchain.h"
 #include "FrameResources.h"
 #include "GraphicsPipeline.h"
 #include "Utilities.h"
 #include "SyncManager.h"
+#include "ShadersManager.h"
 #include <limits>
 #include <vulkan/vulkan_core.h>
 #include <cstdint>
@@ -26,6 +28,7 @@ struct Renderer {
 	Swapchain swapchain;
 	GPUMemoryManager gpuMemoryManager;
 	SyncManager syncManager; 
+	ShadersManager shadersManager;
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass renderpass;

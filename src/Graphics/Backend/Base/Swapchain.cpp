@@ -88,11 +88,16 @@ void Swapchain::create() {
 	vkGetSwapchainImagesKHR(getMainDevice().logicalDevice, this->vkHandle, &swapchainImageCount, images.data());
 
 	this->renderTargets.resize(swapchainImageCount);
+	this->imageUseFinishedSemaphoreIds.resize(swapchainImageCount); 
+	std::ostringstream name;
 	for (uint32_t i = 0; i < images.size(); i++)
 	{
+		name.clear(); 
 		// Add initialized images to swapchain rendertargets 
 		this->renderTargets[i].setImage(images[i]);
 		this->renderTargets[i].addView("Swapchain", this->imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 0);
+		name << "Swapchain Image " << i << " Use Finished";
+		this->imageUseFinishedSemaphoreIds[i] = addSemaphore(name.str().c_str()); 
 	}
 	// Create uninitialized framebuffers corresponding to those images 
 	this->framebuffers.resize(swapchainImageCount);

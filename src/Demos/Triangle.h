@@ -1,6 +1,7 @@
 #pragma once 
 #include "Mesh.h"
 #include "GraphicsPipeline.h"
+#include "PoolId.h"
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 #include <array>
@@ -9,15 +10,15 @@
 namespace Graphics
 {
 struct Triangle { 
-	Shader vertexShader = Shader(Disk::executablePath + "/Assets/shaders/triangle/vert.spv");
-	Shader fragmentShader = Shader(Disk::executablePath + "/Assets/shaders/triangle/frag.spv");
+	PoolId vertexShaderId; 
+	PoolId fragmentShaderId; 
 	Mesh mesh;
-	uint32_t cmdBufferId;  
+	uint32_t cmdBufferId;
+	bool firstFrame = true;  
 
 	void load(); 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_);
 	void submit(); // Triggers every frame
 	Triangle();
-	~Triangle();
 }; 
 }
