@@ -39,7 +39,7 @@ struct Pool {
             id.id = static_cast<uint32_t>(objects.size());
             id.generation = 1;
 
-            this->objects.emplace_back(std::forward<Args>(args)...);
+            this->objects.emplace_back(std::in_place, std::forward<Args>(args)...);
             this->generation.emplace_back(id.generation);
 			this->names.emplace_back(name_);
         }
@@ -101,7 +101,7 @@ struct Pool {
 			errorMessageStream << name << " Pool: object with id: " << pId_.id << " doesn't exist.\n";
 			throw std::runtime_error(errorMessageStream.str());
 		}
-		if(this->generation[pId_.id] > pId_.generation)
+		if(this->generation[pId_.id] != pId_.generation)
 		{
 			std::stringstream errorMessageStream;
 			errorMessageStream << name << " Pool: slot with id: " << pId_.id << " has bigger generation(" << pId_.generation << "), than passed one(" << this->generation[pId_.id] << ").\n";

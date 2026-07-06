@@ -1,5 +1,6 @@
 #include "Shader.h"
 #include "Api.h"
+#include <stdexcept>
 
 namespace Graphics
 {
@@ -32,4 +33,35 @@ VkShaderModule Shader::get() const
 {
 	return this->vkHandle;
 }
+
+Shader::Shader(Shader&& other) noexcept
+{
+    vkHandle = other.vkHandle;
+    path = std::move(other.path);
+
+    other.vkHandle = VK_NULL_HANDLE;
+}
+
+Shader& Shader::operator=(Shader&& other) noexcept
+{
+    if(this != &other)
+    {
+        if(this->vkHandle != VK_NULL_HANDLE)
+        {
+            vkDestroyShaderModule(
+                getMainDevice().logicalDevice,
+                this->vkHandle,
+                nullptr
+            );
+        }
+
+        this->vkHandle = other.vkHandle;
+        this->path = std::move(other.path);
+
+        other.vkHandle = VK_NULL_HANDLE;
+    }
+
+    return *this;
+}
+
 }
