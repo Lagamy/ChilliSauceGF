@@ -1,5 +1,6 @@
 #include "Device.h"
 #include "Api.h"
+#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics

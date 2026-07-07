@@ -6,7 +6,7 @@ namespace Graphics {
     struct UploadId 
     {
         AllocatorTypeEnum allocatorType; 
-        UploadTypeEnum uploadType; 
+        BufferTypeEnum uploadType; 
         VkDeviceSize id; 
     };
 }

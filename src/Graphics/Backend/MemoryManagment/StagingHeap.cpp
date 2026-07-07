@@ -24,10 +24,5 @@ void StagingHeap::destroy()
 	this->buffer.destroy();
 }
 
-StagingHeap::~StagingHeap() 
-{
-	this->memoryBlock.destroy(); 
-	this->buffer.destroy(); 
-}
 }
 

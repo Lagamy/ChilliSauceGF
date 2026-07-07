@@ -23,13 +23,13 @@ namespace Graphics
 	
 		/* Init Mesh */
 		mesh.vertices = {
-			glm::vec3(-0.5, -0.5, 0.0), 
-			glm::vec3(0.5, -0.5, 0.0), 
-			glm::vec3(0.0, 0.5, 0.0) 
+			glm::vec3(-0.5, -0.5, 0.0),
+			glm::vec3(0.5, -0.5, 0.0),
+			glm::vec3(0.0, 0.5, 0.0),
 		};
 
 		mesh.indices = { 
-			0, 2, 1
+			0, 1, 2
 		};
 		/**************/
 
@@ -41,7 +41,7 @@ namespace Graphics
 		/**************/
 	
 		/* Configure RenderPass*/
-		rRenderPass.addColorAttachment(getSwapchain().imageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR); // STORE_OP_DONT_CARE - means we dont care what will happen to the attachment after reading it
+		rRenderPass.addColorAttachment(getSwapchain().imageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR,  VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR); // STORE_OP_DONT_CARE - means we dont care what will happen to the attachment after reading it
 	
 		SubPassDescriptionInfo subpassDescription = {}; 
 		subpassDescription.pRenderPass = &rRenderPass; 
@@ -93,13 +93,13 @@ namespace Graphics
 		
 		// Bind vertex buffer 
 		const UploadEntry& vertexUpload = getUploadEntry(this->mesh.vbMemoryId); 
-		VkBuffer vertexBuffers[] = { getUploadHeapBuffer(STATIC, VERTEX).get() };
-		VkDeviceSize vOffsets[] = { vertexUpload.heapStartingByte }; 
+		VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
+		VkDeviceSize vOffsets[] = { 0 }; 
 		vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
 
 		// Bind index buffer 
 		const UploadEntry& indexUpload = getUploadEntry(this->mesh.ibMemoryId); 
-		vkCmdBindIndexBuffer(cmdBuffer_, getUploadHeapBuffer(STATIC, INDEX).get(), indexUpload.heapStartingByte, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(cmdBuffer_, getGPUBuffer(STATIC, INDEX).get(), indexUpload.inBufferStartingByte, VK_INDEX_TYPE_UINT32);
 	
 		// Viewport and Scissor (for dynamic) 
 		// VkViewport viewport = {}; 
@@ -114,8 +114,9 @@ namespace Graphics
 		// scissor.extent = Demo::renderer.swapchain.extent;
 
 		// Draw
+		// printf("Drawing triangle\n");
 		vkCmdDrawIndexed(cmdBuffer_, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
-		
+		// vkCmdDraw(cmdBuffer_, 3, 1,0,0);
 		vkCmdEndRenderPass(cmdBuffer_);
 		vkEndCommandBuffer(cmdBuffer_);
 	}
@@ -139,7 +140,7 @@ namespace Graphics
 			submitInfo.pWaitSemaphores = waitSemaphores; 
 			VkPipelineStageFlags waitStages[] = { 
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // frameAvailable
-				VK_PIPELINE_STAGE_VERTEX_SHADER_BIT // staticUploadSemaphore
+				VK_PIPELINE_STAGE_VERTEX_INPUT_BIT // staticUploadSemaphore
 			}; 
 			submitInfo.pWaitDstStageMask = waitStages;
 		}

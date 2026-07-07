@@ -27,7 +27,7 @@ void GPUMemoryManager::destroy()
 }
 
 
-void GPUMemoryManager::submitStaticUploadCmds()
+void GPUMemoryManager::submitStaticUploadCMDs()
 {
 	Fence& rUploadFinished = getFence(this->staticUploadFinishedFenceId);
 	//resetOneShotCmdBuf(TRANSFER, this->staticUploadCmdBufferId, rUploadFinished); 

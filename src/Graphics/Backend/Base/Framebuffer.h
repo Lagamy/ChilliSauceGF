@@ -45,6 +45,5 @@ struct Framebuffer {
     void destroy();
 
     VkFramebuffer get() const;
-    ~Framebuffer(); 
 };
 }

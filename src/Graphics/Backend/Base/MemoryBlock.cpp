@@ -25,17 +25,13 @@ void MemoryBlock::create(size_t size_, StorageUnitEnum unit_, std::span<VkMemory
 
 void MemoryBlock::destroy()
 {
-	vkFreeMemory(getMainDevice().logicalDevice, this->vkHandle, nullptr);
-	this->vkHandle = VK_NULL_HANDLE;
+	if (this->vkHandle != VK_NULL_HANDLE)
+	{
+		vkFreeMemory(getMainDevice().logicalDevice, this->vkHandle, nullptr);
+		this->vkHandle = VK_NULL_HANDLE;
+	}
 }
 
-MemoryBlock::~MemoryBlock()
-{
-	if (this->vkHandle != VK_NULL_HANDLE)
-    {
-        this->destroy();
-    }
-}
 
 VkDeviceMemory MemoryBlock::get() const
 {

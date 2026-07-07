@@ -71,11 +71,14 @@ struct Pool {
 	}
 
 	void removeInternal(uint32_t id_) {
-		this->objects[id_].reset(); 
-		this->generation[id_]++; 
-		this->freeSlots.emplace_back(id_);
-		this->nameToId.erase(this->names[id_]);
-		this->names[id_] = ""; 
+		if(this->objects[id_].has_value())
+		{
+			this->objects[id_].reset(); 
+			this->generation[id_]++; 
+			this->freeSlots.emplace_back(id_);
+			this->nameToId.erase(this->names[id_]);
+			this->names[id_] = ""; 
+		}
 	}
 
 	void clear() 

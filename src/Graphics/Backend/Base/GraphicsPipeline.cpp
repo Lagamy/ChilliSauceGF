@@ -41,7 +41,7 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 	std::array<VkVertexInputAttributeDescription, 1> attributesDescriptions;
 	attributesDescriptions[0].binding = 0; 
 	attributesDescriptions[0].location = 0; 
-	attributesDescriptions[0].format =  VK_FORMAT_R32G32B32A32_SFLOAT; 
+	attributesDescriptions[0].format =  VK_FORMAT_R32G32B32_SFLOAT; 
 
 
 	// Feed pipeline create info

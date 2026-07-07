@@ -11,7 +11,6 @@
 namespace Graphics
 {
 struct RenderPass {
-private:
 	VkRenderPass vkHandle = VK_NULL_HANDLE;
 
 	std::vector<VkAttachmentDescription> finalAttachments;
@@ -25,7 +24,7 @@ private:
 	std::vector<VkAttachmentDescription> resolveAttachments;
 
 	std::vector<SubPass> subpasses;
-public:
+
 	void addSubpass(SubPassDescriptionInfo subpassDescriptionInfo_, SubPassLayoutTransitionInfo subpassTransitionInfo_); // returns SubPass reference, to init both description, and layout transition. 
 	void create();
 	void destroy();

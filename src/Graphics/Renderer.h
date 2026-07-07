@@ -51,6 +51,5 @@ struct Renderer {
 
 	void initRenderFlow(); // init all command buffer blueprints
 
-	~Renderer();
 };
 }

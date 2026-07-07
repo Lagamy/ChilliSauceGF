@@ -22,8 +22,8 @@ struct StaticAllocator {
 
 
 	MemoryBlock& getMemoryBlock(); 
-	Buffer& getBuffer(UploadTypeEnum uploadType_);
-	UploadId addUpload(const char* name_, const void* data_, VkDeviceSize size_, UploadTypeEnum uploadType_);
+	Buffer& getBuffer(BufferTypeEnum uploadType_);
+	UploadId addUpload(const char* name_, const void* data_, VkDeviceSize size_, BufferTypeEnum uploadType_);
 	const UploadEntry& getUploadEntry(UploadId id_);	
 	void allocate(); // Run only when you added all UploadEntries for that scene/demo 
 	void deallocate();

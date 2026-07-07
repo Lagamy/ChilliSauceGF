@@ -26,6 +26,5 @@ struct MemoryBlock {
 
 
 	uint32_t findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, const char* name_);
-	~MemoryBlock();
 };
 }

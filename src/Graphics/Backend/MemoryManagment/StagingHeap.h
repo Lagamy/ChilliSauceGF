@@ -17,6 +17,5 @@ struct StagingHeap {
 	
 	void destroy();
 	void create(const char* name_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_); 
-	~StagingHeap();
 };
 }

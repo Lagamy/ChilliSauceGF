@@ -33,7 +33,7 @@ void Renderer::setup()
 	{
 		this->framesResources[i].setup(i);
 	}
-	this->gpuMemoryManager.submitStaticUploadCmds(); // Upload all preloaded with scene / static assets to the GPU
+	this->gpuMemoryManager.submitStaticUploadCMDs(); // Upload all preloaded with scene / static assets to the GPU
 }
 
 void Renderer::draw() 
@@ -74,10 +74,5 @@ void Renderer::shutdown()
 	this->mainDevice.destroy(); 
 	this->surface.destroy(); 
 	this->instance.destroy();
-}
-
-Renderer::~Renderer() 
-{
-	this->shutdown(); 
 }
 }

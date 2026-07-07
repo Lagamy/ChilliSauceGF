@@ -49,7 +49,7 @@ namespace Graphics
 		STATIC 
 	};
 
-	enum UploadTypeEnum : uint8_t 
+	enum BufferTypeEnum : uint8_t 
 	{
 		VERTEX = 0, 
 		INDEX = 1, 

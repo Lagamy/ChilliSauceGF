@@ -1,6 +1,7 @@
 #include "Api.h"
 #include "Globals.h"
 #include "PoolId.h"
+#include "UploadEntry.h"
 #include "UploadId.h"
 #include "Utilities.h"
 
@@ -81,13 +82,23 @@ namespace Graphics
 		//}
 
 	}
-	
-	Buffer& getUploadHeapBuffer(AllocatorTypeEnum allocatorType_, UploadTypeEnum uploadType_)
+	uint32_t getUploadStartingByteInGPUHeap(UploadId id_)
+	{
+		const UploadEntry& rEntry = getUploadEntry(id_); 
+		return getGPUBufferOffset(STATIC, rEntry.bufferType) + rEntry.inBufferStartingByte; 
+	}
+
+	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_)
 	{
 		//if(allocatorType_ == STATIC)
 		//{
 			return Globals::renderer.gpuMemoryManager.staticAllocator.getBuffer(uploadType_);
 		//}
+	}
+	
+	uint32_t getGPUBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_)
+	{
+		return  Globals::renderer.gpuMemoryManager.staticAllocator.gpuHeap.bufferOffsets[uploadType_]; 
 	}
 
 	uint32_t& getCurrentImageIndex()
@@ -186,7 +197,7 @@ namespace Graphics
 		return Globals::renderer.demoManager.addCmdBufferBlueprint(poolType_, queueFamilyEnum_, commandsToRecord_);
 	}
 
-	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, UploadTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
+	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
 	{
 		// if(allocatorType_ == STATIC)
 		// {

@@ -23,10 +23,13 @@ namespace Graphics
 	Fence& getFence(PoolId fenceId_);
 	Shader& getShader(PoolId shaderId_); 
 	CmdBufferBlueprintsPack& getCmdBufferBlueprints(CommandPoolTypeEnum poolType_); 
+	uint32_t getBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
 	const VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_); 
 	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_);
-	const UploadEntry& getUploadEntry(UploadId Id_); 
-	Buffer& getUploadHeapBuffer(AllocatorTypeEnum allocatorType_, UploadTypeEnum uploadType_);
+	const UploadEntry& getUploadEntry(UploadId id_); 
+	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);
+	uint32_t getGPUBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);
+	uint32_t getUploadStartingByteInGPUHeap(UploadId id_); 
 
 	uint32_t& getCurrentImageIndex();
 	FrameResources& getCurrentFrameResources(); 
@@ -50,7 +53,7 @@ namespace Graphics
 	PoolId addFence(const char* name_, VkFenceCreateFlags flags_);
 	PoolId addShader(const char* name_, const char* path_); 
 	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);
-	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, UploadTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
+	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
 
 	// Remove 
 	void removeShader(PoolId id_);

@@ -22,16 +22,11 @@ namespace Graphics
 
 	void Buffer::destroy()
 	{
-		vkDestroyBuffer(getMainDevice().logicalDevice, this->vkHandle, nullptr); // Destroys on GPU side 
-		this->vkHandle = VK_NULL_HANDLE;
-	}
-
-	Buffer::~Buffer()
-	{
 		if (this->vkHandle != VK_NULL_HANDLE)
     	{
-    	    this->destroy();
-	    }
+			vkDestroyBuffer(getMainDevice().logicalDevice, this->vkHandle, nullptr); // Destroys on GPU side 
+			this->vkHandle = VK_NULL_HANDLE;
+		}
 	}
 
 	VkBuffer Buffer::get() const

@@ -15,15 +15,15 @@ namespace Graphics
 struct UpdateEntry 
 { 
 	uint32_t entryId; 
-	UploadTypeEnum uploadType; 
+	BufferTypeEnum uploadType; 
 	size_t byteAmount = 0; 
 	size_t heapStartingByte = 0; 
 	size_t dstStartingByte = 0; 
 
 	bool partialUpdate;
 
-	UpdateEntry(uint32_t entryId_, UploadTypeEnum uploadType_, const void* data_, size_t heapStartingByte_); 
-	UpdateEntry(uint32_t entryId_, UploadTypeEnum uploadType_, const void* data_, size_t heapStartingByte_, size_t byteAmount_, size_t srcStartingbyte_);
+	UpdateEntry(uint32_t entryId_, BufferTypeEnum uploadType_, const void* data_, size_t heapStartingByte_); 
+	UpdateEntry(uint32_t entryId_, BufferTypeEnum uploadType_, const void* data_, size_t heapStartingByte_, size_t byteAmount_, size_t srcStartingbyte_);
 };
 
 
@@ -44,7 +44,7 @@ struct GPUMemoryManager {
 
 	// For device local uploads
 	// void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_);
-	void submitStaticUploadCmds(); 
+	void submitStaticUploadCMDs(); 
 	void submitUpdateCmdsIfNeeded();
 
 	void create();

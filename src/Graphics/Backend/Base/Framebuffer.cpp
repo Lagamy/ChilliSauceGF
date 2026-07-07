@@ -25,18 +25,16 @@ void Framebuffer::create(uint32_t width_, uint32_t height_, uint32_t layers_, st
 
 void Framebuffer::destroy()
 {
-    vkDestroyFramebuffer(getMainDevice().logicalDevice, this->vkHandle, nullptr);
-    this->vkHandle = VK_NULL_HANDLE;
+    if (this->vkHandle != VK_NULL_HANDLE)
+    {
+        vkDestroyFramebuffer(getMainDevice().logicalDevice, this->vkHandle, nullptr);
+        this->vkHandle = VK_NULL_HANDLE;
+    }
 }
 
 
 VkFramebuffer Framebuffer::get() const
 {
     return this->vkHandle;
-}
-
-Framebuffer::~Framebuffer()
-{
-    this->destroy(); 
 }
 }

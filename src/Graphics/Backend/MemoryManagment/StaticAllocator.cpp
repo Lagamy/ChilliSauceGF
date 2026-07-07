@@ -3,10 +3,10 @@
 
 namespace Graphics
 {
-UploadId StaticAllocator::addUpload(const char* name_, const void* data_, VkDeviceSize size_, UploadTypeEnum uploadType_) 
+UploadId StaticAllocator::addUpload(const char* name_, const void* data_, VkDeviceSize size_, BufferTypeEnum uploadType_) 
 {
 
-	this->uploadEntriesGroups[uploadType_].emplace_back(name_, data_, size_, this->gpuHeap.bufferSizes[uploadType_]);
+	this->uploadEntriesGroups[uploadType_].emplace_back(name_, data_, size_, uploadType_, this->gpuHeap.bufferSizes[uploadType_]);
 	this->gpuHeap.bufferSizes[uploadType_] += size_; 
 	this->stagingHeap.size += size_; 
 	return {STATIC, uploadType_, this->uploadEntriesGroups[uploadType_].size() - 1};
@@ -22,7 +22,7 @@ MemoryBlock& StaticAllocator::getMemoryBlock()
 	return this->gpuHeap.memory; 
 }
 
-Buffer& StaticAllocator::getBuffer(UploadTypeEnum uploadType_)
+Buffer& StaticAllocator::getBuffer(BufferTypeEnum uploadType_)
 {
 	return this->gpuHeap.buffersPerType[uploadType_];
 }
@@ -33,7 +33,7 @@ void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 	{
 		throw std::runtime_error("Static Allocator: Can't record CMD Buffer for unallocated memory.");
 	}
-	size_t offset = 0; 
+	size_t memoryBlockOffset = 0; 
 	// Info to begin the command buffer record 
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -45,7 +45,7 @@ void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 		for(auto& rUpload : this->uploadEntriesGroups[i])
 		{
 			void* pStagingMemPoint; // Create an empty typeless pointer.
-			vkMapMemory(getMainDevice().logicalDevice, stagingHeap.memoryBlock.get(), rUpload.heapStartingByte, rUpload.size, 0, &pStagingMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
+			vkMapMemory(getMainDevice().logicalDevice, stagingHeap.memoryBlock.get(), memoryBlockOffset + rUpload.inBufferStartingByte, rUpload.size, 0, &pStagingMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
 			memcpy(pStagingMemPoint, static_cast<const char*>(rUpload.data), rUpload.size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
 			vkUnmapMemory(getMainDevice().logicalDevice, stagingHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
 		}
@@ -54,8 +54,8 @@ void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 
 		// Region of data to copy from and to 
 		VkBufferCopy bufferCopyRegion = {};
-		bufferCopyRegion.srcOffset = offset;
-		offset += this->gpuHeap.bufferSizes[i];		
+		bufferCopyRegion.srcOffset = memoryBlockOffset;
+		memoryBlockOffset += this->gpuHeap.bufferSizes[i];		
 		bufferCopyRegion.dstOffset = 0; // its buffer local offset 
 		bufferCopyRegion.size = this->gpuHeap.bufferSizes[i];
 
