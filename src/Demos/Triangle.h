@@ -12,6 +12,7 @@ namespace Graphics
 struct Triangle { 
 	PoolId vertexShaderId; 
 	PoolId fragmentShaderId; 
+	PoolId verticeLayoutId; 
 	Mesh mesh;
 
 	uint32_t cmdBufferId;

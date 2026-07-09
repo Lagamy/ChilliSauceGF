@@ -52,8 +52,8 @@ namespace Graphics
 
 	enum BufferTypeEnum : uint8_t 
 	{
-		VERTEX = 0, 
-		INDEX = 1, 
+		INDEX = 0, 
+		VERTEX = 1,  
 		// UNIFORM = 2,
 		// STORAGE = 3,
 		// TEXTURE = 4

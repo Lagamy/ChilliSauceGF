@@ -139,9 +139,9 @@ namespace Graphics
 	}
 
 
-	ReflectionLayout& getReflectionLayout(ReflectionLayoutId layoutId_)
+	ReflectionLayout& getVerticeLayout(PoolId layoutId_)
 	{
-		return Globals::renderer.reflectionSystem.layoutsPerBufferType[layoutId_.bufferType].get(layoutId_.id); 
+		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX - 1].get(layoutId_); // - 1 due to INDEX layout not existing  
 	}
 
 	void setFramesAtFlightCount(uint32_t count_)
@@ -212,8 +212,13 @@ namespace Graphics
 		// }
 	}
 
-	ReflectionLayoutId addReflectionLayout(const char* name_, BufferTypeEnum bufferType_)
+	PoolId addVerticeLayout(const char* name_)
 	{
-		return {Globals::renderer.reflectionSystem.layoutsPerBufferType[bufferType_].add(name_), bufferType_}; 
+		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX - 1].add(name_); 
+	}
+
+	PoolId addMemberToVerticeLayout(PoolId layoutId_, const char* name_, DataTypeEnum dataType_)
+	{
+		return getVerticeLayout(layoutId_).addMemberBlueprint(name_, dataType_);
 	}
 }

@@ -68,7 +68,8 @@ add_executable(PBRVulkanDemo
 	"src/Misc/Bool.cpp"
 
 	# Reflection 
-	"src/Graphics/Reflection/Layout.cpp" "src/Graphics/Reflection/MemberBlueprint.cpp" 
+	"src/Graphics/Reflection/Layout.cpp" "src/Graphics/Reflection/MemberBlueprint.cpp"
+	src/Core/Resources/Mesh.cpp 
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
