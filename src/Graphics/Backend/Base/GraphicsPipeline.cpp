@@ -30,7 +30,7 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 	VkVertexInputBindingDescription bindingDescription = {};
 	bindingDescription.binding = 0; // Can bind multiple streams of data, this defines which one 
 	//bindingDescription.stride =  Engine::Project::graphicsObjects.meshTypes.get(this->meshTypeId).layout.back().element.lastByteId + 1; // Size of a single vertex object with all info. Used for distinguishing between each vertex.   
-	bindingDescription.stride = sizeof(glm::vec3); 
+	bindingDescription.stride = 12;
 	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;	// Describes how to move between data after each vertex.
 	// VK_VERTEX_INPUT_RATE_INDEX		: Move on to the next vertex 
 	// VK_VERTEX_INPUT_RATE_INSTANCE	: Move on to the same vertex for the next instance(When instancing) 
@@ -38,7 +38,8 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 
 
 	// How attribute is defined within Vertex 
-	std::array<VkVertexInputAttributeDescription, 1> attributesDescriptions;
+	std::array<VkVertexInputAttributeDescription, 1> attributesDescriptions = {};
+	attributesDescriptions[0].offset = 0;
 	attributesDescriptions[0].binding = 0; 
 	attributesDescriptions[0].location = 0; 
 	attributesDescriptions[0].format =  VK_FORMAT_R32G32B32_SFLOAT; 

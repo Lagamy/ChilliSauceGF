@@ -2,6 +2,7 @@
 
 #include "Renderer.h"
 #include "GPUMemoryManager.h"
+#include "ReflectionSystem.h"
 // #include "AssetsManager.h"
 #include "Utilities.h"
 #include <GLFW/glfw3.h>
@@ -18,7 +19,6 @@ namespace Globals {
 
     // - System Global components: 
     inline GLFWwindow* appWindow;
-	 
 	inline Graphics::Renderer renderer;
 	// inline AssetsManager assetsManager;
 };

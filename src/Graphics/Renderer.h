@@ -13,6 +13,7 @@
 #include "Utilities.h"
 #include "SyncManager.h"
 #include "ShadersManager.h"
+#include "ReflectionSystem.h"
 #include <limits>
 #include <vulkan/vulkan_core.h>
 #include <cstdint>
@@ -29,6 +30,7 @@ struct Renderer {
 	GPUMemoryManager gpuMemoryManager;
 	SyncManager syncManager; 
 	ShadersManager shadersManager;
+	ReflectionSystem reflectionSystem;
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass renderpass;

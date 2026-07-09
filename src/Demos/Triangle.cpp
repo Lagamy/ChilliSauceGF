@@ -1,5 +1,6 @@
 #include "Triangle.h"
 #include "Api.h"
+#include "Layout.h"
 #include "Utilities.h"
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
@@ -22,22 +23,46 @@ namespace Graphics
 		GraphicsPipeline& rGraphicsPipeline = getGraphicsPipeline();
 	
 		/* Init Mesh */
-		mesh.vertices = {
-			glm::vec3(-0.5, -0.5, 0.0),
-			glm::vec3(0.5, -0.5, 0.0),
-			glm::vec3(0.0, 0.5, 0.0),
-		};
+		// mesh.vertices = {
+		// 	glm::vec3(-0.5, 0.5, 0.0),
+		// 	glm::vec3(0.5, 0.5, 0.0),
+		// 	glm::vec3(0.0, -0.5, 0.0),
+		// };
 
-		mesh.indices = { 
-			0, 1, 2
-		};
+		// mesh.indices = { 
+		// 	0, 1, 2
+		// };
+		
+		// Create Layout for mesh verticies  
+		this->mesh.verticeLayoutId = addReflectionLayout("Triangle Vertice", VERTEX); 
+		ReflectionLayout& verticeLayout = getReflectionLayout(this->mesh.verticeLayoutId);
+		PoolId positionId = verticeLayout.addMemberBlueprint("Position", VEC3);  
+		// Create mesh vertex Data
+		this->mesh.vertexDataContainerId = verticeLayout.createDataContainer("Triangle Vertex Data", 3); 
+		// Set vertex values
+		verticeLayout.setMemberInDataContainer(positionId, glm::vec3{-0.5, 0.5, 0.0}, this->mesh.vertexDataContainerId, 0, "Triangle Vertice");
+		verticeLayout.setMemberInDataContainer(positionId, glm::vec3{0.5, 0.5, 0.0}, this->mesh.vertexDataContainerId, 1, "Triangle Vertice");
+		verticeLayout.setMemberInDataContainer(positionId, glm::vec3{0.0, -0.5, 0.0}, this->mesh.vertexDataContainerId, 2, "Triangle Vertice");
+
+		// Create Layout for mesh indices
+		this->mesh.indiceLayoutId = addReflectionLayout("Triangle Indice", INDEX); 
+		ReflectionLayout& indiceLayout = getReflectionLayout(this->mesh.indiceLayoutId); 
+		PoolId id = indiceLayout.addMemberBlueprint("Id", UINT32); 
+		// Create mesh index Data 
+		this->mesh.indexDataContainerId = indiceLayout.createDataContainer("Triangle Index Data", 3); 
+		// Set index values 
+		indiceLayout.setMemberInDataContainer(id, 2u, this->mesh.indexDataContainerId, 0, "Triangle Indice");
+		indiceLayout.setMemberInDataContainer(id, 1u, this->mesh.indexDataContainerId, 1, "Triangle Indice");
+		indiceLayout.setMemberInDataContainer(id, 0u, this->mesh.indexDataContainerId, 2, "Triangle Indice");
+		
+		
 		/**************/
 
 		/* Upload Mesh */
-		mesh.vbMemoryId = addUpload("Triangle Vertices", STATIC, VERTEX, mesh.vertices.data(), sizeof(Vertex) * mesh.vertices.size()); 
+		mesh.vbMemoryId = addUpload("Triangle Vertices", STATIC, VERTEX, verticeLayout.dataContainers.get(this->mesh.vertexDataContainerId).data(), verticeLayout.size * 3); 
 		
 		// Create Index Buffer and fill it with data.
-		mesh.ibMemoryId = addUpload("Triangle Indices", STATIC, INDEX, mesh.indices.data(), sizeof(uint32_t) * mesh.indices.size()); 
+		mesh.ibMemoryId = addUpload("Triangle Indices", STATIC, INDEX, indiceLayout.dataContainers.get(this->mesh.indexDataContainerId).data(), indiceLayout.size * 3); 
 		/**************/
 	
 		/* Configure RenderPass*/
@@ -115,7 +140,7 @@ namespace Graphics
 
 		// Draw
 		// printf("Drawing triangle\n");
-		vkCmdDrawIndexed(cmdBuffer_, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
+		vkCmdDrawIndexed(cmdBuffer_, 3, 1, 0, 0, 0);
 		// vkCmdDraw(cmdBuffer_, 3, 1,0,0);
 		vkCmdEndRenderPass(cmdBuffer_);
 		vkEndCommandBuffer(cmdBuffer_);

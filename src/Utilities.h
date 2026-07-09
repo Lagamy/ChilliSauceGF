@@ -1,6 +1,7 @@
 ﻿// Basically a settings/requirments header  
 #pragma once 
 #include "PoolId.h"
+#include "Bool.h"
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
@@ -58,6 +59,7 @@ namespace Graphics
 		// TEXTURE = 4
 	};
 
+	inline const uint8_t BufferTypesCount = 2; 
 
 	/* Helper structs */
 
@@ -121,7 +123,148 @@ namespace Graphics
 
 
 	inline uint64_t assetDelayBeforeUnload; // Can change between scenes.(Flexability). Used for assets with STREAMING lifetimeType
+	
+	// Reflection
+	enum AlignmentLayoutEnum  : uint8_t // For differentiating GPU layout alignments
+	{
+		NONE,
+		STD140,
+		STD430
+	};
 
+	enum AlignmentTypeEnum  : uint8_t // For differentiating GPU layout alignment types
+	{
+		AL_SCALAR,
+		AL_VEC2, // Exception as its alignment is 8 bytes, despite being an array
+		AL_ARRAY, // Used for internal GLSL array: VEC3, VEC4, MAT2, MAT3, MAT4, MAT2x2, etc.  
+		AL_USERARRAY // Used for user authored arrays. Differ in calculation between std140 and std430
+	};
+
+	enum DataTypeEnum  : uint8_t
+	{ 
+		INT32,
+		UINT32,
+		FLOAT,
+		BOOL,
+		VEC2, 
+		VEC3,
+		VEC4, 
+		MAT2,
+		MAT3, 
+		MAT4, 
+		MAT2X3,
+		MAT2X4, 
+		MAT3X2,
+		MAT3X4,
+		MAT4X2,	
+		MAT4X3
+	};
+
+	inline constexpr const char* dataTypeToName[]
+	{
+		"Int",
+		"Uint",
+		"Float",
+		"Bool",
+		"Vec2",
+		"Vec3",
+		"Vec4",
+		"Mat2",
+		"Mat3",
+		"Mat4",
+		"Mat2x3",
+		"Mat2x4",
+		"Mat3x2",
+		"Mat3x4",
+		"Mat4x2",
+		"Mat4x3"
+	};
+
+	inline constexpr uint32_t dataTypeToElementCount[]
+	{
+		1, // INT
+		1, // UINT
+		1, // FLOAT
+		1, // BOOL
+		2, // VEC2
+		3, // VEC3
+		4, // VEC4
+		4, // MAT2, 
+		9, // MAT3	
+		16, // MAT4
+		6, // MAT2X3
+		8, // MAT2X4
+		6, // MAT3X2 
+		12, // MAT3X4
+		8, // MAT4X2
+		12 // MAT4X3
+	};
+
+	inline constexpr glm::vec2 dataTypeToColumnsAndRows[]
+	{
+		{1, 1}, // INT
+		{1, 1}, // UINT
+		{1, 1}, // FLOAT
+		{1, 1}, // BOOL
+		{2, 1}, // VEC2
+		{3, 1}, // VEC3
+		{4, 1}, // VEC4
+		{2, 2}, // MAT2, 
+		{3, 3}, // MAT3	
+		{4, 4}, // MAT4
+		{2, 3}, // MAT2X3
+		{2, 4}, // MAT2X4
+		{3, 2}, // MAT3X2 
+		{3, 4}, // MAT3X4
+		{4, 2}, // MAT4X2
+		{4, 3} // MAT4X3
+	};
+
+	inline constexpr VkFormat typeToVkFormat[]
+	{
+		VK_FORMAT_R32_SINT, // INT32
+		VK_FORMAT_R32_UINT, // UINT32
+		VK_FORMAT_R32_SFLOAT, // FLOAT
+		VK_FORMAT_R32_UINT, // BOOL
+		VK_FORMAT_R32G32_SFLOAT, // VEC2T.  GLSL internal vec and mat types. All are a fixed array of floats 
+		VK_FORMAT_R32G32B32_SFLOAT, // VEC3T
+		VK_FORMAT_R32G32B32A32_SFLOAT// VEC4T
+	};
+
+	inline constexpr uint32_t alignmentTypeRules[]  // Exist to simply padd and align data on CPU side - so GPU would read it correctly after upload
+	{
+		4, // AL_SCALAR
+		8, // AL_VEC2
+		16 // AL_ARRAY. for vec3/4, mat2/3/4
+	};
+
+	inline const uint32_t getAlignmentTypeRule(AlignmentTypeEnum alignmentTypeEnum_)
+	{
+		return alignmentTypeRules[static_cast<size_t>(alignmentTypeEnum_)];
+	};
+
+
+	template<typename T>
+	struct GPUTypeMap; // intentionally undefined
+
+	// template<> tells the compiler: this is a specialization of a template, and not just random structs 
+	template<> struct GPUTypeMap<int32_t> { static constexpr DataTypeEnum value = INT32; }; 
+	template<> struct GPUTypeMap<uint32_t> { static constexpr DataTypeEnum value = UINT32; };
+	template<> struct GPUTypeMap<float> { static constexpr DataTypeEnum value = FLOAT; };
+	template<> struct GPUTypeMap<Bool> { static constexpr DataTypeEnum value = BOOL; };
+
+	template<> struct GPUTypeMap<glm::vec2> { static constexpr DataTypeEnum value = VEC2; };
+	template<> struct GPUTypeMap<glm::vec4> { static constexpr DataTypeEnum value = VEC4; };
+	template<> struct GPUTypeMap<glm::vec3> { static constexpr DataTypeEnum value = VEC3; };
+	template<> struct GPUTypeMap<glm::mat2> { static constexpr DataTypeEnum value = MAT2; };
+	template<> struct GPUTypeMap<glm::mat3> { static constexpr DataTypeEnum value = MAT3; }; 
+	template<> struct GPUTypeMap<glm::mat4> { static constexpr DataTypeEnum value = MAT4; };
+	template<> struct GPUTypeMap<glm::mat2x3> { static constexpr DataTypeEnum value = MAT2X3; };
+	template<> struct GPUTypeMap<glm::mat2x4> { static constexpr DataTypeEnum value = MAT2X4; };
+	template<> struct GPUTypeMap<glm::mat3x2> { static constexpr DataTypeEnum value = MAT3X2; };
+	template<> struct GPUTypeMap<glm::mat3x4> { static constexpr DataTypeEnum value = MAT3X4; };
+	template<> struct GPUTypeMap<glm::mat4x2> { static constexpr DataTypeEnum value = MAT4X2; };
+	template<> struct GPUTypeMap<glm::mat4x3> { static constexpr DataTypeEnum value = MAT4X3; };
 
 }
 
@@ -198,6 +341,5 @@ namespace Disk
 	std::vector<char> readFile(const std::string& rFilename_);
     inline std::string executablePath = Disk::findExecutablePath();
 }
-
 
 

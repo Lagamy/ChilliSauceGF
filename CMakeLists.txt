@@ -61,8 +61,14 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/FrameResources.cpp" "src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
 	"src/Graphics/ShadersManager.cpp"
 
-	#Demos
+	# Demos
 	"src/Demos/Triangle.cpp"
+
+	# Misc 
+	"src/Misc/Bool.cpp"
+
+	# Reflection 
+	"src/Graphics/Reflection/Layout.cpp" "src/Graphics/Reflection/MemberBlueprint.cpp" 
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -87,6 +93,7 @@ set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
 set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
 set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
 set(MEMORY_MANAGMENT_DIR "${BACKEND_DIR}/MemoryManagment")
+set(REFLECTION_DIR "${GRAPHICS_DIR}/Reflection")
 
 # Link dependencies
 target_link_libraries(PBRVulkanDemo
@@ -111,6 +118,9 @@ target_include_directories(PBRVulkanDemo PRIVATE
 
 	# Demos
 	${DEMOS_DIR}
+
+	# Reflection
+	${REFLECTION_DIR}
 )
 
 # Put the executable into /bin

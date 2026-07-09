@@ -13,6 +13,7 @@ struct Triangle {
 	PoolId vertexShaderId; 
 	PoolId fragmentShaderId; 
 	Mesh mesh;
+
 	uint32_t cmdBufferId;
 	bool firstFrame = true;  
 

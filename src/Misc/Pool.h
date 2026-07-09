@@ -29,6 +29,29 @@ struct Pool {
 	std::string name;
 
 	Pool(){};
+	void isPoolIdValid(PoolId pId_)
+	{
+		if(pId_ == UninitializedPoolId)
+		{
+			std::stringstream errorMessageStream;
+			errorMessageStream << name << " Pool: UninitializedPoolId can't be used in get function.\n";
+			throw std::runtime_error(errorMessageStream.str());
+		}
+
+		if(pId_.id >= this->objects.size() || !objects[pId_.id].has_value())
+		{
+			std::stringstream errorMessageStream;
+			errorMessageStream << name << " Pool: object with id: " << pId_.id << " doesn't exist.\n";
+			throw std::runtime_error(errorMessageStream.str());
+		}
+		if(this->generation[pId_.id] != pId_.generation)
+		{
+			std::stringstream errorMessageStream;
+			errorMessageStream << name << " Pool: slot with id: " << pId_.id << " has bigger generation(" << pId_.generation << "), than passed one(" << this->generation[pId_.id] << ").\n";
+			throw std::runtime_error(errorMessageStream.str());
+		}
+	}
+
 	template <typename... Args>
     PoolId add(const char* name_, Args&&... args)
     {
@@ -57,12 +80,7 @@ struct Pool {
     }
 
 	void remove(PoolId pId_) {
-		if(pId_.id >= this->objects.size() || !objects[pId_.id].has_value()|| this->generation[pId_.id] != pId_.generation)
-		{
-			std::stringstream errorMessageStream;
-			errorMessageStream << name << " Pool: object with id: " << pId_.id << " and generation: " << pId_.generation << " already doesn't exist.\n";
-			throw std::runtime_error(errorMessageStream.str());
-		}
+		this->isPoolIdValid(pId_); 
 		this->objects[pId_.id].reset();
 		this->generation[pId_.id]++; 
 		this->freeSlots.emplace_back(pId_.id);
@@ -91,26 +109,31 @@ struct Pool {
 
 	T& get(PoolId pId_)
 	{
-		if(pId_ == UninitializedPoolId)
+		this->isPoolIdValid(pId_); 
+		return this->objects[pId_.id].value();
+	}
+
+	T& back()
+	{
+		if(this->objects.empty())
 		{
-			std::stringstream errorMessageStream;
-			errorMessageStream << name << " Pool: UninitializedPoolId can't be used in get function.\n";
+			std::stringstream errorMessageStream; 
+			errorMessageStream << this->name << ": Can't use back() on empty Pool."; 
 			throw std::runtime_error(errorMessageStream.str());
 		}
 
-		if(pId_.id >= this->objects.size() || !objects[pId_.id].has_value())
+		uint32_t id = this->size() - 1;
+		while(!this->objects[id].has_value())
 		{
-			std::stringstream errorMessageStream;
-			errorMessageStream << name << " Pool: object with id: " << pId_.id << " doesn't exist.\n";
-			throw std::runtime_error(errorMessageStream.str());
+			if(id == 0)
+			{
+				std::stringstream errorMessageStream; 
+				errorMessageStream << this->name << ": Can't use back() on empty Pool."; 
+				throw std::runtime_error(errorMessageStream.str());
+			}
+			id--; 
 		}
-		if(this->generation[pId_.id] != pId_.generation)
-		{
-			std::stringstream errorMessageStream;
-			errorMessageStream << name << " Pool: slot with id: " << pId_.id << " has bigger generation(" << pId_.generation << "), than passed one(" << this->generation[pId_.id] << ").\n";
-			throw std::runtime_error(errorMessageStream.str());
-		}
-		return this->objects[pId_.id].value();
+		return this->objects[id].value();
 	}
 
 	PoolId getIdByName(const char* name_)
@@ -123,6 +146,12 @@ struct Pool {
 			throw std::runtime_error(errorMessageStream.str());
 		}
 		return iterator->second;
+	}
+
+	std::string& getName(PoolId pId_)
+	{
+		this->isPoolIdValid(pId_);
+		return this->names[pId_.id]; 
 	}
 
 	Pool(const char* name_) : name(name_) {};

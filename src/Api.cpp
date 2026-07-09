@@ -1,5 +1,6 @@
 #include "Api.h"
 #include "Globals.h"
+#include "Layout.h"
 #include "PoolId.h"
 #include "UploadEntry.h"
 #include "UploadId.h"
@@ -137,6 +138,12 @@ namespace Graphics
 		}
 	}
 
+
+	ReflectionLayout& getReflectionLayout(ReflectionLayoutId layoutId_)
+	{
+		return Globals::renderer.reflectionSystem.layoutsPerBufferType[layoutId_.bufferType].get(layoutId_.id); 
+	}
+
 	void setFramesAtFlightCount(uint32_t count_)
 	{
 		Globals::renderer.framesAtFlightCount = count_;
@@ -203,5 +210,10 @@ namespace Graphics
 		// {
 		return Globals::renderer.gpuMemoryManager.staticAllocator.addUpload(name_, data_, size_, uploadType_);
 		// }
+	}
+
+	ReflectionLayoutId addReflectionLayout(const char* name_, BufferTypeEnum bufferType_)
+	{
+		return {Globals::renderer.reflectionSystem.layoutsPerBufferType[bufferType_].add(name_), bufferType_}; 
 	}
 }

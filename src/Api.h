@@ -1,4 +1,5 @@
 #pragma once 
+#include "LayoutId.h"
 #include "PoolId.h"
 #include "UploadId.h"
 #include "Utilities.h"
@@ -38,6 +39,10 @@ namespace Graphics
 	GraphicsPipeline& getGraphicsPipeline(); 
 	RenderPass& getRenderPass();
 	
+	ReflectionLayout& getReflectionLayout(ReflectionLayoutId layoutId_);
+	
+
+	// Set
 	void setFramesAtFlightCount(uint32_t count_); 
 
 	// Record 
@@ -55,6 +60,8 @@ namespace Graphics
 	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);
 	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
 
-	// Remove 
+	ReflectionLayoutId addReflectionLayout(const char* name_, BufferTypeEnum bufferType_);
+	
+		// Remove 
 	void removeShader(PoolId id_);
 };
