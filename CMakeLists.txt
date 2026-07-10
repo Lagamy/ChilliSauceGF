@@ -56,8 +56,8 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" 
-	"src/Graphics/Backend/MemoryManagment/GPUHeap.cpp" "src/Graphics/SyncManager.cpp"
-	"src/Graphics/Backend/MemoryManagment/StagingHeap.cpp" "src/Graphics/Backend/MemoryManagment/StaticAllocator.cpp"
+	"src/Graphics/MemoryManagment/GPUHeap.cpp" "src/Graphics/SyncManager.cpp"
+	"src/Graphics/MemoryManagment/StagingHeap.cpp" "src/Graphics/MemoryManagment/StaticAllocator.cpp"
 	"src/Graphics/FrameResources.cpp" "src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
 	"src/Graphics/ShadersManager.cpp"
 
@@ -69,7 +69,7 @@ add_executable(PBRVulkanDemo
 
 	# Reflection 
 	"src/Graphics/Reflection/Layout.cpp" "src/Graphics/Reflection/MemberBlueprint.cpp"
-	src/Core/Resources/Mesh.cpp 
+	"src/Graphics/Resources/Mesh.cpp" 
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -82,10 +82,10 @@ set(DEMOS_DIR "${SRC_DIR}/Demos")
 # Core
 # set(ASSETS_DIR "${CORE_DIR}/Assets")
 set(MANAGERS_DIR "${CORE_DIR}/Managers")
-set(RESOURCES_DIR "${CORE_DIR}/Resources")
 
 
 # Graphics
+set(RESOURCES_DIR "${GRAPHICS_DIR}/Resources")
 set(BACKEND_DIR "${GRAPHICS_DIR}/Backend")
 set(IMAGE_DIR "${BACKEND_DIR}/Image")
 set(BASE_DIR "${BACKEND_DIR}/Base")
@@ -93,7 +93,7 @@ set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
 # set(DESCRIPTORSET_DIR "${BACKEND_DIR}/DescriptorSet")
 set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
 set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
-set(MEMORY_MANAGMENT_DIR "${BACKEND_DIR}/MemoryManagment")
+set(MEMORY_MANAGMENT_DIR "${GRAPHICS_DIR}/MemoryManagment")
 set(REFLECTION_DIR "${GRAPHICS_DIR}/Reflection")
 
 # Link dependencies
@@ -110,10 +110,10 @@ target_include_directories(PBRVulkanDemo PRIVATE
 
 	# Core
 	# ${ASSETS_DIR} 
-	${MANAGERS_DIR} ${RESOURCES_DIR}
+	${MANAGERS_DIR} 
 
 	# Graphics
-	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} 
+	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} ${RESOURCES_DIR}
 	# ${DESCRIPTORSET_DIR} 
 	${SYNCHRONISATION_DIR} ${VALIDATION_DIR} ${MEMORY_MANAGMENT_DIR}
 

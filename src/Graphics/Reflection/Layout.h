@@ -36,7 +36,7 @@ struct ReflectionLayout
 			errorMessageStream << this->dataContainers.getName(dataContainerId_) << " Data Container: Repeat Unit " << repeatUnitId_ << " is out of bounds." << "\n"; 
 			throw std::runtime_error(errorMessageStream.str());
         }
-        size_t repeatUnitOffset = repeatUnitId_ * size;  
+        size_t repeatUnitOffset = repeatUnitId_ * this->size;  
         std::memcpy(&rDataContainer.data[repeatUnitOffset + rMemberBlueprint.firstByteId], &data_, rMemberBlueprint.size);
     }; 
 

@@ -3,6 +3,7 @@
 
 #include "RenderPass.h"
 #include "Shader.h"
+#include "Mesh.h"
 #include "PipelineLayout.h"
 #include "Fence.h"
 #include "Utilities.h"
@@ -20,6 +21,7 @@ struct GraphicsPipeline {
 	VkPolygonMode polygonMode; // How to Rasterize Primitives. How primitives are filled during rasterization(Select line for wireframe)
 	PoolId vertexShaderId;
 	PoolId fragmentShaderId;
+	PoolId verticeLayoutId;
 
 	PoolId notInUseFenceId; // So we don't rebuild Pipeline, Descriptors and the sets when they are used by the GPU  
 	
@@ -29,7 +31,7 @@ struct GraphicsPipeline {
 	void create(RenderPass& rRenderpass_, uint32_t subpassId_);
 	void destroy();
 	
-	GraphicsPipeline(PoolId vertexShaderId_, PoolId fragmentShaderId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_) : vertexShaderId(vertexShaderId_), fragmentShaderId(fragmentShaderId_), primitiveType(primitiveType_), polygonMode(polygonMode_) {};
+	GraphicsPipeline(PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_) : vertexShaderId(vertexShaderId_), fragmentShaderId(fragmentShaderId_), verticeLayoutId(verticeLayoutId_), primitiveType(primitiveType_), polygonMode(polygonMode_) {};
 	GraphicsPipeline() = default; 
 	VkPipeline get() const;
 };

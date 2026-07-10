@@ -44,8 +44,10 @@ void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 	{
 		for(auto& rUpload : this->uploadEntriesGroups[i])
 		{
+			// Since GPUHeap is allocated -> i can now find and save each Uploads first byte position in it. 
+			rUpload.inGPUFirstByte = this->gpuHeap.bufferOffsets[i] + rUpload.inBufferFirstByte; 
 			void* pStagingMemPoint; // Create an empty typeless pointer.
-			vkMapMemory(getMainDevice().logicalDevice, stagingHeap.memoryBlock.get(), memoryBlockOffset + rUpload.inBufferStartingByte, rUpload.size, 0, &pStagingMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
+			vkMapMemory(getMainDevice().logicalDevice, stagingHeap.memoryBlock.get(), memoryBlockOffset + rUpload.inBufferFirstByte, rUpload.size, 0, &pStagingMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
 			memcpy(pStagingMemPoint, static_cast<const char*>(rUpload.data), rUpload.size);  // writes to *GPU memory/Shared memory in Ram* via CPU pointer
 			vkUnmapMemory(getMainDevice().logicalDevice, stagingHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
 		}

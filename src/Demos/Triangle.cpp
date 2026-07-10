@@ -22,32 +22,30 @@ namespace Graphics
 		RenderPass& rRenderPass = getRenderPass();
 		GraphicsPipeline& rGraphicsPipeline = getGraphicsPipeline();
 	
-		/* Init Mesh */
-		// mesh.vertices = {
-		// 	glm::vec3(-0.5, 0.5, 0.0),
-		// 	glm::vec3(0.5, 0.5, 0.0),
-		// 	glm::vec3(0.0, -0.5, 0.0),
-		// };
+		
+		this->verticeLayoutId = addVerticeLayout("Triangle Vertice Layout");
+		PoolId positionId = addMemberToVerticeLayout(this->verticeLayoutId, "Position", VEC3);
+		PoolId colorId = addMemberToVerticeLayout(this->verticeLayoutId, "Color", VEC4); 
 
+
+		this->meshId = addMesh("Triangle", this->verticeLayoutId, 3);
+		Mesh& rMesh = getMesh(this->meshId); 
+		rMesh.setVerticeMember(positionId, 0, glm::vec3(0.0,-0.5, 0.0));
+		rMesh.setVerticeMember(positionId, 1, glm::vec3(0.5, 0.5, 0.0));
+		rMesh.setVerticeMember(positionId, 2, glm::vec3(-0.5, 0.5, 0.0));
+
+		rMesh.setVerticeMember(colorId, 0, glm::vec4(1.0, 0.0, 0.0, 1.0)); 
+		rMesh.setVerticeMember(colorId, 1, glm::vec4(0.0, 1.0, 0.0, 1.0));
+		rMesh.setVerticeMember(colorId, 2, glm::vec4(0.0, 0.0, 1.0, 1.0));
 		
-		this->verticeLayoutId = addVerticeLayout("Triangle Vertice Layout"); 
-		PoolId positionId = addMemberToVerticeLayout(this->verticeLayoutId, "Postion", VEC3); 
-		this->mesh.create("Triangle Mesh", this->verticeLayoutId, 3);		
-		this->mesh.setVerticeMember(positionId, 0, glm::vec3(-0.5, 0.5, 0.0));
-		this->mesh.setVerticeMember(positionId, 1, glm::vec3(0.5, 0.5, 0.0));
-		this->mesh.setVerticeMember(positionId, 2, glm::vec3(0.0,-0.5, 0.0));
-		
-		this->mesh.indices = { 
+		rMesh.indices = { 
 		 	0, 1, 2
 		};
 		
 		/**************/
 
 		/* Upload Mesh */
-		mesh.vbMemoryId = addUpload("Triangle Vertices", STATIC, VERTEX, this->mesh.getData(), this->mesh.getSize()); 
-		
-		// Create Index Buffer and fill it with data.
-		mesh.ibMemoryId = addUpload("Triangle Indices", STATIC, INDEX, this->mesh.indices.data(), this->mesh.indices.size() * 4); 
+		rMesh.queueGPUUpload(); 
 		/**************/
 	
 		/* Configure RenderPass*/
@@ -66,7 +64,7 @@ namespace Graphics
 		rRenderPass.addSubpass(subpassDescription, subpassLayoutTransition); 
 
 		/* Configure Graphics Pipeline */
-		rGraphicsPipeline = GraphicsPipeline(this->vertexShaderId, this->fragmentShaderId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
+		rGraphicsPipeline = GraphicsPipeline(this->vertexShaderId, this->fragmentShaderId, rMesh.verticeLayoutId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
 
 		/* Initialize Command Buffer Blueprints */
 		this->cmdBufferId = addCmdBufferBlueprint(
@@ -102,14 +100,15 @@ namespace Graphics
 		vkCmdBindPipeline(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, getGraphicsPipeline().get());
 		
 		// Bind vertex buffer 
-		const UploadEntry& vertexUpload = getUploadEntry(this->mesh.vbMemoryId); 
+		Mesh& rMesh = getMesh(this->meshId); 
+		const UploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryId); 
 		VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
 		VkDeviceSize vOffsets[] = { 0 }; 
 		vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
 
 		// Bind index buffer 
-		const UploadEntry& indexUpload = getUploadEntry(this->mesh.ibMemoryId); 
-		vkCmdBindIndexBuffer(cmdBuffer_, getGPUBuffer(STATIC, INDEX).get(), indexUpload.inBufferStartingByte, VK_INDEX_TYPE_UINT32);
+		const UploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryId); 
+		vkCmdBindIndexBuffer(cmdBuffer_, getGPUBuffer(STATIC, INDEX).get(), indexUpload.inBufferFirstByte, VK_INDEX_TYPE_UINT32);
 	
 		// Viewport and Scissor (for dynamic) 
 		// VkViewport viewport = {}; 
@@ -125,8 +124,8 @@ namespace Graphics
 
 		// Draw
 		// printf("Drawing triangle\n");
-		vkCmdDrawIndexed(cmdBuffer_, 3, 1, 0, 0, 0);
-		// vkCmdDraw(cmdBuffer_, 3, 1,0,0);
+		// vkCmdDrawIndexed(cmdBuffer_, 3, 1, 0, 0, 0);
+		vkCmdDraw(cmdBuffer_, 3, 1,0,0);
 		vkCmdEndRenderPass(cmdBuffer_);
 		vkEndCommandBuffer(cmdBuffer_);
 	}

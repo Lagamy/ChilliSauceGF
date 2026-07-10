@@ -27,7 +27,8 @@ struct UpdateEntry
 };
 
 
-struct GPUMemoryManager { 
+struct GPUMemoryManager 
+{ 
 	StaticAllocator staticAllocator;
 	std::vector<UpdateEntry> updateEntries; 
 	bool updateNeeded = false;

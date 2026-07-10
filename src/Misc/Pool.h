@@ -55,13 +55,11 @@ struct Pool {
 	template <typename... Args>
     PoolId add(const char* name_, Args&&... args)
     {
-        PoolId id;
+        PoolId id = {0, 0};
 
         if (freeSlots.empty())
         {
             id.id = static_cast<uint32_t>(objects.size());
-            id.generation = 1;
-
             this->objects.emplace_back(std::in_place, std::forward<Args>(args)...);
             this->generation.emplace_back(id.generation);
 			this->names.emplace_back(name_);
@@ -80,7 +78,7 @@ struct Pool {
     }
 
 	void remove(PoolId pId_) {
-		this->isPoolIdValid(pId_); 
+		this->isPoolIdValid(pId_);
 		this->objects[pId_.id].reset();
 		this->generation[pId_.id]++; 
 		this->freeSlots.emplace_back(pId_.id);

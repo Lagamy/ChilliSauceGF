@@ -5,6 +5,7 @@
 #include "RenderPass.h" 
 #include "Instance.h"
 #include "Device.h"
+#include "ResourcesManager.h"
 #include "ShadersManager.h"
 #include "Surface.h"
 #include "Swapchain.h"
@@ -30,6 +31,7 @@ struct Renderer {
 	GPUMemoryManager gpuMemoryManager;
 	SyncManager syncManager; 
 	ShadersManager shadersManager;
+	ResourceManager resourcesManager; 
 	ReflectionSystem reflectionSystem;
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
@@ -48,8 +50,6 @@ struct Renderer {
 	void setup();
 	void draw(); 
 	void shutdown();
-
-	
 
 	void initRenderFlow(); // init all command buffer blueprints
 

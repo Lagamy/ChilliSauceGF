@@ -86,7 +86,7 @@ namespace Graphics
 	uint32_t getUploadStartingByteInGPUHeap(UploadId id_)
 	{
 		const UploadEntry& rEntry = getUploadEntry(id_); 
-		return getGPUBufferOffset(STATIC, rEntry.bufferType) + rEntry.inBufferStartingByte; 
+		return getGPUBufferOffset(STATIC, rEntry.bufferType) + rEntry.inBufferFirstByte; 
 	}
 
 	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_)
@@ -143,6 +143,12 @@ namespace Graphics
 	{
 		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX - 1].get(layoutId_); // - 1 due to INDEX layout not existing  
 	}
+
+
+	Mesh& getMesh(PoolId meshId_)
+	{
+		return Globals::renderer.resourcesManager.meshes.get(meshId_);
+	} 
 
 	void setFramesAtFlightCount(uint32_t count_)
 	{
@@ -221,4 +227,10 @@ namespace Graphics
 	{
 		return getVerticeLayout(layoutId_).addMemberBlueprint(name_, dataType_);
 	}
+
+
+	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_)
+	{
+		return Globals::renderer.resourcesManager.meshes.add(name_, name_, verticeLayoutId_, repeatCount_); 
+	} 
 }

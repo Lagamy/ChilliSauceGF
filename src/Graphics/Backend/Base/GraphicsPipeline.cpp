@@ -1,5 +1,6 @@
 #include "GraphicsPipeline.h"
 #include "Api.h"
+#include "Layout.h"
 #include "RenderPass.h"
 #include <vulkan/vulkan_core.h>
 
@@ -26,31 +27,36 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 	shaderStages.emplace_back(shaderStageCreateInfo); 	
 
 	/* Vertex Input */
+	ReflectionLayout& rVerticeLayout = getVerticeLayout(this->verticeLayoutId); 
 	// Describes how the data for a single vertex(position, color, texture coords, normals, etc) is laid out. 
 	VkVertexInputBindingDescription bindingDescription = {};
 	bindingDescription.binding = 0; // Can bind multiple streams of data, this defines which one 
 	//bindingDescription.stride =  Engine::Project::graphicsObjects.meshTypes.get(this->meshTypeId).layout.back().element.lastByteId + 1; // Size of a single vertex object with all info. Used for distinguishing between each vertex.   
-	bindingDescription.stride = 12;
+	bindingDescription.stride = rVerticeLayout.size; // Size of 1 vertex in GPU, so even if we use here only few attributes from uploaded vertice - Vulkan knows how to get to the next one.
 	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;	// Describes how to move between data after each vertex.
 	// VK_VERTEX_INPUT_RATE_INDEX		: Move on to the next vertex 
 	// VK_VERTEX_INPUT_RATE_INSTANCE	: Move on to the same vertex for the next instance(When instancing) 
 	// Vertex Attributes and how data for each is defined within vertex. 
 
-
 	// How attribute is defined within Vertex 
-	std::array<VkVertexInputAttributeDescription, 1> attributesDescriptions = {};
-	attributesDescriptions[0].offset = 0;
-	attributesDescriptions[0].binding = 0; 
-	attributesDescriptions[0].location = 0; 
-	attributesDescriptions[0].format =  VK_FORMAT_R32G32B32_SFLOAT; 
-
+	std::vector<VkVertexInputAttributeDescription> attributesDescriptions;
+	attributesDescriptions.resize(rVerticeLayout.memberBlueprints.size());
+	
+	for(uint32_t i = 0; i < attributesDescriptions.size(); i++)
+	{
+		MemberBlueprint& rMemberBlueprint = rVerticeLayout.memberBlueprints.get({i, 0}); 
+		attributesDescriptions[i].offset = rMemberBlueprint.firstByteId;
+		attributesDescriptions[i].binding = 0;
+		attributesDescriptions[i].location = i;
+		attributesDescriptions[i].format =  typeToVkFormat[rMemberBlueprint.dataType]; 
+	}
 
 	// Feed pipeline create info
 	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {};
 	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCreateInfo.pVertexBindingDescriptions = &bindingDescription; // List of Vertex Binding Descriptions(data spacing, stride info)
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = 1;  
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = attributesDescriptions.size();  
 	vertexInputCreateInfo.pVertexAttributeDescriptions = attributesDescriptions.data(); // List of Vertex Attributes Descriptions(data format, and where to bind to, and where from)
 
 
