@@ -45,14 +45,14 @@ namespace Graphics
 	}
 
 	// For now i only need 1 of each
-	GraphicsPipeline& getGraphicsPipeline()
+	GraphicsPipeline& getGraphicsPipeline(PoolId graphicsPipelineId_)
 	{
-		return Globals::renderer.graphicsPipeline; 
+		return Globals::renderer.graphicsPipelines.get(graphicsPipelineId_); 
 	}
 
-	RenderPass& getRenderPass()
+	RenderPass& getPresentationRenderPass()
 	{
-		return Globals::renderer.renderpass; 
+		return Globals::renderer.presentationRenderPass; 
 	}
 
 	CmdBufferBlueprintsPack& getCmdBufferBlueprints(CommandPoolTypeEnum poolType_)
@@ -149,6 +149,21 @@ namespace Graphics
 	{
 		return Globals::renderer.resourcesManager.meshes.get(meshId_);
 	} 
+	
+	SubmitionBatch& getGraphicsSubmitionBatch(PoolId batchId_)
+	{
+		return Globals::renderer.submitionManager.graphicsSubmitionBatches.get(batchId_);
+	}
+
+	SubmitionBatch& getTransferSubmitionBatch(PoolId batchId_)
+	{
+		return Globals::renderer.submitionManager.transferSubmitionBatches.get(batchId_);
+	}
+	
+	SubmitionBatch& getComputeSubmitionBatch(PoolId batchId_)
+	{
+		return Globals::renderer.submitionManager.computeSubmitionBatches.get(batchId_);
+	}
 
 	void setFramesAtFlightCount(uint32_t count_)
 	{
@@ -233,4 +248,80 @@ namespace Graphics
 	{
 		return Globals::renderer.resourcesManager.meshes.add(name_, name_, verticeLayoutId_, repeatCount_); 
 	} 
+
+
+	PoolId addGraphicsPipeline(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_)
+	{
+		return Globals::renderer.graphicsPipelines.add(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_);
+	} 
+	
+	PoolId addGraphicsPipeline(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_); 
+	
+	PoolId addGraphicsSubmitionBatch(const char* name_)
+	{
+		return Globals::renderer.submitionManager.graphicsSubmitionBatches.add(name_);
+	} 
+
+	PoolId addTransferSubmitionBatch(const char* name_)
+	{
+		return Globals::renderer.submitionManager.transferSubmitionBatches.add(name_);
+	} 
+
+	PoolId addComputeSubmitionBatch(const char* name_)
+	{
+		return Globals::renderer.submitionManager.computeSubmitionBatches.add(name_);
+	}
+	
+	PoolId addGraphicsSubmition(const char* name_, PoolId batchId_, VkCommandBuffer* pCmdBuffer_, size_t cmdBufferCount_, VkSemaphore* pWaitSemaphores_, size_t waitSemaphoresCount_, 
+        VkPipelineStageFlags* pWaitSemToStages_, VkSemaphore* pSignalSemaphores_, size_t signalSemaphoresCount_)
+	{
+		return Globals::renderer.submitionManager.addGraphicsSubmition(name_, batchId_, pCmdBuffer_, cmdBufferCount_, pWaitSemaphores_, waitSemaphoresCount_, pWaitSemToStages_, pSignalSemaphores_, signalSemaphoresCount_);
+	} 
+    
+	PoolId addTransferSubmition(const char* name_, PoolId batchId_, VkCommandBuffer* pCmdBuffer_, size_t cmdBufferCount_, VkSemaphore* pWaitSemaphores_, size_t waitSemaphoresCount_, 
+        VkPipelineStageFlags* pWaitSemToStages_, VkSemaphore* pSignalSemaphores_, size_t signalSemaphoresCount_)
+	{
+		return Globals::renderer.submitionManager.addTransferSubmition(name_, batchId_, pCmdBuffer_, cmdBufferCount_, pWaitSemaphores_, waitSemaphoresCount_, pWaitSemToStages_, pSignalSemaphores_, signalSemaphoresCount_);
+	} 
+
+    PoolId addComputeSubmition(const char* name_, PoolId batchId_, VkCommandBuffer* pCmdBuffer_, size_t cmdBufferCount_, VkSemaphore* pWaitSemaphores_, size_t waitSemaphoresCount_, 
+        VkPipelineStageFlags* pWaitSemToStages_, VkSemaphore* pSignalSemaphores_, size_t signalSemaphoresCount_)
+	{
+		return Globals::renderer.submitionManager.addComputeSubmition(name_, batchId_, pCmdBuffer_, cmdBufferCount_, pWaitSemaphores_, waitSemaphoresCount_, pWaitSemToStages_, pSignalSemaphores_, signalSemaphoresCount_);
+	} 
+	
+	void submitToGraphicsQueue(PoolId batchId_, VkFence signalFence_)
+	{
+		return Globals::renderer.submitionManager.submitToGraphicsQueue(batchId_, signalFence_);
+	} 
+
+    void submitToTransferQueue(PoolId batchId_, VkFence signalFence_)
+	{
+		return Globals::renderer.submitionManager.submitToTransferQueue(batchId_, signalFence_);
+	} 
+
+    void submitToComputeQueue(PoolId batchId_, VkFence signalFence_)
+	{
+		return Globals::renderer.submitionManager.submitToComputeQueue(batchId_, signalFence_);
+	} 
+   
+
+	void presentToScreen()
+	{
+		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getSwapchain().imageUseFinishedSemaphoreIds[getCurrentImageIndex()]).vkHandle;
+		// Present Frame 
+		VkPresentInfoKHR presentInfo = {}; 
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; 
+		presentInfo.waitSemaphoreCount = 1; 
+		presentInfo.pWaitSemaphores = pImageUseFinishedSemaphore; 
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = &getSwapchain().vkHandle; 
+		presentInfo.pImageIndices = &getCurrentImageIndex();
+
+		VkResult result = vkQueuePresentKHR(getMainDevice().queues.presentQueue, &presentInfo);
+		if(result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Presentation: Failed to present Image");
+		} 
+	}
 }

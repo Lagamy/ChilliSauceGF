@@ -32,7 +32,6 @@ struct GraphicsPipeline {
 	void destroy();
 	
 	GraphicsPipeline(PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_) : vertexShaderId(vertexShaderId_), fragmentShaderId(fragmentShaderId_), verticeLayoutId(verticeLayoutId_), primitiveType(primitiveType_), polygonMode(polygonMode_) {};
-	GraphicsPipeline() = default; 
 	VkPipeline get() const;
 };
 }

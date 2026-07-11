@@ -154,9 +154,9 @@ struct Pool {
 
 	Pool(const char* name_) : name(name_) {};
 
-	const std::vector<T>& data()
+	const std::vector<std::optional<T>>& data()
 	{
-		return this->objects; 
+		return this->objects;
 	}
 
 	const size_t size()

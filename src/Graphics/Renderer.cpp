@@ -21,9 +21,8 @@ void Renderer::setup()
 	this->gpuMemoryManager.staticAllocator.allocate(); 
 
 	// Renderpass and Graphics pipeline are defined defined by Scene
-	this->renderpass.create();
-	this->swapchain.createFramebuffers(this->renderpass);
-	this->graphicsPipeline.create(this->renderpass, 0);
+	this->demoManager.createGPUObjects();
+	this->swapchain.createFramebuffers(this->presentationRenderPass);
 
 	this->framesResources.resize(this->framesAtFlightCount);
 
@@ -65,9 +64,10 @@ void Renderer::shutdown()
 		rFrameResources.frameCmdPools.destroy(); // CMDPools init for each queue family per frame in flight  
 	}
 	this->oneShotCommandPools.destroy();
-	this->graphicsPipeline.destroy(); 
+	this->graphicsPipelines.clear(); 
+	this->renderPasses.clear();
 	this->swapchain.destroyFramebuffers(); 
-	this->renderpass.destroy(); 
+	this->presentationRenderPass.destroy(); 
 	this->shadersManager.destroy(); 
 	this->gpuMemoryManager.destroy(); 
 	this->swapchain.destroy(); 

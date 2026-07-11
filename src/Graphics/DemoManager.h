@@ -18,6 +18,7 @@ struct DemoManager {
 	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);
 	
 	demoFunc loadDemo; 
+	demoFunc createGPUObjects; 
 	demoFunc submitToGPU; 
 	// You can just include demos there, and comment out demos that aren't active
 	Triangle triangle; 

@@ -69,7 +69,10 @@ add_executable(PBRVulkanDemo
 
 	# Reflection 
 	"src/Graphics/Reflection/Layout.cpp" "src/Graphics/Reflection/MemberBlueprint.cpp"
-	"src/Graphics/Resources/Mesh.cpp" 
+	
+	"src/Graphics/Resources/Mesh.cpp"
+
+	"src/Graphics/SubmitionManager.cpp" 
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -90,6 +93,8 @@ set(BACKEND_DIR "${GRAPHICS_DIR}/Backend")
 set(IMAGE_DIR "${BACKEND_DIR}/Image")
 set(BASE_DIR "${BACKEND_DIR}/Base")
 set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
+set(SUBMITION_DIR "${BACKEND_DIR}/Submition") 
+
 # set(DESCRIPTORSET_DIR "${BACKEND_DIR}/DescriptorSet")
 set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
 set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
@@ -115,7 +120,7 @@ target_include_directories(PBRVulkanDemo PRIVATE
 	# Graphics
 	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} ${RESOURCES_DIR}
 	# ${DESCRIPTORSET_DIR} 
-	${SYNCHRONISATION_DIR} ${VALIDATION_DIR} ${MEMORY_MANAGMENT_DIR}
+	${SYNCHRONISATION_DIR} ${VALIDATION_DIR} ${MEMORY_MANAGMENT_DIR} ${SUBMITION_DIR}
 
 	# Demos
 	${DEMOS_DIR}

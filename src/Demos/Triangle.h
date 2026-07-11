@@ -14,11 +14,13 @@ struct Triangle {
 	PoolId fragmentShaderId; 
 	PoolId verticeLayoutId; 
 	PoolId meshId;
+	PoolId graphicsPipelineId; 
 
 	uint32_t cmdBufferId;
 	bool firstFrame = true;  
 
 	void load(); 
+	void createGPUObjects();
 	void recordCMDs(VkCommandBuffer& cmdBuffer_);
 	void submit(); // Triggers every frame
 	Triangle();

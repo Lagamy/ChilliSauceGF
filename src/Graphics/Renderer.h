@@ -7,6 +7,7 @@
 #include "Device.h"
 #include "ResourcesManager.h"
 #include "ShadersManager.h"
+#include "SubmitionManager.h"
 #include "Surface.h"
 #include "Swapchain.h"
 #include "FrameResources.h"
@@ -33,10 +34,12 @@ struct Renderer {
 	ShadersManager shadersManager;
 	ResourceManager resourcesManager; 
 	ReflectionSystem reflectionSystem;
+	SubmitionManager submitionManager; 
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
-	RenderPass renderpass;
-	GraphicsPipeline graphicsPipeline; 
+	RenderPass presentationRenderPass;
+	Pool<GraphicsPipeline> graphicsPipelines;
+	Pool<RenderPass> renderPasses; 
 
 	DemoManager demoManager;
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
