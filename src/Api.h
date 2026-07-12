@@ -84,7 +84,6 @@ namespace Graphics
    
 	// Remove 
 	void removeShader(PoolId id_);
-
 	void windowSizeCallback(GLFWwindow*, int width, int height); 
 	void presentToScreen(); 
 };
