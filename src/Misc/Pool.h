@@ -21,7 +21,8 @@ inline bool operator!=(const PoolId& a, const PoolId& b)
 
 template <typename T> 
 struct Pool {
-	std::vector<std::optional<T>> objects;
+	std::vector<T> objects;
+	std::vector<bool> alive;
 	std::vector<uint32_t> generation; 
 	std::vector<uint32_t> freeSlots;	
 	std::vector<std::string> names;
@@ -38,7 +39,7 @@ struct Pool {
 			throw std::runtime_error(errorMessageStream.str());
 		}
 
-		if(pId_.id >= this->objects.size() || !objects[pId_.id].has_value())
+		if(pId_.id >= this->objects.size() || !alive[pId_.id])
 		{
 			std::stringstream errorMessageStream;
 			errorMessageStream << name << " Pool: object with id: " << pId_.id << " doesn't exist.\n";
@@ -60,18 +61,20 @@ struct Pool {
         if (freeSlots.empty())
         {
             id.id = static_cast<uint32_t>(objects.size());
-            this->objects.emplace_back(std::in_place, std::forward<Args>(args)...);
+            this->objects.emplace_back(std::forward<Args>(args)...);
             this->generation.emplace_back(id.generation);
 			this->names.emplace_back(name_);
+			this->alive.emplace_back(true); 
         }
         else
         {
             id.id = freeSlots.back();
             this->freeSlots.pop_back();
             // reconstruct in-place
-			objects[id.id].emplace(std::forward<Args>(args)...);
+			this->objects[id.id] = T(std::forward<Args>(args)...);
             id.generation = generation[id.id];
-			names[id.id] = name_;
+			this->names[id.id] = name_;
+			this->alive[id.id] = true; 
         }
 		nameToId.emplace(name_, id);
         return id;
@@ -79,21 +82,29 @@ struct Pool {
 
 	void remove(PoolId pId_) {
 		this->isPoolIdValid(pId_);
-		this->objects[pId_.id].reset();
 		this->generation[pId_.id]++; 
+		if constexpr (requires { T::destroy(nullptr); })
+        {
+        	    T::destroy(&objects[pId_.id]);
+		}
 		this->freeSlots.emplace_back(pId_.id);
 		this->nameToId.erase(this->names[pId_.id]);
 		this->names[pId_.id] = ""; 
+		this->alive[pId_.id] = false; 
 	}
 
 	void removeInternal(uint32_t id_) {
-		if(this->objects[id_].has_value())
+		if(this->alive[id_])
 		{
-			this->objects[id_].reset(); 
 			this->generation[id_]++; 
+			if constexpr (requires (T& obj) { obj.destroy(); })
+			{
+    			objects[id_].destroy();
+			}
 			this->freeSlots.emplace_back(id_);
 			this->nameToId.erase(this->names[id_]);
 			this->names[id_] = ""; 
+			this->alive[id_] = false; 
 		}
 	}
 
@@ -108,7 +119,7 @@ struct Pool {
 	T& get(PoolId pId_)
 	{
 		this->isPoolIdValid(pId_); 
-		return this->objects[pId_.id].value();
+		return this->objects[pId_.id];
 	}
 
 	T& back()
@@ -121,7 +132,7 @@ struct Pool {
 		}
 
 		uint32_t id = this->size() - 1;
-		while(!this->objects[id].has_value())
+		while(!this->alive[id])
 		{
 			if(id == 0)
 			{
@@ -131,7 +142,7 @@ struct Pool {
 			}
 			id--; 
 		}
-		return this->objects[id].value();
+		return this->objects[id]; 
 	}
 
 	PoolId getIdByName(const char* name_)
@@ -154,9 +165,9 @@ struct Pool {
 
 	Pool(const char* name_) : name(name_) {};
 
-	const std::vector<std::optional<T>>& data()
+	T* data()
 	{
-		return this->objects;
+		return this->objects.data();
 	}
 
 	const size_t size()

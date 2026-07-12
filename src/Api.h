@@ -21,12 +21,12 @@ namespace Graphics
 	Swapchain& getSwapchain();
 	DemoManager& getDemoManager();
 	GPUMemoryManager& getGPUMemoryManager(); 
-	Semaphore& getSemaphore(PoolId semaphoreId_);
-	Fence& getFence(PoolId fenceId_);
+	VkSemaphore& getSemaphore(PoolId semaphoreId_);
+	VkFence& getFence(PoolId fenceId_);
 	Shader& getShader(PoolId shaderId_); 
 	CmdBufferBlueprintsPack& getCmdBufferBlueprints(CommandPoolTypeEnum poolType_); 
 	uint32_t getBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
-	const VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_); 
+	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_); 
 	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_);
 	const UploadEntry& getUploadEntry(UploadId id_); 
 	Mesh& getMesh(PoolId meshId_); 

@@ -141,17 +141,16 @@ namespace Graphics
 
 	void Triangle::submit() 
 	{
-		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getSwapchain().imageUseFinishedSemaphoreIds[getCurrentImageIndex()]).vkHandle;
+		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getSwapchain().imageUseFinishedSemaphoreIds[getCurrentImageIndex()]);
 		PoolId batchId = addGraphicsSubmitionBatch("Render Triangle"); 
 		VkCommandBuffer cmdBuffer =  getCommandBuffer(GRAPHICS, FRAME, this->cmdBufferId); 
 		// Render Frame 
 		if(this->firstFrame)
 		{
 			std::array<VkSemaphore, 2> waitSemaphores = {
-				getSemaphore(getCurrentFrameResources().imageAvailableSemaphoreId).vkHandle,
-				getSemaphore(getGPUMemoryManager().staticUploadFinishedSemaphoreId).vkHandle
+				getSemaphore(getCurrentFrameResources().imageAvailableSemaphoreId),
+				getSemaphore(getGPUMemoryManager().staticUploadFinishedSemaphoreId)
 			}; 
-			
 			
 			std::array<VkPipelineStageFlags, waitSemaphores.size()> waitStages = { 
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // frameAvailable
@@ -162,11 +161,11 @@ namespace Graphics
 		}
 		else 
 		{	
-			Semaphore& rImageAvailableSemaphore = getSemaphore(getCurrentFrameResources().imageAvailableSemaphoreId); 
+			VkSemaphore imageAvailableSemaphore = getSemaphore(getCurrentFrameResources().imageAvailableSemaphoreId); 
 			VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;  
-			addGraphicsSubmition("Triangle Submit", batchId, &cmdBuffer, 1, &rImageAvailableSemaphore.vkHandle, 1, &waitStage, pImageUseFinishedSemaphore, 1); 
+			addGraphicsSubmition("Triangle Submit", batchId, &cmdBuffer, 1, &imageAvailableSemaphore, 1, &waitStage, pImageUseFinishedSemaphore, 1); 
 		}
-		submitToGraphicsQueue(batchId, getFence(getCurrentFrameResources().frameAvailableFenceId).vkHandle); 
+		submitToGraphicsQueue(batchId, getFence(getCurrentFrameResources().frameAvailableFenceId)); 
 		// Present Frame 
 		presentToScreen(); 
 		this->firstFrame = false; 

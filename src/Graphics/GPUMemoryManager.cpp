@@ -29,27 +29,18 @@ void GPUMemoryManager::destroy()
 
 void GPUMemoryManager::submitStaticUploadCMDs()
 {
-	Fence& rUploadFinished = getFence(this->staticUploadFinishedFenceId);
+	VkFence uploadFinishedFence = getFence(this->staticUploadFinishedFenceId);
 	//resetOneShotCmdBuf(TRANSFER, this->staticUploadCmdBufferId, rUploadFinished); 
 	recordOneShotCmdBuf(TRANSFER, this->staticUploadCmdBufferId);
 
-	vkResetFences(getMainDevice().logicalDevice, 1, &rUploadFinished.get());
+	vkResetFences(getMainDevice().logicalDevice, 1, &uploadFinishedFence);
 	// Submit command buffer to the Transfer Queue
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &getCommandBuffer(TRANSFER, ONESHOT, this->staticUploadCmdBufferId);
-	submitInfo.signalSemaphoreCount = 1; 
-	submitInfo.pSignalSemaphores = &getSemaphore(this->staticUploadFinishedSemaphoreId).vkHandle; 
+	PoolId batchId = addTransferSubmitionBatch("Static Allocator Uploading"); 
+	addTransferSubmition("Static Allocator Upload", batchId, &getCommandBuffer(TRANSFER, ONESHOT, this->staticUploadCmdBufferId),
+	 1, nullptr, 0, nullptr, &getSemaphore(this->staticUploadFinishedSemaphoreId), 1); 
 
 	// Submit transfer command to transfer Queue and wait till it finishes(Not optimal)
-	VkResult result = vkQueueSubmit(getMainDevice().queues.transferQueue, 1, &submitInfo, rUploadFinished.get());
-	if(result != VK_SUCCESS)
-	{
-		//throw std::runtime_error(""); 
-		throw std::runtime_error("Static allocator: command submit failed.\n");
-		return;
-	}
+	submitToTransferQueue(batchId, uploadFinishedFence);
 }
 
 void GPUMemoryManager::submitUpdateCmdsIfNeeded()

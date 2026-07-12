@@ -9,7 +9,7 @@ struct Fence {
     VkFence vkHandle = VK_NULL_HANDLE;
     
     void destroy();
-    const VkFence& get();
+    VkFence& get();
 	Fence(VkFenceCreateFlags flags_);
 	~Fence();
 

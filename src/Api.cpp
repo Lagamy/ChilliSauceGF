@@ -60,14 +60,14 @@ namespace Graphics
 		return (poolType_ == FRAME ? Globals::renderer.demoManager.frameCmdBufferBlueprints : Globals::renderer.demoManager.oneShotCmdBufferBlueprints);
 	}
 
-	Semaphore& getSemaphore(PoolId semaphoreId_)
+	VkSemaphore& getSemaphore(PoolId semaphoreId_)
 	{
-		return Globals::renderer.syncManager.getSemaphore(semaphoreId_);
+		return Globals::renderer.syncManager.getSemaphore(semaphoreId_).get();
 	}
 
-	Fence& getFence(PoolId fenceId_)
+	VkFence& getFence(PoolId fenceId_)
 	{
-		return Globals::renderer.syncManager.getFence(fenceId_);
+		return Globals::renderer.syncManager.getFence(fenceId_).get();
 	}
 
 	Shader& getShader(PoolId shaderId_)
@@ -113,7 +113,7 @@ namespace Graphics
 		return Globals::renderer.framesResources[Globals::renderer.currentFrame]; 
 	}
 
-	const VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_)
+	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_)
 	{
 			
 		if(poolType_ == FRAME)
@@ -308,7 +308,7 @@ namespace Graphics
 
 	void presentToScreen()
 	{
-		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getSwapchain().imageUseFinishedSemaphoreIds[getCurrentImageIndex()]).vkHandle;
+		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getSwapchain().imageUseFinishedSemaphoreIds[getCurrentImageIndex()]);
 		// Present Frame 
 		VkPresentInfoKHR presentInfo = {}; 
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; 

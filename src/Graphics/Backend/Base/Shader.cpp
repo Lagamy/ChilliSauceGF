@@ -23,10 +23,7 @@ Shader::Shader(const std::string shaderPath_)
 
 Shader::~Shader() 
 {
-	if(this->vkHandle != VK_NULL_HANDLE)
-	{
-		vkDestroyShaderModule(getMainDevice().logicalDevice, this->vkHandle, nullptr);
-	}
+    this->destroy(); 
 }
 
 VkShaderModule Shader::get() const 
@@ -64,4 +61,12 @@ Shader& Shader::operator=(Shader&& other) noexcept
     return *this;
 }
 
+void Shader::destroy()
+{
+    if(this->vkHandle != VK_NULL_HANDLE)
+	{
+		vkDestroyShaderModule(getMainDevice().logicalDevice, this->vkHandle, nullptr);
+        this->vkHandle = VK_NULL_HANDLE; 
+    }   
+}
 }

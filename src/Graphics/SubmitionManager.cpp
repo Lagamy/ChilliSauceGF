@@ -68,7 +68,7 @@ PoolId SubmitionManager::addComputeSubmition(const char* name_, PoolId batchId_,
 void SubmitionManager::submitToGraphicsQueue(PoolId batch_, VkFence signalFence_)
 {
     SubmitionBatch& rSubmitionBatch = this->graphicsSubmitionBatches.get(batch_);
-    VkResult result = vkQueueSubmit(getMainDevice().queues.graphicsQueue, rSubmitionBatch.submitionEntries.data().size(), rSubmitionBatch.submitionEntries.data().data(), signalFence_);  
+    VkResult result = vkQueueSubmit(getMainDevice().queues.graphicsQueue, rSubmitionBatch.submitionEntries.size(), rSubmitionBatch.submitionEntries.data(), signalFence_);  
 	if(result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Triangle: Failed to submit renderFrame cmdBuffer to the Graphics Queue"); 
@@ -79,7 +79,7 @@ void SubmitionManager::submitToGraphicsQueue(PoolId batch_, VkFence signalFence_
 void SubmitionManager::submitToTransferQueue(PoolId batch_, VkFence signalFence_)
 {
     SubmitionBatch& rSubmitionBatch = this->transferSubmitionBatches.get(batch_);
-    VkResult result = vkQueueSubmit(getMainDevice().queues.transferQueue, rSubmitionBatch.submitionEntries.data().size(), rSubmitionBatch.submitionEntries.data().data(), signalFence_);  
+    VkResult result = vkQueueSubmit(getMainDevice().queues.transferQueue, rSubmitionBatch.submitionEntries.size(), rSubmitionBatch.submitionEntries.data(), signalFence_);  
 	if(result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Triangle: Failed to submit renderFrame cmdBuffer to the Graphics Queue"); 
@@ -90,7 +90,7 @@ void SubmitionManager::submitToTransferQueue(PoolId batch_, VkFence signalFence_
 void SubmitionManager::submitToComputeQueue(PoolId batch_, VkFence signalFence_)
 {
      SubmitionBatch& rSubmitionBatch = this->computeSubmitionBatches.get(batch_);
-    VkResult result = vkQueueSubmit(getMainDevice().queues.computeQueue, rSubmitionBatch.submitionEntries.data().size(), rSubmitionBatch.submitionEntries.data().data(), signalFence_);  
+    VkResult result = vkQueueSubmit(getMainDevice().queues.computeQueue, rSubmitionBatch.submitionEntries.size(), rSubmitionBatch.submitionEntries.data(), signalFence_);  
 	if(result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Triangle: Failed to submit renderFrame cmdBuffer to the Graphics Queue"); 
