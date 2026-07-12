@@ -16,6 +16,7 @@
 #include "SyncManager.h"
 #include "ShadersManager.h"
 #include "ReflectionSystem.h"
+#include "ImagesManager.h"
 #include <limits>
 #include <vulkan/vulkan_core.h>
 #include <cstdint>
@@ -32,6 +33,7 @@ struct Renderer {
 	GPUMemoryManager gpuMemoryManager;
 	SyncManager syncManager; 
 	ShadersManager shadersManager;
+	ImagesManager imagesManager; 
 	ResourceManager resourcesManager; 
 	ReflectionSystem reflectionSystem;
 	SubmitionManager submitionManager; 
