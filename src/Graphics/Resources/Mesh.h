@@ -30,7 +30,7 @@ namespace Graphics
 		void setVerticeDataContainer(void* data_, size_t offset_, size_t size_);
 		void* getData();
 		size_t getSize();
-		void queueGPUUpload();
+		void queueStaticGPUUpload();
 
 		Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	};

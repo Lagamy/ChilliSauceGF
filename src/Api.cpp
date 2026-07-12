@@ -305,7 +305,15 @@ namespace Graphics
 		return Globals::renderer.submitionManager.submitToComputeQueue(batchId_, signalFence_);
 	} 
    
-
+	void windowSizeCallback(GLFWwindow*, int width, int height) 
+	{
+    	Globals::windowWidth = width;
+    	Globals::windowHeight = height;
+		// Globals::Mouse::lastX = width / 2.0f;
+		// Globals::Mouse::lastY = height / 2.0f;
+    	glViewport(0, 0, width, height);
+	}
+	
 	void presentToScreen()
 	{
 		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getSwapchain().imageUseFinishedSemaphoreIds[getCurrentImageIndex()]);

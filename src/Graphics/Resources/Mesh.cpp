@@ -28,7 +28,7 @@ size_t Mesh::getSize()
     return getVerticeLayout(this->verticeLayoutId).dataContainers.get(this->vertexDataContainerId).data.size();
 }
 
-void Mesh::queueGPUUpload()
+void Mesh::queueStaticGPUUpload()
 {
     std::stringstream uploadName;
     uploadName << this->name << " Vertex data"; 

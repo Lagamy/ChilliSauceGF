@@ -47,7 +47,7 @@ namespace Graphics
 		/**************/
 
 		/* Upload Mesh */
-		rMesh.queueGPUUpload(); 
+		rMesh.queueStaticGPUUpload(); 
 		/**************/
 	
 		/* Configure RenderPass*/
@@ -133,8 +133,8 @@ namespace Graphics
 
 		// Draw
 		// printf("Drawing triangle\n");
-		// vkCmdDrawIndexed(cmdBuffer_, 3, 1, 0, 0, 0);
-		vkCmdDraw(cmdBuffer_, 3, 1,0,0);
+		vkCmdDrawIndexed(cmdBuffer_, 3, 1, 0, 0, 0);
+		// vkCmdDraw(cmdBuffer_, 3, 1,0,0);
 		vkCmdEndRenderPass(cmdBuffer_);
 		vkEndCommandBuffer(cmdBuffer_);
 	}
@@ -157,7 +157,7 @@ namespace Graphics
 				VK_PIPELINE_STAGE_VERTEX_INPUT_BIT // staticUploadSemaphore
 			}; 
 			
-			addGraphicsSubmition("Triangle Submit", batchId, &cmdBuffer, 1, waitSemaphores.data(), waitSemaphores.size(), waitStages.data(), pImageUseFinishedSemaphore, 1); 
+			addGraphicsSubmition("Triangle Pass", batchId, &cmdBuffer, 1, waitSemaphores.data(), waitSemaphores.size(), waitStages.data(), pImageUseFinishedSemaphore, 1); 
 		}
 		else 
 		{	
