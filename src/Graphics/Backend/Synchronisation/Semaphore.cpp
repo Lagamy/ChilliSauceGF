@@ -3,7 +3,7 @@
 
 namespace Graphics
 {
-Semaphore::Semaphore()
+void Semaphore::create()
 {
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -16,15 +16,10 @@ Semaphore::Semaphore()
 
 void Semaphore::destroy()
 {
-    vkDestroySemaphore(getMainDevice().logicalDevice, this->vkHandle, nullptr);
-    this->vkHandle = VK_NULL_HANDLE;
-}
-
-Semaphore::~Semaphore()
-{
     if (this->vkHandle != VK_NULL_HANDLE)
     {
-        this->destroy();
+        vkDestroySemaphore(getMainDevice().logicalDevice, this->vkHandle, nullptr);
+        this->vkHandle = VK_NULL_HANDLE;
     }
 }
 

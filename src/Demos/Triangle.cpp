@@ -1,8 +1,6 @@
 #include "Triangle.h"
 #include "Api.h"
-#include "Layout.h"
 #include "Utilities.h"
-#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics
@@ -141,14 +139,14 @@ namespace Graphics
 
 	void Triangle::submit() 
 	{
-		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getSwapchain().imageUseFinishedSemaphoreIds[getCurrentImageIndex()]);
+		VkSemaphore* pImageUseFinishedSemaphore = &getCurrentSwapchainImage().getInUseSemaphoreFinished();
 		PoolId batchId = addGraphicsSubmitionBatch("Render Triangle"); 
 		VkCommandBuffer cmdBuffer =  getCommandBuffer(GRAPHICS, FRAME, this->cmdBufferId); 
 		// Render Frame 
 		if(this->firstFrame)
 		{
 			std::array<VkSemaphore, 2> waitSemaphores = {
-				getSemaphore(getCurrentFrameResources().imageAvailableSemaphoreId),
+				getSemaphore(getCurrentFrameResources().swapchainImageAvailableSemaphoreId),
 				getSemaphore(getGPUMemoryManager().staticUploadFinishedSemaphoreId)
 			}; 
 			
@@ -161,7 +159,7 @@ namespace Graphics
 		}
 		else 
 		{	
-			VkSemaphore imageAvailableSemaphore = getSemaphore(getCurrentFrameResources().imageAvailableSemaphoreId); 
+			VkSemaphore imageAvailableSemaphore = getSemaphore(getCurrentFrameResources().swapchainImageAvailableSemaphoreId); 
 			VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;  
 			addGraphicsSubmition("Triangle Submit", batchId, &cmdBuffer, 1, &imageAvailableSemaphore, 1, &waitStage, pImageUseFinishedSemaphore, 1); 
 		}

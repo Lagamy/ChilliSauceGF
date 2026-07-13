@@ -13,7 +13,6 @@ struct Swapchain {
 	VkExtent2D extent; // Resolution  
 
 	std::vector<Image> renderTargets;
-	std::vector<PoolId> imageUseFinishedSemaphoreIds; 
 	std::vector<Framebuffer> framebuffers;
 
 	void create();

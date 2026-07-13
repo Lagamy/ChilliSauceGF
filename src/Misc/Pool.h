@@ -93,6 +93,7 @@ struct Pool {
 		this->alive[pId_.id] = false; 
 	}
 
+	
 	void removeInternal(uint32_t id_) {
 		if(this->alive[id_])
 		{
@@ -116,6 +117,11 @@ struct Pool {
 		}
 	}
 
+	T& getInternal(uint32_t id_)
+	{
+		return this->objects[id_];
+	}
+	
 	T& get(PoolId pId_)
 	{
 		this->isPoolIdValid(pId_); 

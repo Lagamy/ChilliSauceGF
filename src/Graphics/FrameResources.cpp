@@ -9,7 +9,7 @@ namespace Graphics
 		this->id = id_; 
 		this->frameCmdPools.create();
 		name << "Frame " << id_ << " Available"; 
-		this->imageAvailableSemaphoreId = addSemaphore(name.str().c_str());
+		this->swapchainImageAvailableSemaphoreId = addSemaphore(name.str().c_str());
 		this->frameAvailableFenceId = addFence(name.str().c_str(), VK_FENCE_CREATE_SIGNALED_BIT); 
 	}
 }

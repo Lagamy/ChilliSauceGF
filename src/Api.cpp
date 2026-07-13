@@ -113,6 +113,11 @@ namespace Graphics
 		return Globals::renderer.framesResources[Globals::renderer.currentFrame]; 
 	}
 
+	Image& getCurrentSwapchainImage()
+	{
+		return getSwapchain().renderTargets[getCurrentImageIndex()];
+	}
+
 	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_)
 	{
 			
@@ -208,7 +213,6 @@ namespace Graphics
 	{
 		return Globals::renderer.syncManager.addFence(name_, flags_);
 	}
-
 
 	PoolId addShader(const char* name_, const char* path_)
 	{
@@ -311,12 +315,12 @@ namespace Graphics
     	Globals::windowHeight = height;
 		// Globals::Mouse::lastX = width / 2.0f;
 		// Globals::Mouse::lastY = height / 2.0f;
-    	glViewport(0, 0, width, height);
+    	// glViewport(0, 0, width, height);
 	}
 	
 	void presentToScreen()
 	{
-		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getSwapchain().imageUseFinishedSemaphoreIds[getCurrentImageIndex()]);
+		VkSemaphore* pImageUseFinishedSemaphore = &getCurrentSwapchainImage().getInUseSemaphoreFinished();
 		// Present Frame 
 		VkPresentInfoKHR presentInfo = {}; 
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; 

@@ -8,29 +8,8 @@ namespace Graphics
 struct Fence {
     VkFence vkHandle = VK_NULL_HANDLE;
     
+    void create(VkFenceCreateFlags flags_); 
     void destroy();
     VkFence& get();
-	Fence(VkFenceCreateFlags flags_);
-	~Fence();
-
-    Fence(const Fence&) = delete;
-    Fence& operator=(const Fence&) = delete;
-
-    Fence(Fence&& other) noexcept
-    {
-        vkHandle = other.vkHandle;
-        other.vkHandle = VK_NULL_HANDLE;
-    }
-    
-    Fence& operator=(Fence&& other) noexcept
-    {
-        if (this != &other)
-        {
-            destroy();
-            vkHandle = other.vkHandle;
-            other.vkHandle = VK_NULL_HANDLE;
-        }
-        return *this;
-    };
 };
 }

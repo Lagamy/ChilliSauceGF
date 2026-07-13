@@ -18,6 +18,7 @@ Depth/stencil separation:
 
 #pragma once
 
+#include "Semaphore.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <string>
@@ -37,10 +38,12 @@ struct Image {
 	std::vector<std::string> viewNames; 
 	std::vector<VkImageView> viewHandles; 
 	std::vector<VkImageViewCreateInfo> viewMetadatas; 
+	Semaphore imageInUseSemaphoreFinished; 
 
 	void init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_);
 	void setImage(VkImage& srcImage_); // Needed for swapchain(We dont create images there - we borrow them from swapchain itself)  
 	void addView(const char* name_, VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageViewType dimensionType_, VkImageViewCreateFlags flags_);
+	VkSemaphore& getInUseSemaphoreFinished();
 	void destroy();
 
 	VkImageView getImageView(size_t id_) const;

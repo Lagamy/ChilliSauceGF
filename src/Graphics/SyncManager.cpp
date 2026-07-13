@@ -4,12 +4,16 @@ namespace Graphics
 {
 PoolId SyncManager::addSemaphore(const char* name_)
 {
-	return this->semaphores.add(name_);
+	PoolId pId = this->semaphores.add(name_);
+	this->semaphores.getInternal(pId.id).create(); 
+	return pId;
 }
 
 PoolId SyncManager::addFence(const char* name_, VkFenceCreateFlags flags_)
 {
-	return this->fences.add(name_, flags_);
+	PoolId pId = this->fences.add(name_);
+	this->fences.getInternal(pId.id).create(flags_); 
+	return pId;
 }
 
 Semaphore& SyncManager::getSemaphore(PoolId id_)

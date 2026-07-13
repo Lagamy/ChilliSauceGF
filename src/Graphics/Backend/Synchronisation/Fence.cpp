@@ -3,7 +3,7 @@
 
 namespace Graphics
 {
-Fence::Fence(VkFenceCreateFlags flags_)
+void Fence::create(VkFenceCreateFlags flags_)
 {
     VkFenceCreateInfo fenceCreateInfo = {};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -19,21 +19,16 @@ Fence::Fence(VkFenceCreateFlags flags_)
 
 void Fence::destroy()
 {
-    vkDestroyFence(getMainDevice().logicalDevice, this->vkHandle, nullptr);
-	this->vkHandle = VK_NULL_HANDLE;
+    if (this->vkHandle != VK_NULL_HANDLE)
+    {
+        vkDestroyFence(getMainDevice().logicalDevice, this->vkHandle, nullptr);
+	    this->vkHandle = VK_NULL_HANDLE;
+    }
 }
 
 
 VkFence& Fence::get() 
 {
     return this->vkHandle;
-}
-
-Fence::~Fence()
-{
-	if (this->vkHandle != VK_NULL_HANDLE)
-    {
-        this->destroy();
-    }	
 }
 }

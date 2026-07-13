@@ -39,6 +39,7 @@ namespace Graphics
 
 	uint32_t& getCurrentImageIndex();
 	FrameResources& getCurrentFrameResources(); 
+	Image& getCurrentSwapchainImage(); 
 
 	// For now i only need 1 of each
 	GraphicsPipeline& getGraphicsPipeline(PoolId graphicsPipelineId_); 

@@ -45,7 +45,7 @@ void Renderer::draw()
 																
 	vkAcquireNextImageKHR(
 		this->mainDevice.logicalDevice, this->swapchain.get(), std::numeric_limits<uint64_t>::max(), 
-		this->syncManager.getSemaphore(this->framesResources[currentFrame].imageAvailableSemaphoreId).vkHandle, VK_NULL_HANDLE, &imageIndex
+		this->syncManager.getSemaphore(this->framesResources[currentFrame].swapchainImageAvailableSemaphoreId).vkHandle, VK_NULL_HANDLE, &imageIndex
 	);
 	// NOTE: you need to pass this fence with frame submit in your demo code. Otherwise - nothing will signal this fence and app will freeze
 	resetCurrentFrameCmdPools();
