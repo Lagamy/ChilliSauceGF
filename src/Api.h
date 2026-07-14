@@ -23,8 +23,8 @@ namespace Graphics
 	Swapchain& getSwapchain();
 	DemoManager& getDemoManager();
 	GPUMemoryManager& getGPUMemoryManager(); 
-	VkSemaphore& getUserSemaphore(PoolId semaphoreId_);
-	VkFence& getUserFence(PoolId fenceId_);
+	VkSemaphore& getSemaphore(PoolId semaphoreId_);
+	VkFence& getFence(PoolId fenceId_);
 	Shader& getShader(PoolId shaderId_); 
 	CmdBufferBlueprintsPack& getCmdBufferBlueprints(CommandPoolTypeEnum poolType_); 
 	uint32_t getBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
@@ -60,8 +60,8 @@ namespace Graphics
 	void resetCurrentFrameCmdPools();
 	
 	// Add
-	PoolId addUserSemaphore(const char* name_);
-	PoolId addUserFence(const char* name_, VkFenceCreateFlags flags_);
+	PoolId addSemaphore(const char* name_);
+	PoolId addFence(const char* name_, VkFenceCreateFlags flags_);
 	PoolId addShader(const char* name_, const char* path_); 
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);

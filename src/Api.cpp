@@ -63,14 +63,14 @@ namespace Graphics
 		return (poolType_ == FRAME ? Globals::renderer.demoManager.frameCmdBufferBlueprints : Globals::renderer.demoManager.oneShotCmdBufferBlueprints);
 	}
 
-	VkSemaphore& getUserSemaphore(PoolId semaphoreId_)
+	VkSemaphore& getSemaphore(PoolId semaphoreId_)
 	{
-		return Globals::renderer.syncManager.getUserSemaphore(semaphoreId_).get();
+		return Globals::renderer.syncManager.getSemaphore(semaphoreId_).get();
 	}
 
-	VkFence& getUserFence(PoolId fenceId_)
+	VkFence& getFence(PoolId fenceId_)
 	{
-		return Globals::renderer.syncManager.getUserFence(fenceId_).get();
+		return Globals::renderer.syncManager.getFence(fenceId_).get();
 	}
 
 	Shader& getShader(PoolId shaderId_)
@@ -197,14 +197,14 @@ namespace Graphics
 	}
 
 	// Add
-	PoolId addUserSemaphore(const char* name_)
+	PoolId addSemaphore(const char* name_)
 	{
-		return Globals::renderer.syncManager.addUserSemaphore(name_);
+		return Globals::renderer.syncManager.addSemaphore(name_);
 	}
 		
-	PoolId addUserFence(const char* name_, VkFenceCreateFlags flags_)
+	PoolId addFence(const char* name_, VkFenceCreateFlags flags_)
 	{
-		return Globals::renderer.syncManager.addUserFence(name_, flags_);
+		return Globals::renderer.syncManager.addFence(name_, flags_);
 	}
 
 	PoolId addShader(const char* name_, const char* path_)

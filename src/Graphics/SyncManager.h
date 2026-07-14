@@ -9,10 +9,10 @@ struct SyncManager {
 	Pool<Fence> fences; 
 	Pool<Semaphore> semaphores;
 
-	PoolId addUserSemaphore(const char* name_); 
-	PoolId addUserFence(const char* name_, VkFenceCreateFlags flags_);
-	Semaphore& getUserSemaphore(PoolId id_);  
-	Fence& getUserFence(PoolId id_); 
+	PoolId addSemaphore(const char* name_); 
+	PoolId addFence(const char* name_, VkFenceCreateFlags flags_);
+	Semaphore& getSemaphore(PoolId id_);  
+	Fence& getFence(PoolId id_); 
 	void destroy();
 };
 }
