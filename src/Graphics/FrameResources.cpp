@@ -8,8 +8,15 @@ namespace Graphics
 		std::ostringstream name;
 		this->id = id_; 
 		this->frameCmdPools.create();
-		name << "Frame " << id_ << " Available"; 
-		this->swapchainImageAvailableSemaphoreId = addSemaphore(name.str().c_str());
-		this->frameAvailableFenceId = addFence(name.str().c_str(), VK_FENCE_CREATE_SIGNALED_BIT); 
+		this->imageAcquireSemaphore.create(); 
+		this->frameAvailableFence.create(VK_FENCE_CREATE_SIGNALED_BIT); 
 	}
+
+
+	void FrameResources::destroy()
+	{
+		this->imageAcquireSemaphore.destroy();
+		this->frameAvailableFence.destroy(); 
+		this->frameCmdPools.destroy();
+	};
 }

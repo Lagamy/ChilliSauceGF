@@ -43,6 +43,7 @@ struct Image {
 	void init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_);
 	void setImage(VkImage& srcImage_); // Needed for swapchain(We dont create images there - we borrow them from swapchain itself)  
 	void addView(const char* name_, VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageViewType dimensionType_, VkImageViewCreateFlags flags_);
+	void destroyViews();
 	VkSemaphore& getInUseSemaphoreFinished();
 	void destroy();
 

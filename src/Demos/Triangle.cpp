@@ -1,5 +1,6 @@
 #include "Triangle.h"
 #include "Api.h"
+#include "SubmissionBatchId.h"
 #include "Utilities.h"
 #include <vulkan/vulkan_core.h>
 
@@ -83,87 +84,32 @@ namespace Graphics
 
 	void Triangle::recordCMDs(VkCommandBuffer& cmdBuffer_)
 	{
-		VkCommandBufferBeginInfo beginInfo = {}; 
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	
-		vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
-		VkClearValue clearColor = {};
-		clearColor.color = {0.0f, 0.0f, 0.0f, 1.0f};
-
-		VkRenderPassBeginInfo renderPassInfo = {}; 
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO; 
-		renderPassInfo.renderPass = getPresentationRenderPass().get(); 
-		renderPassInfo.framebuffer = getSwapchain().framebuffers[getCurrentImageIndex()].get(); // We use ImageIndex here and not currentFrameInFlight due to images not really being 1:1 with frames(i can be rendered faster than other for some reason, and so 2 image will be at the third frame) 
-		renderPassInfo.renderArea = { 
-			.offset = {0, 0}, 
-			.extent = getSwapchain().extent
-		};
-		renderPassInfo.clearValueCount = 1; 
-		renderPassInfo.pClearValues = &clearColor; 
-	
-		vkCmdBeginRenderPass(cmdBuffer_, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE); // VK_SUBPASS_CONTENTS_INLINE - mean The commands for this subpass will be recorded directly into this primary command buffer.
+		beginCMDsRecording(cmdBuffer_); 
 		
 		// Bind graphics pipeline  
-		vkCmdBindPipeline(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, getGraphicsPipeline(this->graphicsPipelineId).get());
-		
+		bindGraphicsPipeline(this->graphicsPipelineId, cmdBuffer_); 
+
 		// Bind vertex buffer 
-		Mesh& rMesh = getMesh(this->meshId); 
-		const UploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryId); 
-		VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
-		VkDeviceSize vOffsets[] = { 0 }; 
-		vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
-
-		// Bind index buffer 
-		const UploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryId); 
-		vkCmdBindIndexBuffer(cmdBuffer_, getGPUBuffer(STATIC, INDEX).get(), indexUpload.inBufferFirstByte, VK_INDEX_TYPE_UINT32);
-	
-		// Viewport and Scissor (for dynamic) 
-		// VkViewport viewport = {}; 
-		// viewport.x = 0.0f; 
-		// viewport.y = 0.0f; 
-		// viewport.width = (float)Demo::renderer.swapchain.extent.width;
-		// viewport.height = (float)Demo::renderer.swapchain.extent.height;
-		// vkCmdSetViewport(cmdBuffer_, 0, 1, &viewport);
-
-		// VkRect2D scissor = {}; 
-		// scissor.offset = { 0, 0 };
-		// scissor.extent = Demo::renderer.swapchain.extent;
+		bindMesh(meshId, cmdBuffer_); 
 
 		// Draw
-		// printf("Drawing triangle\n");
-		vkCmdDrawIndexed(cmdBuffer_, 3, 1, 0, 0, 0);
-		// vkCmdDraw(cmdBuffer_, 3, 1,0,0);
-		vkCmdEndRenderPass(cmdBuffer_);
-		vkEndCommandBuffer(cmdBuffer_);
+		drawIndexed(this->meshId, 1, cmdBuffer_);
+		endCMDsRecording(cmdBuffer_); 
 	}
 
 	void Triangle::submit() 
 	{
-		VkSemaphore* pImageUseFinishedSemaphore = &getCurrentSwapchainImage().getInUseSemaphoreFinished();
-		PoolId batchId = addGraphicsSubmitionBatch("Render Triangle"); 
 		VkCommandBuffer cmdBuffer =  getCommandBuffer(GRAPHICS, FRAME, this->cmdBufferId); 
+		SubmissionBatchId batchId = addSubmissionBatch("Render Triangle", GRAPHICS); 
 		// Render Frame 
+		PoolId submitionId = addSubmission("Triangle Pass", batchId, &cmdBuffer, 1);
+		addWaitSemaphoreToSubmission(batchId, submitionId, getCurrentFrameResources().imageAcquireSemaphore.get(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 		if(this->firstFrame)
 		{
-			std::array<VkSemaphore, 2> waitSemaphores = {
-				getSemaphore(getCurrentFrameResources().swapchainImageAvailableSemaphoreId),
-				getSemaphore(getGPUMemoryManager().staticUploadFinishedSemaphoreId)
-			}; 
-			
-			std::array<VkPipelineStageFlags, waitSemaphores.size()> waitStages = { 
-				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // frameAvailable
-				VK_PIPELINE_STAGE_VERTEX_INPUT_BIT // staticUploadSemaphore
-			}; 
-			
-			addGraphicsSubmition("Triangle Pass", batchId, &cmdBuffer, 1, waitSemaphores.data(), waitSemaphores.size(), waitStages.data(), pImageUseFinishedSemaphore, 1); 
+			addWaitSemaphoreToSubmission(batchId, submitionId, getGPUMemoryManager().staticUploadFinishedSemaphore.get(), VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
 		}
-		else 
-		{	
-			VkSemaphore imageAvailableSemaphore = getSemaphore(getCurrentFrameResources().swapchainImageAvailableSemaphoreId); 
-			VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;  
-			addGraphicsSubmition("Triangle Submit", batchId, &cmdBuffer, 1, &imageAvailableSemaphore, 1, &waitStage, pImageUseFinishedSemaphore, 1); 
-		}
-		submitToGraphicsQueue(batchId, getFence(getCurrentFrameResources().frameAvailableFenceId)); 
+		addSignalSemaphoreToSubmission(batchId, submitionId, getCurrentSwapchainImage().getInUseSemaphoreFinished());
+		submitToGraphicsQueue(batchId, getCurrentFrameResources().frameAvailableFence.get()); 
 		// Present Frame 
 		presentToScreen(); 
 		this->firstFrame = false; 

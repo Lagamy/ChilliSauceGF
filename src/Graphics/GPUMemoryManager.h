@@ -1,6 +1,7 @@
 // Represents resources that are in GPU currently
 #pragma once 
 #include "CommandBufferBlueprint.h"
+#include "Semaphore.h"
 #include "StagingHeap.h"
 #include "MemoryBlock.h"
 #include "Pool.h"
@@ -35,10 +36,10 @@ struct GPUMemoryManager
 	void submitTransferCmds();
 	uint32_t updateCmdBufferId;
 	uint32_t staticUploadCmdBufferId; 
-	PoolId updateFinishedSemaphoreId; 
-	PoolId updateFinishedFenceId; 
-	PoolId staticUploadFinishedSemaphoreId; 
-	PoolId staticUploadFinishedFenceId;
+	Semaphore updateFinishedSemaphore; 
+	Fence updateFinishedFence; 
+	Semaphore staticUploadFinishedSemaphore; 
+	Fence staticUploadFinishedFence;
 
 	void addUpdate(PoolId entryId_, const void* data_); // full upload
 	void addUpdate(PoolId entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload

@@ -178,17 +178,23 @@ VkImage Image::get() const
 	return this->vkHandle; 
 }
 
+void Image::destroyViews()
+{
+	for (VkImageView view : viewHandles)
+	{
+    	vkDestroyImageView(getMainDevice().logicalDevice, view, nullptr);
+	}
+
+	this->viewHandles.clear();
+	this->viewMetadatas.clear();
+	this->viewNames.clear();
+}
+
 void Image::destroy()
 {
-
-	for(int i = 0; i < this->viewHandles.size(); i++)
-	{
-		vkDestroyImageView(getMainDevice().logicalDevice, this->viewHandles[i], nullptr); 
-		this->viewHandles[i] = VK_NULL_HANDLE; 
-		this->viewHandles.clear(); 	
-	}
-	vkDestroyImage(getMainDevice().logicalDevice, this->vkHandle, nullptr);
+	this->destroyViews();
 	this->imageInUseSemaphoreFinished.destroy(); 
+	vkDestroyImage(getMainDevice().logicalDevice, this->vkHandle, nullptr);
 	this->vkHandle = VK_NULL_HANDLE; 
 }
 }

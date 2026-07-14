@@ -72,7 +72,8 @@ add_executable(PBRVulkanDemo
 	
 	"src/Graphics/Resources/Mesh.cpp"
 
-	"src/Graphics/SubmitionManager.cpp" 
+	"src/Graphics/SubmissionManager.cpp"
+	src/Graphics/Backend/Submition/SubmissionBatch.cpp 
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")

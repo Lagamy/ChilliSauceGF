@@ -39,10 +39,12 @@ void Core::buildWindow() {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
 	// Resizing breaks the swapchain, I will disable it for now. 
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); 
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); 
 
 	// Create window 
 	Globals::appWindow = glfwCreateWindow(Globals::windowWidth, Globals::windowHeight, Globals::processName.c_str(), nullptr, nullptr);
 	
+	glfwSetFramebufferSizeCallback(Globals::appWindow, windowSizeCallback);
 	glfwPollEvents();
 };
+

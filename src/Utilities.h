@@ -30,7 +30,12 @@ namespace Graphics
 		COMPUTE = 2
 	};
 
-	
+	static std::string queueToName[3]
+	{
+		"Graphics",
+		"Transfer",
+		"Compute"
+	}; 
 
 	enum CommandPoolTypeEnum 
 	{

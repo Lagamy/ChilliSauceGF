@@ -69,41 +69,43 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 
 	/* Viewport and Scissor(Can be usefull for Splitscreen multiplayer)*/
 	// Create a viewport
-	VkViewport viewport = {};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = static_cast<float>(getSwapchain().extent.width);
-	viewport.height = static_cast<float>(getSwapchain().extent.height);
-	viewport.minDepth = 0.0f; // min framebuffer depth
-	viewport.maxDepth = 1.0f; // max framebuffer depth
+	// VkViewport viewport = {};
+	// viewport.x = 0.0f;
+	// viewport.y = 0.0f;
+	// viewport.width = static_cast<float>(getSwapchain().extent.width);
+	// viewport.height = static_cast<float>(getSwapchain().extent.height);
+	// viewport.minDepth = 0.0f; // min framebuffer depth
+	// viewport.maxDepth = 1.0f; // max framebuffer depth
 
-	// Create a scissor
-	VkRect2D scissor = {};
-	scissor.offset = { 0, 0 }; // Offset to use region from
-	scissor.extent = getSwapchain().extent; // Extent to describe to which region to capture/use 
+	// // Create a scissor
+	// VkRect2D scissor = {};
+	// scissor.offset = { 0, 0 }; // Offset to use region from
+	// scissor.extent = getSwapchain().extent; // Extent to describe to which region to capture/use 
 
-	// Viewport State creation info
-	VkPipelineViewportStateCreateInfo viewportCreateInfo = {};
-	viewportCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	viewportCreateInfo.viewportCount = 1;
-	viewportCreateInfo.pViewports = &viewport;
-	viewportCreateInfo.scissorCount = 1;
-	viewportCreateInfo.pScissors = &scissor;
-
+	// // Viewport State creation info
+	// VkPipelineViewportStateCreateInfo viewportCreateInfo = {};
+	// viewportCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	// viewportCreateInfo.viewportCount = 1;
+	// viewportCreateInfo.pViewports = &viewport;
+	// viewportCreateInfo.scissorCount = 1;
+	// viewportCreateInfo.pScissors = &scissor;
 
 	/* Dynamic States(A way to tell Pipeline you want something to not be backed into it. Letting you change values after Pipeline creation)*/
-	/* DISABLED FOR NOW
 	// Dynamic States to enable
-	std::vector<VkDynamicState> dynamicStateEnables;
-	dynamicStateEnables.emplace_back(VK_DYNAMIC_STATE_VIEWPORT); // Dynamic Viewport : Can resize in a Command buffer with vkCmdSetViewport(commandbuffer, startId, viewportsCount, &viewportList)
-	dynamicStateEnables.emplace_back(VK_DYNAMIC_STATE_SCISSOR); // Same with Scissor
-	// Dynamic State creation info
-	VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {};
-	dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	dynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
-	dynamicStateCreateInfo.pDynamicStates = dynamicStateEnables.data();
-	*/
+	std::array<VkDynamicState, 2> dynamicStates = {
+	    VK_DYNAMIC_STATE_VIEWPORT,
+	    VK_DYNAMIC_STATE_SCISSOR
+	};
 
+	VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo{};
+	dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+	dynamicStateCreateInfo.pDynamicStates = dynamicStates.data();
+
+	VkPipelineViewportStateCreateInfo viewportState{};
+	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportState.viewportCount = 1;
+	viewportState.scissorCount = 1;
 
 	/* Rasterizer(Converts triangles to a fragments on screen)*/
 	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {};
@@ -161,8 +163,8 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 	graphicsPipelineCreateInfo.pStages = shaderStages.data();
 	graphicsPipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;
 	graphicsPipelineCreateInfo.pInputAssemblyState = &inputAssemblyCreateInfo;
-	graphicsPipelineCreateInfo.pViewportState = &viewportCreateInfo;
-	graphicsPipelineCreateInfo.pDynamicState = nullptr; // Change later
+	graphicsPipelineCreateInfo.pViewportState = &viewportState;
+	graphicsPipelineCreateInfo.pDynamicState = &dynamicStateCreateInfo; 
 	graphicsPipelineCreateInfo.pRasterizationState = &rasterizerCreateInfo;
 	graphicsPipelineCreateInfo.pMultisampleState = &multisamplingCreateInfo;
 	graphicsPipelineCreateInfo.pColorBlendState = &colorBlendingCreateInfo;

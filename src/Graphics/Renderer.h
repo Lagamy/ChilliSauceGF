@@ -7,7 +7,7 @@
 #include "Device.h"
 #include "ResourcesManager.h"
 #include "ShadersManager.h"
-#include "SubmitionManager.h"
+#include "SubmissionManager.h"
 #include "Surface.h"
 #include "Swapchain.h"
 #include "FrameResources.h"
@@ -36,7 +36,7 @@ struct Renderer {
 	ImagesManager imagesManager; 
 	ResourceManager resourcesManager; 
 	ReflectionSystem reflectionSystem;
-	SubmitionManager submitionManager; 
+	SubmissionManager submitionManager; 
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass presentationRenderPass;

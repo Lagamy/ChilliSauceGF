@@ -15,7 +15,7 @@ namespace Globals {
     inline std::string processName = "PBRVulkanDemo"; 
     inline unsigned int windowWidth = 800;
     inline unsigned int windowHeight = 600;
-
+    inline bool resizing = false; 
 
     // - System Global components: 
     inline GLFWwindow* appWindow;

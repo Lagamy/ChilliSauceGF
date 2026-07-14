@@ -2,6 +2,7 @@
 #include "Fence.h"
 #include "Api.h"
 #include "MemoryBlock.h"
+#include "SubmissionBatchId.h"
 #include "Utilities.h"
 #include <limits>
 #include <stdexcept>
@@ -12,8 +13,8 @@ namespace Graphics
 
 void GPUMemoryManager::create()
 {
-	this->staticUploadFinishedSemaphoreId = addSemaphore("Static Upload Finished");
-	this->staticUploadFinishedFenceId = addFence("Static Upload Finished", VK_FENCE_CREATE_SIGNALED_BIT); 
+	this->staticUploadFinishedSemaphore.create();
+	this->staticUploadFinishedFence.create(VK_FENCE_CREATE_SIGNALED_BIT); 
 	this->staticUploadCmdBufferId = addCmdBufferBlueprint(
 		ONESHOT,
 		TRANSFER,
@@ -23,24 +24,25 @@ void GPUMemoryManager::create()
 
 void GPUMemoryManager::destroy() 
 {
+	this->staticUploadFinishedSemaphore.destroy(); 
+	this->staticUploadFinishedFence.destroy();
 	this->staticAllocator.deallocate();
 }
 
 
 void GPUMemoryManager::submitStaticUploadCMDs()
 {
-	VkFence uploadFinishedFence = getFence(this->staticUploadFinishedFenceId);
 	//resetOneShotCmdBuf(TRANSFER, this->staticUploadCmdBufferId, rUploadFinished); 
 	recordOneShotCmdBuf(TRANSFER, this->staticUploadCmdBufferId);
 
-	vkResetFences(getMainDevice().logicalDevice, 1, &uploadFinishedFence);
+	vkResetFences(getMainDevice().logicalDevice, 1, &staticUploadFinishedFence.get());
 	// Submit command buffer to the Transfer Queue
-	PoolId batchId = addTransferSubmitionBatch("Static Allocator Uploading"); 
-	addTransferSubmition("Static Allocator Upload", batchId, &getCommandBuffer(TRANSFER, ONESHOT, this->staticUploadCmdBufferId),
-	 1, nullptr, 0, nullptr, &getSemaphore(this->staticUploadFinishedSemaphoreId), 1); 
+	SubmissionBatchId batchId = addSubmissionBatch("Static Allocator Uploading", TRANSFER); 
+	PoolId submitionId = addSubmission("Static Allocator Upload", batchId, &getCommandBuffer(TRANSFER, ONESHOT, this->staticUploadCmdBufferId), 1);
+	addSignalSemaphoreToSubmission(batchId, submitionId, this->staticUploadFinishedSemaphore.get());
 
 	// Submit transfer command to transfer Queue and wait till it finishes(Not optimal)
-	submitToTransferQueue(batchId, uploadFinishedFence);
+	submitToTransferQueue(batchId, staticUploadFinishedFence.get());
 }
 
 void GPUMemoryManager::submitUpdateCmdsIfNeeded()

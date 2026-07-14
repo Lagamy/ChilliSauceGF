@@ -32,10 +32,10 @@ void Mesh::queueStaticGPUUpload()
 {
     std::stringstream uploadName;
     uploadName << this->name << " Vertex data"; 
-    this->vbMemoryId = addUpload(uploadName.str().c_str(), STATIC, VERTEX, this->getData(), this->getSize()); 
+    this->vbMemoryUploadId = addUpload(uploadName.str().c_str(), STATIC, VERTEX, this->getData(), this->getSize()); 
 	uploadName.clear(); 
     // Create Index Buffer and fill it with data.
     uploadName << this->name << " Index data"; 
-	this->ibMemoryId = addUpload(uploadName.str().c_str(), STATIC, INDEX, this->indices.data(), this->indices.size() * sizeof(uint32_t)); 
+	this->ibMemoryUploadId = addUpload(uploadName.str().c_str(), STATIC, INDEX, this->indices.data(), this->indices.size() * sizeof(uint32_t)); 
 }
 } 

@@ -19,8 +19,8 @@ namespace Graphics
 		PoolId vertexDataContainerId; 
 		std::vector<uint32_t> indices;
 
-		UploadId vbMemoryId; // Handle to mem entry in the GPUMemoryManager
-		UploadId ibMemoryId;
+		UploadId vbMemoryUploadId; // Handle to mem entry in the GPUMemoryManager
+		UploadId ibMemoryUploadId;
 
 		template<typename T>
 		void setVerticeMember(PoolId memberId_, uint32_t repeateUnitId_, T data_)

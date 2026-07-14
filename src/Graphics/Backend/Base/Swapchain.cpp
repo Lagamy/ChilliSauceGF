@@ -121,10 +121,11 @@ void Swapchain::destroyFramebuffers()
 void Swapchain::destroy()
 {
 	for (auto& swapchainRenderTarget : this->renderTargets)
-	{
-		vkDestroyImageView(getMainDevice().logicalDevice, swapchainRenderTarget.getImageView(0), nullptr);
+	{	
+		swapchainRenderTarget.destroyViews();
 		//vkDestroyImage(Globals::device.logicalDevice, swapchainImage.image, nullptr); // vkDestroySwapchainKHR also destroys images
 		swapchainRenderTarget.imageInUseSemaphoreFinished.destroy();
+		swapchainRenderTarget.vkHandle = VK_NULL_HANDLE;
 	}
 	vkDestroySwapchainKHR(getMainDevice().logicalDevice, this->vkHandle, nullptr);
 	this->vkHandle = VK_NULL_HANDLE;
