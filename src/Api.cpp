@@ -47,6 +47,11 @@ namespace Graphics
 		return Globals::renderer.gpuMemoryManager; 
 	}
 
+	PassesManager& getPassesManager()
+	{
+		return  Globals::renderer.passesManager;
+	}
+
 	// For now i only need 1 of each
 	GraphicsPipeline& getGraphicsPipeline(PoolId graphicsPipelineId_)
 	{
@@ -56,11 +61,6 @@ namespace Graphics
 	RenderPass& getPresentationRenderPass()
 	{
 		return Globals::renderer.presentationRenderPass; 
-	}
-
-	CmdBufferBlueprintsPack& getCmdBufferBlueprints(CommandPoolTypeEnum poolType_)
-	{
-		return (poolType_ == FRAME ? Globals::renderer.demoManager.frameCmdBufferBlueprints : Globals::renderer.demoManager.oneShotCmdBufferBlueprints);
 	}
 
 	VkSemaphore& getSemaphore(PoolId semaphoreId_)
@@ -121,7 +121,7 @@ namespace Graphics
 		return getSwapchain().renderTargets[getCurrentImageIndex()];
 	}
 
-	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_, uint32_t id_)
+	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdTypeEnum poolType_, uint32_t id_)
 	{
 			
 		if(poolType_ == FRAME)
@@ -134,7 +134,7 @@ namespace Graphics
 		}
 	}
 
-	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CommandPoolTypeEnum poolType_)
+	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CmdTypeEnum poolType_)
 	{
 		if(poolType_ == FRAME)
 		{
@@ -217,7 +217,7 @@ namespace Graphics
 		Globals::renderer.shadersManager.shaders.remove(id_); 
 	}
 
-	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)
+	uint32_t addCmdBufferBlueprint(CMDTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)
 	{
 		return Globals::renderer.demoManager.addCmdBufferBlueprint(poolType_, queueFamilyEnum_, commandsToRecord_);
 	}
@@ -340,6 +340,25 @@ namespace Graphics
 	{
 		vkCmdEndRenderPass(cmdBuffer_);
 		vkEndCommandBuffer(cmdBuffer_);
+	}
+
+
+	void submitToPassesToQueues() // Note: Clear one shot passes submissions after submissions.
+	{
+
+		if(Globals::renderer.firstFrame == true) // Add and then remove static Upload finished wait semaphore. 
+		{
+			
+		}
+
+
+
+		
+		if(Globals::renderer.firstFrame == false)
+		{
+
+			Globals::renderer.firstFrame = false; // 
+		} 
 	}
 
 	void setViewportAndScissors(VkCommandBuffer& cmdBuffer_)

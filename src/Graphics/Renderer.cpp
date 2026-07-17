@@ -19,6 +19,7 @@ void Renderer::setup()
 	
 	// Scene/Renderer setup 
 	this->demoManager.loadDemo();
+	this->passesManaer.deriveFrameVkSubmitInfos(); 
 	this->gpuMemoryManager.staticAllocator.allocate(); 
 
 	// Renderpass and Graphics pipeline are defined defined by Scene
@@ -53,7 +54,8 @@ void Renderer::draw()
 		resetCurrentFrameCmdPools();
 		recordCurrentFrameCmdPools(); 
 
-		this->demoManager.submitToGPU();
+		submitToPassesToQueues();
+		presentToScreen(); 
 		this->currentFrame = (this->currentFrame + 1) % this->framesAtFlightCount; 
 	}
 }

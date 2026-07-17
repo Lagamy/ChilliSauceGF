@@ -37,10 +37,10 @@ namespace Graphics
 		"Compute"
 	}; 
 
-	enum CommandPoolTypeEnum 
+	enum CmdTypeEnum : uint8_t 
 	{
-		FRAME, 
-		ONESHOT
+		FRAME = 0, 
+		ONESHOT = 1
 	};
 
 	enum AttachmentTypeEnum {

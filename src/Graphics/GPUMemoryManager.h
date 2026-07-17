@@ -1,6 +1,7 @@
 // Represents resources that are in GPU currently
 #pragma once 
-#include "CommandBufferBlueprint.h"
+#include "PassId.h"
+#include "Pass.h"
 #include "Semaphore.h"
 #include "StagingHeap.h"
 #include "MemoryBlock.h"
@@ -34,12 +35,11 @@ struct GPUMemoryManager
 	std::vector<UpdateEntry> updateEntries; 
 	bool updateNeeded = false;
 	void submitTransferCmds();
-	uint32_t updateCmdBufferId;
-	uint32_t staticUploadCmdBufferId; 
 	Semaphore updateFinishedSemaphore; 
 	Fence updateFinishedFence; 
 	Semaphore staticUploadFinishedSemaphore; 
 	Fence staticUploadFinishedFence;
+	PassId staticUploadPassId; 
 
 	void addUpdate(PoolId entryId_, const void* data_); // full upload
 	void addUpdate(PoolId entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload

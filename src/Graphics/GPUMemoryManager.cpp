@@ -15,7 +15,8 @@ void GPUMemoryManager::create()
 {
 	this->staticUploadFinishedSemaphore.create();
 	this->staticUploadFinishedFence.create(VK_FENCE_CREATE_SIGNALED_BIT); 
-	this->staticUploadCmdBufferId = addCmdBufferBlueprint(
+	this->staticUploadPassId = addPass(
+		"Static Upload",
 		ONESHOT,
 		TRANSFER,
 		[this](VkCommandBuffer& cmd) { this->staticAllocator.recordCMDs(cmd); } 

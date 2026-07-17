@@ -59,7 +59,8 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/MemoryManagment/GPUHeap.cpp" "src/Graphics/SyncManager.cpp"
 	"src/Graphics/MemoryManagment/StagingHeap.cpp" "src/Graphics/MemoryManagment/StaticAllocator.cpp"
 	"src/Graphics/FrameResources.cpp" "src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
-	"src/Graphics/ShadersManager.cpp"
+	"src/Graphics/ShadersManager.cpp" "src/Graphics/Resources/Mesh.cpp" "src/Graphics/Pass/Task.cpp" "src/Graphics/Pass/Pass.cpp"
+	"src/Graphics/PassesManager.cpp" 
 
 	# Demos
 	"src/Demos/Triangle.cpp"
@@ -69,11 +70,6 @@ add_executable(PBRVulkanDemo
 
 	# Reflection 
 	"src/Graphics/Reflection/Layout.cpp" "src/Graphics/Reflection/MemberBlueprint.cpp"
-	
-	"src/Graphics/Resources/Mesh.cpp"
-
-	"src/Graphics/SubmissionManager.cpp"
-	src/Graphics/Backend/Submission/SubmissionBatch.cpp 
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -91,6 +87,7 @@ set(MANAGERS_DIR "${CORE_DIR}/Managers")
 # Graphics
 set(RESOURCES_DIR "${GRAPHICS_DIR}/Resources")
 set(BACKEND_DIR "${GRAPHICS_DIR}/Backend")
+set(PASS_DIR "${GRAPHICS_DIR}/Pass")
 set(IMAGE_DIR "${BACKEND_DIR}/Image")
 set(BASE_DIR "${BACKEND_DIR}/Base")
 set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
@@ -119,7 +116,7 @@ target_include_directories(PBRVulkanDemo PRIVATE
 	${MANAGERS_DIR} 
 
 	# Graphics
-	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} ${RESOURCES_DIR}
+	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} ${RESOURCES_DIR} ${PASS_DIR}
 	# ${DESCRIPTORSET_DIR} 
 	${SYNCHRONISATION_DIR} ${VALIDATION_DIR} ${MEMORY_MANAGMENT_DIR} ${SUBMISSION_DIR}
 

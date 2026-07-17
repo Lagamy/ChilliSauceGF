@@ -1,13 +1,13 @@
 #pragma once 
 #include "GPUMemoryManager.h"
 #include "DemoManager.h"
+#include "PassesManager.h"
 #include "Pool.h"
 #include "RenderPass.h" 
 #include "Instance.h"
 #include "Device.h"
 #include "ResourcesManager.h"
 #include "ShadersManager.h"
-#include "SubmissionManager.h"
 #include "Surface.h"
 #include "Swapchain.h"
 #include "FrameResources.h"
@@ -36,7 +36,7 @@ struct Renderer {
 	ImagesManager imagesManager; 
 	ResourceManager resourcesManager; 
 	ReflectionSystem reflectionSystem;
-	SubmissionManager submitionManager; 
+	PassesManager passesManager; 
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass presentationRenderPass;
@@ -47,6 +47,7 @@ struct Renderer {
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
 	CmdPoolsPack<OneShotCommandPool> oneShotCommandPools; 
 
+	bool firstFrame = true; 
 	uint32_t framesAtFlightCount; // Max amount of frames that can be in the queue at the same time 
 	uint32_t currentFrame = 0; 
 	uint32_t queueFamiliesCount = 3; 

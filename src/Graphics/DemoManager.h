@@ -2,7 +2,7 @@
 #pragma once 
 
 #include "Utilities.h"
-#include "CmdBufferBlueprintsPack.h"
+#include "PassesPack.h"
 #include "Triangle.h"
 #include <vector>
 #include <thread>
@@ -11,11 +11,10 @@ namespace Graphics
 {
 using demoFunc = std::function<void()>;
 struct DemoManager {
-	CmdBufferBlueprintsPack frameCmdBufferBlueprints; 
-	CmdBufferBlueprintsPack oneShotCmdBufferBlueprints;
+	PassesPack framePassesPack; 
+	PassesPack oneShotPassesPack;
 	
 
-	uint32_t addCmdBufferBlueprint(CommandPoolTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_);
 	
 	demoFunc loadDemo; 
 	demoFunc createGPUObjects; 
