@@ -27,7 +27,7 @@ void OneShotCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum que
     }
 
 	// Allocate command buffers from blueprints 
-	this->allocateCmdBuffersFromBlueprints();
+	this->allocateCmdBuffersFromPasses();
 }
 
 void OneShotCommandPool::destroy()
@@ -36,53 +36,51 @@ void OneShotCommandPool::destroy()
     this->vkHandle = VK_NULL_HANDLE;
 }
 
-void OneShotCommandPool::allocateCmdBuffersFromBlueprints()
+void OneShotCommandPool::allocateCmdBuffersFromPasses()
 {
     // Allocate CommandBuffers from the pool in GPU, and recieve handles for them. 
-	std::vector<CommandBufferBlueprint>& rBlueprints = 
-		this->queueFamilyEnum == GRAPHICS ? getCmdBufferBlueprints(ONESHOT).graphics: 
-		this->queueFamilyEnum == COMPUTE ? getCmdBufferBlueprints(ONESHOT).compute: 
-		getCmdBufferBlueprints(ONESHOT).transfer; 
-		
-    if (rBlueprints.size() != 0)
+	std::vector<Pass>& rPasses = getPassesManager().passesPerCmdType[FRAME].passesPerQueue[this->queueFamilyEnum];  
+    for(auto& rPass : rPasses)
     {
-        std::vector<VkCommandBuffer> commandBufferHandles;
-        this->commandBuffers.buffers.resize(rBlueprints.size());
-        this->commandBuffers.commandsToRecord.resize(rBlueprints.size());
-		commandBufferHandles.resize(rBlueprints.size());
-
-        VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
-        commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        commandBufferAllocateInfo.commandPool = vkHandle; // Will only work on a queue of its Pool its from.  
-        commandBufferAllocateInfo.level = this->level;
-        commandBufferAllocateInfo.commandBufferCount = static_cast<uint32_t>(commandBufferHandles.size());
-
-        VkResult result = vkAllocateCommandBuffers(getMainDevice().logicalDevice, &commandBufferAllocateInfo, commandBufferHandles.data());
-        if (result != VK_SUCCESS)
+        this->commandBuffers.commandsToRecord.resize(this->commandBuffers.commandsToRecord.size() + rPass.tasks.size());
+        size_t baseSize = this->commandBuffers.buffers.size(); 
+        for(size_t i = 0; i < rPass.tasks.size(); i++)
         {
-            throw std::runtime_error("Failed to create Command Buffer/s!");
+            this->commandBuffers.commandsToRecord[baseSize + i] = rPass.tasks[i].cmdBufferFunc; 
+            rPass.tasks[i].cmdId = baseSize + i; 
         }
+        
+    }
+    
+    this->commandBuffers.buffers.resize(this->commandBuffers.commandsToRecord.size()); 
+    this->commandBuffers.buffers.resize(this->commandBuffers.recorded.size()); 
+    
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferAllocateInfo.commandPool = vkHandle; // Will only work on a queue of its Pool its from.  
+    commandBufferAllocateInfo.level = this->level;
+    commandBufferAllocateInfo.commandBufferCount = static_cast<uint32_t>(this->commandBuffers.buffers.size());
 
-        // Initialize our array with CommandBuffer objects
-        for (size_t i = 0; i < commandBufferHandles.size(); i++)
-        {
-            this->commandBuffers.buffers[i] = commandBufferHandles[i];
-			this->commandBuffers.commandsToRecord[i] = rBlueprints[i].commandsToRecord;
-        }
+    VkResult result = vkAllocateCommandBuffers(getMainDevice().logicalDevice, &commandBufferAllocateInfo, this->commandBuffers.buffers.data());
+    if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to create Command Buffer/s!");
     }
 }
+
+
 
 void OneShotCommandPool::resetCmdBuffer(uint32_t id_, Fence& rFinishSignalFence_)
 {
 	vkWaitForFences(getMainDevice().logicalDevice, 1, &rFinishSignalFence_.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
 	vkResetCommandBuffer(this->commandBuffers.buffers[id_], 0); 
-	//this->commandBuffers.recorded[id_] = false;
+	this->commandBuffers.recorded[id_] = false;
 }
 
 void OneShotCommandPool::recordCmdBuffer(uint32_t id_)
 {
 	this->commandBuffers.commandsToRecord[id_](this->commandBuffers.buffers[id_]);
-	//this->commandBuffers.recorded[id_] = true;
+	this->commandBuffers.recorded[id_] = true;
 }
 
 

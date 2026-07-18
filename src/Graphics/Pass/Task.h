@@ -1,4 +1,5 @@
 #pragma once 
+#include "PoolId.h"
 #include <functional>
 #include <string>
 #include <vulkan/vulkan.h>
@@ -11,13 +12,13 @@ struct Task
     std::string name; 
     CmdBufferFunc cmdBufferFunc; 
     size_t cmdId; // Set by pool upon creation 
-    std::vector<VkSemaphore> waitSemaphores; 
+    std::vector<PoolId> waitSemaphoresIds; 
     std::vector<VkPipelineStageFlags> waitStages; 
-    std::vector<VkSemaphore> signalSemaphores; 
+    std::vector<PoolId> signalSemaphoresIds; 
     bool alive = true; // One Shot 
 
     Task(const char* name_, CmdBufferFunc cmdBufferFunc_); 
-    void addWaitSemaphore(VkSemaphore waitSemaphore_, VkPipelineStageFlags pipelineStage_);  
-    void addSignalSemaphore(VkSemaphore signalSemaphore_); 
+    void addWaitSemaphore(PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_);  
+    void addSignalSemaphore(PoolId signalSemaphoreId_); 
 };
 }

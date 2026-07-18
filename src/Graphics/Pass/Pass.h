@@ -9,9 +9,10 @@ struct Pass
 {
     std::string name; 
     std::vector<Task> tasks;
-    VkFence signalFence;
+    PoolId signalFenceId;
+    PoolId submissionId; 
 
-    Pass(const char* name_, VkFence signalFence_);
-    uint32_t addSubmission(const char* name_, CmdBufferFunc cmdBufferFunc_);
+    Pass(const char* name_, PoolId signalFenceId_);
+    uint32_t addTask(const char* name_, CmdBufferFunc cmdBufferFunc_);
 };
 } 

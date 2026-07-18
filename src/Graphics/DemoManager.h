@@ -11,14 +11,11 @@ namespace Graphics
 {
 using demoFunc = std::function<void()>;
 struct DemoManager {
-	PassesPack framePassesPack; 
-	PassesPack oneShotPassesPack;
-	
+	void defineDemo(); 
+	demoFunc defineLayouts; // Vertex, DS, etc layouts 
+	demoFunc defineResources; // Mesh/Textures
+	demoFunc definePasses; 
 
-	
-	demoFunc loadDemo; 
-	demoFunc createGPUObjects; 
-	demoFunc submitToGPU; 
 	// You can just include demos there, and comment out demos that aren't active
 	Triangle triangle; 
 };

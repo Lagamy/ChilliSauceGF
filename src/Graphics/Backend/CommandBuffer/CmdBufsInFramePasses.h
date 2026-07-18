@@ -1,12 +1,12 @@
 #pragma once
-#include "CommandBufferBlueprint.h"
+#include "Task.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 
 namespace Graphics
 {
-struct FrameCommandBuffers { 
+struct CmdBufsInFramePasses { 
 	std::vector<VkCommandBuffer> buffers;
-	std::vector<recordFunc> commandsToRecord;
+	std::vector<CmdBufferFunc> commandsToRecord;
 };
 }

@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.h>
-#include "OneShotCommandBuffers.h"
+#include "CmdBufsInOneShotPasses.h"
 #include "Utilities.h"
 #include "Fence.h"
 
@@ -14,7 +14,7 @@ struct OneShotCommandPool {
     VkCommandBufferLevel level;  // Primary - can only be run by queue. Secondary - can only be called in another command buffer(using vkCmdExecureCommands(cmBuffer)).
 	QueueFamilyEnum queueFamilyEnum; 
 
-    OneShotCommandBuffers commandBuffers; 
+    CmdBufsInOneShotPasses commandBuffers; 
 
     void create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_);
     void resetCmdBuffer(uint32_t id_, Fence& rFinishSignalFence_); 
@@ -24,7 +24,7 @@ struct OneShotCommandPool {
     void destroy();
     VkCommandPool& get(); 
 
-    void allocateCmdBuffersFromBlueprints();
+    void allocateCmdBuffersFromPasses();
 
     OneShotCommandPool() = default;
 };

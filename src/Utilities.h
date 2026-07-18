@@ -27,8 +27,10 @@ namespace Graphics
 	{
 		GRAPHICS = 0,
 		TRANSFER = 1,
-		COMPUTE = 2
+		COMPUTE = 2,
 	};
+
+	const inline uint8_t presentationQueueId = 3; 
 
 	static std::string queueToName[3]
 	{

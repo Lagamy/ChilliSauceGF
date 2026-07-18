@@ -253,41 +253,6 @@ namespace Graphics
 	} 
 	
 	
-	SubmissionBatchId addSubmissionBatch(const char* name_, QueueFamilyEnum queueFamily_)
-	{
-		return { Globals::renderer.submitionManager.submissionBatches[queueFamily_].add(name_), queueFamily_}; 
-	} 
-
-	PoolId addSubmission(const char* name_, SubmissionBatchId batchId_, VkCommandBuffer* pCmdBuffer_, size_t cmdBufferCount_)
-	{
-		return Globals::renderer.submitionManager.addSubmition(name_, batchId_, pCmdBuffer_, cmdBufferCount_);
-	}
-
-    void addWaitSemaphoreToSubmission(SubmissionBatchId batchId_, PoolId submitionId_, VkSemaphore waitSemaphore_, VkPipelineStageFlags pipelineStage_)
-	{
-		Globals::renderer.submitionManager.addWaitSemaphore(batchId_, submitionId_, waitSemaphore_, pipelineStage_);
-	}  
-
-    void addSignalSemaphoreToSubmission(SubmissionBatchId batchId_, PoolId submitionId_, VkSemaphore signalSemaphore_)
-	{
-		Globals::renderer.submitionManager.addSignalSemaphore(batchId_, submitionId_, signalSemaphore_);
-	}
-
-	void submitToGraphicsQueue(SubmissionBatchId batchId_, VkFence signalFence_)
-	{
-		return Globals::renderer.submitionManager.submitToGraphicsQueue(batchId_, signalFence_);
-	} 
-
-    void submitToTransferQueue(SubmissionBatchId batchId_, VkFence signalFence_)
-	{
-		return Globals::renderer.submitionManager.submitToTransferQueue(batchId_, signalFence_);
-	} 
-
-    void submitToComputeQueue(SubmissionBatchId batchId_, VkFence signalFence_)
-	{
-		return Globals::renderer.submitionManager.submitToComputeQueue(batchId_, signalFence_);
-	} 
-   
 	void beginCMDsRecording(VkCommandBuffer &cmdBuffer_)
 	{
 		VkCommandBufferBeginInfo beginInfo = {}; 
@@ -345,20 +310,13 @@ namespace Graphics
 
 	void submitToPassesToQueues() // Note: Clear one shot passes submissions after submissions.
 	{
-
-		if(Globals::renderer.firstFrame == true) // Add and then remove static Upload finished wait semaphore. 
+		for(int i = 0; i < 3; i++)
 		{
-			
+			for(const auto& rSubmissionBatch : getPassesManager().submissionBatchesPerQueue[i])
+			{
+				vkQueueSubmit(, uint32_t submitCount, const VkSubmitInfo *pSubmits, VkFence fence)
+			}
 		}
-
-
-
-		
-		if(Globals::renderer.firstFrame == false)
-		{
-
-			Globals::renderer.firstFrame = false; // 
-		} 
 	}
 
 	void setViewportAndScissors(VkCommandBuffer& cmdBuffer_)

@@ -4,7 +4,6 @@
 #include "PoolId.h"
 #include "PassId.h"
 #include "Pass.h"
-#include "Submission.h"
 #include "UploadId.h"
 #include "Utilities.h"
 #include "Globals.h"

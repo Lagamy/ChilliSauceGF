@@ -3,8 +3,7 @@
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.h>
-#include "CommandBufferBlueprint.h"
-#include "FrameCommandBuffers.h"
+#include "CmdBufsInFramePasses.h"
 #include "Utilities.h"
 #include "Fence.h"
 
@@ -15,7 +14,7 @@ struct FrameCommandPool {
     VkCommandBufferLevel level;  // Primary - can only be run by queue. Secondary - can only be called in another command buffer(using vkCmdExecureCommands(cmBuffer)).
 	QueueFamilyEnum queueFamilyEnum; 
 	
-	FrameCommandBuffers commandBuffers;
+	CmdBufsInFramePasses commandBuffers;
 	
     void create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_);
     void resetCmdPool(); // You need to rerecord buffers each draw, cause games are dynamic. An entity that uses distinct Graphics Pipeline might spawn, and invalidate previous recorded one. + Performance cost is negligable.  
@@ -24,7 +23,7 @@ struct FrameCommandPool {
     void destroy();
     const VkCommandPool& get(); 
 
-    void allocateCmdBuffersFromBlueprints();
+    void allocateCmdBuffersFromPasses();
 
     FrameCommandPool() = default;
 };

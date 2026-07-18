@@ -1,6 +1,7 @@
 #pragma once 
 #include "GPUMemoryManager.h"
 #include "DemoManager.h"
+#include "GPUPipelinesManager.h"
 #include "PassesManager.h"
 #include "Pool.h"
 #include "RenderPass.h" 
@@ -35,12 +36,12 @@ struct Renderer {
 	ShadersManager shadersManager;
 	ImagesManager imagesManager; 
 	ResourceManager resourcesManager; 
+	GPUPipelinesManager gpuPipelinesManager;
 	ReflectionSystem reflectionSystem;
 	PassesManager passesManager; 
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass presentationRenderPass;
-	Pool<GraphicsPipeline> graphicsPipelines;
 	Pool<RenderPass> renderPasses; 
 
 	DemoManager demoManager;
