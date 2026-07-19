@@ -5,7 +5,7 @@
 namespace Graphics
 {
     struct ShadersManager { 
-        Pool<Shader> shaders; 
+        Pool<Shader> shaders = ("Shaders"); 
         void destroy();
     }; 
 }

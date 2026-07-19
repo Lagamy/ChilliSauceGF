@@ -6,8 +6,8 @@
 namespace Graphics
 {
 struct SyncManager { 
-	Pool<Fence> fences; 
-	Pool<Semaphore> semaphores;
+	Pool<Fence> fences = ("Fences"); 
+	Pool<Semaphore> semaphores = ("Semaphores");
 
 	PoolId addSemaphore(const char* name_); 
 	PoolId addFence(const char* name_, VkFenceCreateFlags flags_);

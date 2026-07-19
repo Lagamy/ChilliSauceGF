@@ -12,13 +12,7 @@ void OneShotCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum que
     this->level = level_; 
     VkCommandPoolCreateInfo poolCreateInfo = {};
     poolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-
-	switch(this->queueFamilyEnum)
-	{
-		case GRAPHICS: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.graphicsFamily; break; 
-		case COMPUTE: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.computeFamily; break; 
-		case TRANSFER: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.transferFamily; break; 
-	}
+    poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.indices[queueFamilyEnum_]; 
 
     VkResult result = vkCreateCommandPool(getMainDevice().logicalDevice, &poolCreateInfo, nullptr, &this->vkHandle);
     if (result != VK_SUCCESS)
@@ -39,21 +33,7 @@ void OneShotCommandPool::destroy()
 void OneShotCommandPool::allocateCmdBuffersFromPasses()
 {
     // Allocate CommandBuffers from the pool in GPU, and recieve handles for them. 
-	std::vector<Pass>& rPasses = getPassesManager().passesPerCmdType[FRAME].passesPerQueue[this->queueFamilyEnum];  
-    for(auto& rPass : rPasses)
-    {
-        this->commandBuffers.commandsToRecord.resize(this->commandBuffers.commandsToRecord.size() + rPass.tasks.size());
-        size_t baseSize = this->commandBuffers.buffers.size(); 
-        for(size_t i = 0; i < rPass.tasks.size(); i++)
-        {
-            this->commandBuffers.commandsToRecord[baseSize + i] = rPass.tasks[i].cmdBufferFunc; 
-            rPass.tasks[i].cmdId = baseSize + i; 
-        }
-        
-    }
-    
     this->commandBuffers.buffers.resize(this->commandBuffers.commandsToRecord.size()); 
-    this->commandBuffers.buffers.resize(this->commandBuffers.recorded.size()); 
     
     VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
     commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -70,17 +50,22 @@ void OneShotCommandPool::allocateCmdBuffersFromPasses()
 
 
 
-void OneShotCommandPool::resetCmdBuffer(uint32_t id_, Fence& rFinishSignalFence_)
+void OneShotCommandPool::resetCmdBuffer()
 {
-	vkWaitForFences(getMainDevice().logicalDevice, 1, &rFinishSignalFence_.get(), VK_TRUE, std::numeric_limits<uint64_t>::max());
-	vkResetCommandBuffer(this->commandBuffers.buffers[id_], 0); 
-	this->commandBuffers.recorded[id_] = false;
+    for(const auto& enabledCmdBufId : this->commandBuffers.enabled)
+	{
+	    vkResetCommandBuffer(this->commandBuffers.buffers[enabledCmdBufId], 0); 
+	}
 }
 
-void OneShotCommandPool::recordCmdBuffer(uint32_t id_)
+void OneShotCommandPool::recordCmdBuffers()
 {
-	this->commandBuffers.commandsToRecord[id_](this->commandBuffers.buffers[id_]);
-	this->commandBuffers.recorded[id_] = true;
+	for(uint32_t i = 0; i < this->commandBuffers.enabled.size(); i++)
+	{
+        uint32_t& enabledCmdBufId = this->commandBuffers.enabled[i]; 
+		this->commandBuffers.commandsToRecord[enabledCmdBufId](this->commandBuffers.buffers[enabledCmdBufId]);
+        this->commandBuffers.enabled.erase(this->commandBuffers.enabled.begin() + i); 
+    }
 }
 
 

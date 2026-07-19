@@ -42,7 +42,7 @@ struct Renderer {
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass presentationRenderPass;
-	Pool<RenderPass> renderPasses; 
+	Pool<RenderPass> renderPasses = ("RenderPasses"); 
 
 	DemoManager demoManager;
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 

@@ -7,7 +7,7 @@ namespace Graphics
 {
 struct ResourceManager 
 {
-    Pool<Mesh> meshes; 
-    Pool<Image> textures; 
+    Pool<Mesh> meshes = ("Meshes"); 
+    Pool<Image> textures = ("Textures"); 
 };
 } 

@@ -29,8 +29,8 @@ namespace Graphics
 	VkFence& getFence(PoolId fenceId_);
 	Shader& getShader(PoolId shaderId_); 
 	uint32_t getBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
-	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdTypeEnum poolType_, uint32_t id_); 
-	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CmdTypeEnum poolType_);
+	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_); 
+	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_);
 	const UploadEntry& getUploadEntry(UploadId id_); 
 	Mesh& getMesh(PoolId meshId_); 
 	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);

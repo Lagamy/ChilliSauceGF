@@ -7,6 +7,6 @@ namespace Graphics
 {
 struct ReflectionSystem
 {
-    std::array<Pool<ReflectionLayout>, BufferTypesCount - 1> layoutsPerBufferType; 
+    std::array<Pool<ReflectionLayout>, BufferTypesCount - 1> layoutsPerBufferType = {("Vertex Layouts")}; 
 };
 } 

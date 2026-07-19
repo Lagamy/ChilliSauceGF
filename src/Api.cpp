@@ -73,6 +73,12 @@ namespace Graphics
 		return Globals::renderer.syncManager.getFence(fenceId_).get();
 	}
 
+
+	VkQueue& getQueue(uint8_t id_)
+	{
+		return Globals::renderer.mainDevice.queues[id_];
+	} 
+
 	Shader& getShader(PoolId shaderId_)
 	{
 		return Globals::renderer.shadersManager.shaders.get(shaderId_); 
@@ -121,7 +127,7 @@ namespace Graphics
 		return getSwapchain().renderTargets[getCurrentImageIndex()];
 	}
 
-	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdTypeEnum poolType_, uint32_t id_)
+	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_)
 	{
 			
 		if(poolType_ == FRAME)
@@ -134,7 +140,7 @@ namespace Graphics
 		}
 	}
 
-	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CmdTypeEnum poolType_)
+	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_)
 	{
 		if(poolType_ == FRAME)
 		{
@@ -217,10 +223,7 @@ namespace Graphics
 		Globals::renderer.shadersManager.shaders.remove(id_); 
 	}
 
-	uint32_t addCmdBufferBlueprint(CMDTypeEnum poolType_, QueueFamilyEnum queueFamilyEnum_, recordFunc commandsToRecord_)
-	{
-		return Globals::renderer.demoManager.addCmdBufferBlueprint(poolType_, queueFamilyEnum_, commandsToRecord_);
-	}
+
 
 	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
 	{
@@ -310,11 +313,22 @@ namespace Graphics
 
 	void submitToPassesToQueues() // Note: Clear one shot passes submissions after submissions.
 	{
-		for(int i = 0; i < 3; i++)
+		for(uint8_t i = 0; i < 3; i++)
 		{
-			for(const auto& rSubmissionBatch : getPassesManager().submissionBatchesPerQueue[i])
+			Pool<SubmissionBatch>& rSubmissionBatches = getPassesManager().submissionBatchesPerQueue[i]; 
+			for(uint32_t j = 0; j < rSubmissionBatches.size(); j++)
 			{
-				vkQueueSubmit(, uint32_t submitCount, const VkSubmitInfo *pSubmits, VkFence fence)
+				vkQueueSubmit(getQueue(i), rSubmissionBatches.objects[j].submissions.size(), rSubmissionBatches.objects[j].submissions.data(), getFence(rSubmissionBatches.objects[j].signalFenceId)); 
+				if(rSubmissionBatches.objects[j].oneShot) // disable cmdBuffers, and remove this submissionBatch from list 
+				{
+					for(const auto& rCmdBufferToDisable : rSubmissionBatches.objects[j].cmdBuffersToDisable)
+					{ 
+						CmdBuffersInPasses& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(i).commandBuffers; 
+                    	rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCmdBufferToDisable); 
+                    	rCommandBuffers.buffersToEnabled[rCmdBufferToDisable] = UninitializedId; 
+					}
+					rSubmissionBatches.removeInternal(j); 
+				}
 			}
 		}
 	}
@@ -350,7 +364,7 @@ namespace Graphics
 		presentInfo.pSwapchains = &getSwapchain().vkHandle; 
 		presentInfo.pImageIndices = &getCurrentImageIndex();
 
-		VkResult result = vkQueuePresentKHR(getMainDevice().queues.presentQueue, &presentInfo);
+		VkResult result = vkQueuePresentKHR(getMainDevice().queues[presentationQueueId], &presentInfo);
 		if(result != VK_SUCCESS)
 		{
 			throw std::runtime_error("Presentation: Failed to present Image");

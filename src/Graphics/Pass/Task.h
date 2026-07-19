@@ -11,11 +11,10 @@ struct Task
 {
     std::string name; 
     CmdBufferFunc cmdBufferFunc; 
-    size_t cmdId; // Set by pool upon creation 
+    uint32_t cmdId; 
     std::vector<PoolId> waitSemaphoresIds; 
     std::vector<VkPipelineStageFlags> waitStages; 
     std::vector<PoolId> signalSemaphoresIds; 
-    bool alive = true; // One Shot 
 
     Task(const char* name_, CmdBufferFunc cmdBufferFunc_); 
     void addWaitSemaphore(PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_);  

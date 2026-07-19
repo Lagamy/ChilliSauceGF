@@ -3,9 +3,8 @@
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.h>
-#include "CmdBufsInOneShotPasses.h"
+#include "CmdBuffersInPasses.h"
 #include "Utilities.h"
-#include "Fence.h"
 
 namespace Graphics
 {
@@ -14,11 +13,11 @@ struct OneShotCommandPool {
     VkCommandBufferLevel level;  // Primary - can only be run by queue. Secondary - can only be called in another command buffer(using vkCmdExecureCommands(cmBuffer)).
 	QueueFamilyEnum queueFamilyEnum; 
 
-    CmdBufsInOneShotPasses commandBuffers; 
+    CmdBuffersInPasses commandBuffers; 
 
     void create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_);
-    void resetCmdBuffer(uint32_t id_, Fence& rFinishSignalFence_); 
-	void recordCmdBuffer(uint32_t id_);
+    void resetCmdBuffer(); 
+	void recordCmdBuffers();
 	void submitCmdBuffer(uint32_t id_);
 	void dealocateCMDBuffers();
     void destroy();

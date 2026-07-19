@@ -11,8 +11,8 @@ struct ReflectionLayout
 {
     AlignmentLayoutEnum alignment = NONE; 
     uint32_t alignmentRule; 
-    Pool<MemberBlueprint> memberBlueprints; 
-    Pool<DataContainer> dataContainers; 
+    Pool<MemberBlueprint> memberBlueprints = ("Member Blueprints"); 
+    Pool<DataContainer> dataContainers = ("Data Containers"); 
     size_t size = 0; 
 
     PoolId addMemberBlueprint(const char* name_, DataTypeEnum dataType_);

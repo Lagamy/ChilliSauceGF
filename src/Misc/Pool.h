@@ -29,7 +29,7 @@ struct Pool {
 	std::unordered_map<std::string, PoolId> nameToId;
 	std::string name;
 
-	Pool(){};
+	Pool(const char* name_) : name(name_){};
 	void isPoolIdValid(PoolId pId_)
 	{
 		if(pId_ == UninitializedPoolId)
@@ -168,8 +168,6 @@ struct Pool {
 		this->isPoolIdValid(pId_);
 		return this->names[pId_.id]; 
 	}
-
-	Pool(const char* name_) : name(name_) {};
 
 	T* data()
 	{

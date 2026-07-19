@@ -6,9 +6,9 @@ namespace Graphics
 {
 struct ImagesManager 
 {
-    Pool<Image> cubemaps; 
-    Pool<Image> volumetrics; 
-    Pool<Image> textures; 
-    Pool<Image> renderTargets; 
+    Pool<Image> cubemaps = ("Cubemap Images"); 
+    Pool<Image> volumetrics = ("Volumetric Images"); 
+    Pool<Image> textures = ("Texture Images"); 
+    Pool<Image> renderTargets = ("RenderTarget Images"); 
 };
 }

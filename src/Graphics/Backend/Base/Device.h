@@ -14,8 +14,8 @@ namespace Graphics
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 		VkDevice logicalDevice = VK_NULL_HANDLE;
 		QueueFamilyIndices queueFamilyIndices;
-		Queues queues = {};
-	
+		std::array<VkQueue, 4> queues = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};  
+		
 		void setup();
 		void destroy();
 		void getPhysicalDevice();

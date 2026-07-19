@@ -39,7 +39,7 @@ namespace Graphics
 		"Compute"
 	}; 
 
-	enum CmdTypeEnum : uint8_t 
+	enum CmdLifetimeEnum : uint8_t 
 	{
 		FRAME = 0, 
 		ONESHOT = 1
@@ -101,13 +101,15 @@ namespace Graphics
 	// Device suitable params functions 
 	// indicies (locations) of Queue Families (if they exist at all);
 	struct QueueFamilyIndices {
-		int32_t graphicsFamily = -1;	 // Location of Graphics Queue Family(includes Transfer capabilities by Vulkan Standard)
-		int32_t presentationFamily = -1; // Location of Presentation Queue Family(not a real Queue Family, more of "Queue that supports Presentation")
-		int32_t transferFamily = -1;
-		int32_t computeFamily = -1;
+		std::array<int32_t, 4> indices = {-1, -1, -1, -1}; 
 
 		bool isValid() {
-			return this->graphicsFamily >= 0 && this->presentationFamily >= 0 && this->transferFamily >= 0 && this->computeFamily >= 0;
+			bool valid = true; 
+			for(uint8_t i = 0; i < indices.size(); i++)
+			{
+				if(indices[i] < 0) valid = false; 
+			}
+			return valid;
 		}
 		// Todo: if there are no Transfer or Compute queues - assign their indices to available Graphics queue, so further code works anyways, just on one queue. 
 	};

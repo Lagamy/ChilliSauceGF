@@ -10,13 +10,8 @@ void FrameCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum queue
     this->level = level_; 
     VkCommandPoolCreateInfo poolCreateInfo = {};
     poolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.indices[queueFamilyEnum_]; 
 
-	switch(this->queueFamilyEnum)
-	{
-		case GRAPHICS: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.graphicsFamily; break; 
-		case COMPUTE: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.computeFamily; break; 
-		case TRANSFER: poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.transferFamily; break; 
-	}
 
     VkResult result = vkCreateCommandPool(getMainDevice().logicalDevice, &poolCreateInfo, nullptr, &this->vkHandle);
     if (result != VK_SUCCESS)
@@ -37,19 +32,8 @@ void FrameCommandPool::destroy()
 void FrameCommandPool::allocateCmdBuffersFromPasses()
 {
     // Allocate CommandBuffers from the pool in GPU, and recieve handles for them. 
-	std::vector<Pass>& rPasses = getPassesManager().passesPerCmdType[FRAME].passesPerQueue[this->queueFamilyEnum];  
-    for(auto& rPass : rPasses)
-    {
-        this->commandBuffers.buffers.resize(this->commandBuffers.buffers.size() + rPass.tasks.size());
-        this->commandBuffers.commandsToRecord.resize(this->commandBuffers.commandsToRecord.size() + rPass.tasks.size());
-        size_t baseSize = this->commandBuffers.buffers.size(); 
-        for(size_t i = 0; i < rPass.tasks.size(); i++)
-        {
-            this->commandBuffers.commandsToRecord[baseSize + i] = rPass.tasks[i].cmdBufferFunc; 
-            rPass.tasks[i].cmdId = baseSize + i; 
-        }
-        
-    }
+	
+    this->commandBuffers.buffers.resize(this->commandBuffers.commandsToRecord.size());
     
     VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
     commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -72,9 +56,9 @@ void FrameCommandPool::resetCmdPool()
 
 void FrameCommandPool::recordCmdBuffers()
 {
-	for(uint32_t i = 0; i < this->commandBuffers.buffers.size(); i++)
+	for(const auto& enabledCmdBufId : this->commandBuffers.enabled)
 	{
-		this->commandBuffers.commandsToRecord[i](this->commandBuffers.buffers[i]);
+		this->commandBuffers.commandsToRecord[enabledCmdBufId](this->commandBuffers.buffers[enabledCmdBufId]);
 	}
 }
 

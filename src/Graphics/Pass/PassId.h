@@ -5,7 +5,7 @@ namespace Graphics
 {
 struct PassId 
 {
-    CmdTypeEnum cmdType; 
+    CmdLifetimeEnum cmdLifetime; 
     QueueFamilyEnum queueFamily; 
     size_t id; 
 };

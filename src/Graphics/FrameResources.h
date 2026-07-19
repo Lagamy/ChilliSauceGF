@@ -3,7 +3,6 @@
 #include "CmdPoolsPack.h"
 #include "FrameCommandPool.h"
 #include "OneShotCommandPool.h"
-#include "CommandBufferBlueprint.h"
 #include "Semaphore.h"
 #include "Utilities.h"
 
