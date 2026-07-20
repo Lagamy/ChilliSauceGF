@@ -2,7 +2,6 @@
 #include "Fence.h"
 #include "Api.h"
 #include "MemoryBlock.h"
-#include "SubmissionBatchId.h"
 #include "Utilities.h"
 #include <limits>
 #include <stdexcept>
@@ -13,55 +12,42 @@ namespace Graphics
 
 void GPUMemoryManager::create()
 {
-	this->staticUploadFinishedSemaphore.create();
-	this->staticUploadFinishedFence.create(VK_FENCE_CREATE_SIGNALED_BIT); 
-	this->staticUploadPassId = addPass(
-		"Static Upload",
-		ONESHOT,
-		TRANSFER,
-		[this](VkCommandBuffer& cmd) { this->staticAllocator.recordCMDs(cmd); } 
-	);
+	this->staticUploadFinishedSemaphoreId = addSemaphore("Upload Finished");
+	this->staticUploadFinishedFenceId = addFence("Upload Finished", true); 
+	this->staticUploadPassId = addPass("Static Allocator Uploading",ONESHOT,TRANSFER,this->staticUploadFinishedFenceId);
+	uint32_t taskId = addTaskToPass(this->staticUploadPassId, "Static Upload", [this](VkCommandBuffer& cmd) { this->staticAllocator.recordCMDs(cmd); }); 
+	addSignalSemaphoreToTask(this->staticUploadPassId, taskId, this->staticUploadFinishedSemaphoreId);
 }
 
 void GPUMemoryManager::destroy() 
 {
-	this->staticUploadFinishedSemaphore.destroy(); 
-	this->staticUploadFinishedFence.destroy();
 	this->staticAllocator.deallocate();
 }
 
 
-void GPUMemoryManager::submitStaticUploadCMDs()
+void GPUMemoryManager::submitStaticUploads()
 {
-	//resetOneShotCmdBuf(TRANSFER, this->staticUploadCmdBufferId, rUploadFinished); 
-	recordOneShotCmdBuf(TRANSFER, this->staticUploadCmdBufferId);
 
-	vkResetFences(getMainDevice().logicalDevice, 1, &staticUploadFinishedFence.get());
-	// Submit command buffer to the Transfer Queue
-	SubmissionBatchId batchId = addSubmissionBatch("Static Allocator Uploading", TRANSFER); 
-	PoolId submitionId = addSubmission("Static Allocator Upload", batchId, &getCommandBuffer(TRANSFER, ONESHOT, this->staticUploadCmdBufferId), 1);
-	addSignalSemaphoreToSubmission(batchId, submitionId, this->staticUploadFinishedSemaphore.get());
-
-	// Submit transfer command to transfer Queue and wait till it finishes(Not optimal)
-	submitToTransferQueue(batchId, staticUploadFinishedFence.get());
+	vkResetFences(getMainDevice().logicalDevice, 1, &getFence(staticUploadFinishedFenceId));
+	enablePass(this->staticUploadPassId); 
 }
 
 void GPUMemoryManager::submitUpdateCmdsIfNeeded()
 {
-	if(this->updateNeeded)
-	{
-		// Submit command buffer to the Transfer Queue
-		VkSubmitInfo submitInfo = {};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &getCommandBuffer(TRANSFER, ONESHOT, 0);
+	// if(this->updateNeeded)
+	// {
+	// 	// Submit command buffer to the Transfer Queue
+	// 	VkSubmitInfo submitInfo = {};
+	// 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	// 	submitInfo.commandBufferCount = 1;
+	// 	submitInfo.pCommandBuffers = &getCommandBuffer(TRANSFER, ONESHOT, 0);
 
-		// Submit transfer command to transfer Queue and wait till it finishes(Not optimal) 
-		vkQueueSubmit(getMainDevice().queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	// 	// Submit transfer command to transfer Queue and wait till it finishes(Not optimal) 
+	// 	vkQueueSubmit(getMainDevice().queues.transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
 
-		// Free temporary command buffer back to pool(transferCommandBuffer object no longer exists on GPU side)
-		vkFreeCommandBuffers(getMainDevice().logicalDevice, getCommandPool(TRANSFER, ONESHOT), 1, &getCommandBuffer(TRANSFER, ONESHOT, this->staticUploadCmdBufferId));
-		this->updateNeeded = false;
-	}
+	// 	// Free temporary command buffer back to pool(transferCommandBuffer object no longer exists on GPU side)
+	// 	vkFreeCommandBuffers(getMainDevice().logicalDevice, getCommandPool(TRANSFER, ONESHOT), 1, &getCommandBuffer(TRANSFER, ONESHOT, this->staticUploadCmdBufferId));
+	// 	this->updateNeeded = false;
+	// }
 }
 }

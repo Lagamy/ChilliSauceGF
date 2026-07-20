@@ -48,20 +48,12 @@ void OneShotCommandPool::allocateCmdBuffersFromPasses()
     }
 }
 
-
-
-void OneShotCommandPool::resetCmdBuffer()
-{
-    for(const auto& enabledCmdBufId : this->commandBuffers.enabled)
-	{
-	    vkResetCommandBuffer(this->commandBuffers.buffers[enabledCmdBufId], 0); 
-	}
-}
-
-void OneShotCommandPool::recordCmdBuffers()
+void OneShotCommandPool::rerecordEnabledCmdBuffers()
 {
 	for(uint32_t i = 0; i < this->commandBuffers.enabled.size(); i++)
 	{
+
+	    vkResetCommandBuffer(this->commandBuffers.buffers[this->commandBuffers.enabled[i]], 0); 
         uint32_t& enabledCmdBufId = this->commandBuffers.enabled[i]; 
 		this->commandBuffers.commandsToRecord[enabledCmdBufId](this->commandBuffers.buffers[enabledCmdBufId]);
         this->commandBuffers.enabled.erase(this->commandBuffers.enabled.begin() + i); 

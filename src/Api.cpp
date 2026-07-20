@@ -2,7 +2,6 @@
 #include "Globals.h"
 #include "Layout.h"
 #include "PoolId.h"
-#include "SubmissionBatchId.h"
 #include "SubmissionBatch.h"
 #include "UploadEntry.h"
 #include "UploadId.h"
@@ -53,9 +52,9 @@ namespace Graphics
 	}
 
 	// For now i only need 1 of each
-	GraphicsPipeline& getGraphicsPipeline(PoolId graphicsPipelineId_)
+	GraphicsPipeline& getGraphicsPipeline(PoolId layoutId_)
 	{
-		return Globals::renderer.graphicsPipelines.get(graphicsPipelineId_); 
+		return Globals::renderer.gpuPipelinesManager.graphicsPipelines.get(layoutId_); 
 	}
 
 	RenderPass& getPresentationRenderPass()
@@ -164,43 +163,11 @@ namespace Graphics
 		return Globals::renderer.resourcesManager.meshes.get(meshId_);
 	} 
 	
-	SubmissionBatch& getSubmissionBatch(SubmissionBatchId batchId_)
-	{
-		return Globals::renderer.submitionManager.submissionBatches[batchId_.queueFamily].get(batchId_.poolId);
-	}
-
 	void setFramesAtFlightCount(uint32_t count_)
 	{
 		Globals::renderer.framesAtFlightCount = count_;
 	}
 
-	// Record 
-	void recordOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_)
-	{
-		Globals::renderer.oneShotCommandPools.pools[queueFamily_].recordCmdBuffer(id_);
-	}
-		
-	void recordCurrentFrameCmdPools()
-	{
-		for(auto& rFrameCmdPool : Globals::renderer.framesResources[Globals::renderer.currentFrame].frameCmdPools.pools)
-		{
-			rFrameCmdPool.recordCmdBuffers();
-		}
-	}
-
-	// Reset 
-	void resetOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_, Graphics::Fence& rFinishSignalFence_)
-	{
-		Globals::renderer.oneShotCommandPools.pools[queueFamily_].resetCmdBuffer(id_, rFinishSignalFence_);
-	}
-		
-	void resetCurrentFrameCmdPools()
-	{
-		for(auto& rFrameCmdPool : Globals::renderer.framesResources[Globals::renderer.currentFrame].frameCmdPools.pools)
-		{
-			rFrameCmdPool.resetCmdPool();
-		}
-	}
 
 	// Add
 	PoolId addSemaphore(const char* name_)
@@ -208,9 +175,9 @@ namespace Graphics
 		return Globals::renderer.syncManager.addSemaphore(name_);
 	}
 		
-	PoolId addFence(const char* name_, VkFenceCreateFlags flags_)
+	PoolId addFence(const char* name_, bool createSignaled_)
 	{
-		return Globals::renderer.syncManager.addFence(name_, flags_);
+		return Globals::renderer.syncManager.addFence(name_, createSignaled_);
 	}
 
 	PoolId addShader(const char* name_, const char* path_)
@@ -250,12 +217,56 @@ namespace Graphics
 	} 
 
 
-	PoolId addGraphicsPipeline(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_)
+	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_)
 	{
-		return Globals::renderer.graphicsPipelines.add(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_);
+		return Globals::renderer.gpuPipelinesManager.graphicsPipelines.add(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
 	} 
+
+	void createAllPipelines()
+	{
+		Globals::renderer.gpuPipelinesManager.createAllPipelines(); 
+	}
+
+	void destroyAllPipelines()
+	{
+		Globals::renderer.gpuPipelinesManager.destroyAllPipelines();
+	}
 	
+	PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_)
+    {
+		return addPass(name_, cmdType_, queueFamily_, signalFenceId_);
+	}
+
+	PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_)
+	{
+		return Globals::renderer.passesManager.addPass(name_, cmdType_, queueFamily_);
+	} 
+
+    uint32_t addTaskToPass(PassId passId_, const char* name_, CmdBufferFunc cmdBufferFunc_)
+	{
+		return Globals::renderer.passesManager.addTaskToPass(passId_, name_, cmdBufferFunc_);
+	}
+
+	void addWaitSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_)
+	{
+		Globals::renderer.passesManager.getPass(passsId_).tasks[taskId_].addWaitSemaphore(waitSemaphoreId_, pipelineStage_);
+	} 
+
+	void addSignalSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId signalSemaphoreId_)
+	{
+		Globals::renderer.passesManager.getPass(passsId_).tasks[taskId_].addSignalSemaphore(signalSemaphoreId_);
+	}
 	
+	void enablePass(PassId passId_)
+	{
+		Globals::renderer.passesManager.enablePass(passId_); 
+	} 
+
+    void disablePass(PassId passId_) // Since oneshot - self disables
+	{
+		Globals::renderer.passesManager.disableFramePass(passId_);
+	}
+
 	void beginCMDsRecording(VkCommandBuffer &cmdBuffer_)
 	{
 		VkCommandBufferBeginInfo beginInfo = {}; 
@@ -311,20 +322,26 @@ namespace Graphics
 	}
 
 
-	void submitToPassesToQueues() // Note: Clear one shot passes submissions after submissions.
+	void submitPassesToQueues() // Note: Clear one shot passes submissions after submissions.
 	{
 		for(uint8_t i = 0; i < 3; i++)
 		{
 			Pool<SubmissionBatch>& rSubmissionBatches = getPassesManager().submissionBatchesPerQueue[i]; 
 			for(uint32_t j = 0; j < rSubmissionBatches.size(); j++)
 			{
-				vkQueueSubmit(getQueue(i), rSubmissionBatches.objects[j].submissions.size(), rSubmissionBatches.objects[j].submissions.data(), getFence(rSubmissionBatches.objects[j].signalFenceId)); 
+				VkFence signalFence = VK_NULL_HANDLE; 
+				if(rSubmissionBatches.objects[j].signalFenceId != UninitializedPoolId)
+				{
+					signalFence = getFence(rSubmissionBatches.objects[j].signalFenceId); 
+				}
+
+				vkQueueSubmit(getQueue(i), rSubmissionBatches.objects[j].submissions.size(), rSubmissionBatches.objects[j].submissions.data(), signalFence); 
 				if(rSubmissionBatches.objects[j].oneShot) // disable cmdBuffers, and remove this submissionBatch from list 
 				{
 					for(const auto& rCmdBufferToDisable : rSubmissionBatches.objects[j].cmdBuffersToDisable)
 					{ 
 						CmdBuffersInPasses& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(i).commandBuffers; 
-                    	rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCmdBufferToDisable); 
+                    	rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rCmdBufferToDisable]); 
                     	rCommandBuffers.buffersToEnabled[rCmdBufferToDisable] = UninitializedId; 
 					}
 					rSubmissionBatches.removeInternal(j); 
@@ -364,7 +381,7 @@ namespace Graphics
 		presentInfo.pSwapchains = &getSwapchain().vkHandle; 
 		presentInfo.pImageIndices = &getCurrentImageIndex();
 
-		VkResult result = vkQueuePresentKHR(getMainDevice().queues[presentationQueueId], &presentInfo);
+		VkResult result = vkQueuePresentKHR(getMainDevice().queues[PresentationQueueId], &presentInfo);
 		if(result != VK_SUCCESS)
 		{
 			throw std::runtime_error("Presentation: Failed to present Image");

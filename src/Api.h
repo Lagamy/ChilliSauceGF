@@ -25,8 +25,10 @@ namespace Graphics
 	DemoManager& getDemoManager();
 	GPUMemoryManager& getGPUMemoryManager(); 
 	PassesManager& getPassesManager(); 
+	
 	VkSemaphore& getSemaphore(PoolId semaphoreId_);
 	VkFence& getFence(PoolId fenceId_);
+	VkQueue& getQueue(uint8_t id_); 
 	Shader& getShader(PoolId shaderId_); 
 	uint32_t getBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
 	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_); 
@@ -43,7 +45,7 @@ namespace Graphics
 	Image& getCurrentSwapchainImage(); 
 
 	// For now i only need 1 of each
-	GraphicsPipeline& getGraphicsPipeline(PoolId graphicsPipelineId_); 
+	GraphicsPipeline& getGraphicsPipeline(PoolId layoutId_); 
 	RenderPass& getPresentationRenderPass();
 	
 	ReflectionLayout& getVerticeLayout(PoolId layoutId_);
@@ -62,15 +64,26 @@ namespace Graphics
 	
 	// Add
 	PoolId addSemaphore(const char* name_);
-	PoolId addFence(const char* name_, VkFenceCreateFlags flags_);
+	PoolId addFence(const char* name_, bool createSignaled_);
 	PoolId addShader(const char* name_, const char* path_); 
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
 	PoolId addVerticeLayout(const char* name_);
 	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_);
-	PoolId addGraphicsPipeline(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_); 
-	PassId addPass(const char* name_); 
+	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 
+	void createAllPipelines();
+	void destroyAllPipelines();
 
+	PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_);
+    PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_);
+    uint32_t addTaskToPass(PassId passId_, const char* name_, CmdBufferFunc cmdBufferFunc_);
+	void addWaitSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_); 
+	void addSignalSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId signalSemaphoreId_); 
+
+	// Enable/Disable Pass 
+	void enablePass(PassId passId_); 
+    void disableFramePass(PassId passId_); // Since oneshot - self disables
+			
 	// Remove 
 	void removeShader(PoolId id_);
 	
@@ -82,7 +95,7 @@ namespace Graphics
 	void endCMDsRecording(VkCommandBuffer& cmdBuffer_); 
 
 	// Misc/Internal 
-	void submitToPassesToQueues(); // Note: Clear one shot passes submissions after submissions.
+	void submitPassesToQueues(); // Note: Clear one shot passes submissions after submissions.
 	void setViewportAndScissors(VkCommandBuffer& cmdBuffer_); 
 	void presentToScreen(); 
 };

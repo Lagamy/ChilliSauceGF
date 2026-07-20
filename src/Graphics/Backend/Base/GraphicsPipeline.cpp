@@ -6,7 +6,7 @@
 
 namespace Graphics
 {
-void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
+void GraphicsPipeline::create()
 {
 	this->pipelineLayout.create(); // Deal with it when i get to implementing DS support 
 	// Graphics Pipeline requires an array of shader stages creates
@@ -170,8 +170,8 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 	graphicsPipelineCreateInfo.pColorBlendState = &colorBlendingCreateInfo;
 	graphicsPipelineCreateInfo.pDepthStencilState = nullptr;
 	graphicsPipelineCreateInfo.layout = pipelineLayout.get();
-	graphicsPipelineCreateInfo.renderPass = rRenderPass_.get(); // Will be used by that RenderPass
-	graphicsPipelineCreateInfo.subpass = subpassId_; // Id of Subpass. 0 = First Subpass will use this Pipeline. (If other Subpass would also need it(rare) -> create a copy of this Pipeline with different Subpass)
+	graphicsPipelineCreateInfo.renderPass = this->pRenderPass->get(); // Will be used by that RenderPass
+	graphicsPipelineCreateInfo.subpass = this->subpassId; // Id of Subpass. 0 = First Subpass will use this Pipeline. (If other Subpass would also need it(rare) -> create a copy of this Pipeline with different Subpass)
 	// Pipeline Derivatives 
 	graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // Base this pipeline from another pipeline(You get to only edit parts that differ from main Pipeline. Saves memory)
 	graphicsPipelineCreateInfo.basePipelineIndex = -1; // Or Index of this Pipline other can derive from(in case multiple same pipelines at once) 
@@ -180,7 +180,7 @@ void GraphicsPipeline::create(RenderPass& rRenderPass_, uint32_t subpassId_)
 		throw std::runtime_error("PipelineLayout was not created before creating pipeline!");
 	}
 
-	if (rRenderPass_.get() == VK_NULL_HANDLE) {
+	if (this->pRenderPass->get() == VK_NULL_HANDLE) {
 		throw std::runtime_error("RenderPass was not created before creating pipeline!");
 	}
 

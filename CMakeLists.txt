@@ -70,6 +70,7 @@ add_executable(PBRVulkanDemo
 
 	# Reflection 
 	"src/Graphics/Reflection/Layout.cpp" "src/Graphics/Reflection/MemberBlueprint.cpp"
+	src/Graphics/GPUPipelinesManager.cpp
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")

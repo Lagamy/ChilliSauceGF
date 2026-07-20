@@ -8,7 +8,7 @@ namespace Graphics
 struct Fence {
     VkFence vkHandle = VK_NULL_HANDLE;
     
-    void create(VkFenceCreateFlags flags_); 
+    void create(bool createSignaled_); 
     void destroy();
     VkFence& get();
 };

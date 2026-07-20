@@ -35,18 +35,18 @@ struct GPUMemoryManager
 	std::vector<UpdateEntry> updateEntries; 
 	bool updateNeeded = false;
 	void submitTransferCmds();
-	Semaphore updateFinishedSemaphore; 
-	Fence updateFinishedFence; 
-	Semaphore staticUploadFinishedSemaphore; 
-	Fence staticUploadFinishedFence;
-	PassId staticUploadPassId; 
+	PoolId updateFinishedSemaphoreId; 
+	PoolId updateFinishedFenceId; 
+	PoolId staticUploadFinishedSemaphoreId; 
+	PoolId staticUploadFinishedFenceId;
+	PassId staticUploadPassId;
 
 	void addUpdate(PoolId entryId_, const void* data_); // full upload
 	void addUpdate(PoolId entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload
 
 	// For device local uploads
 	// void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_);
-	void submitStaticUploadCMDs(); 
+	void submitStaticUploads(); 
 	void submitUpdateCmdsIfNeeded();
 
 	void create();

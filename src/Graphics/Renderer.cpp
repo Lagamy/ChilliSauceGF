@@ -17,16 +17,31 @@ void Renderer::setup()
 	this->swapchain.create();
 	this->gpuMemoryManager.create();
 	
-	// Scene/Renderer setup 
-	this->demoManager.loadDemo();
-	this->passesManaer.deriveFrameVkSubmitInfos(); 
+
+	// Demo setup 
+	this->demoManager.defineDemo();
+
+	// Configure RenderPass
+	this->presentationRenderPass.addColorAttachment(getSwapchain().imageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR,  VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR); // STORE_OP_DONT_CARE - means we dont care what will happen to the attachment after reading it
+	SubPassDescriptionInfo subpassDescription = {}; 
+	subpassDescription.pRenderPass = &this->presentationRenderPass; 
+	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; 
+	subpassDescription.colorAttachmentsToUseIds = {0};
+
+	SubPassLayoutTransitionInfo subpassLayoutTransition = {};
+	subpassLayoutTransition.stageMaskFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; 
+	subpassLayoutTransition.accessMaskFlag = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	subpassLayoutTransition.dependencyFlags = 0; 
+	this->presentationRenderPass.addSubpass(subpassDescription, subpassLayoutTransition); 
+	
+	// Send static uploads to the GPU
 	this->gpuMemoryManager.staticAllocator.allocate(); 
 
-	// Renderpass and Graphics pipeline are defined defined by Scene
-	this->demoManager.createGPUObjects();
+	// Create GPU resources
+	this->presentationRenderPass.create();
 	this->swapchain.createFramebuffers(this->presentationRenderPass);
-
 	this->framesResources.resize(this->framesAtFlightCount);
+	createAllPipelines();
 
 	// Create CmdBuffers and Synchronisation
 	this->oneShotCommandPools.create();
@@ -34,7 +49,7 @@ void Renderer::setup()
 	{
 		this->framesResources[i].setup(i);
 	}
-	this->gpuMemoryManager.submitStaticUploadCMDs(); // Upload all preloaded with scene / static assets to the GPU
+	this->gpuMemoryManager.submitStaticUploads(); // Upload all preloaded with scene / static assets to the GPU
 }
 
 void Renderer::draw() 
@@ -50,11 +65,13 @@ void Renderer::draw()
 			this->mainDevice.logicalDevice, this->swapchain.get(), std::numeric_limits<uint64_t>::max(), 
 			this->framesResources[currentFrame].imageAcquireSemaphore.get(), VK_NULL_HANDLE, &imageIndex
 		);
-		// NOTE: you need to pass this fence with frame submit in your demo code. Otherwise - nothing will signal this fence and app will freeze
-		resetCurrentFrameCmdPools();
-		recordCurrentFrameCmdPools(); 
-
-		submitToPassesToQueues();
+		// Rerecord enabled cmdBuffers
+		this->oneShotCommandPools.rerecordEnabledCmdBuffers();
+		getCurrentFrameResources().frameCmdPools.rerecordEnabledCmdBuffers();
+		
+		// Submit Passes to queues
+		submitPassesToQueues();
+		
 		presentToScreen(); 
 		this->currentFrame = (this->currentFrame + 1) % this->framesAtFlightCount; 
 	}
@@ -69,7 +86,7 @@ void Renderer::shutdown()
 		rFrameResources.destroy(); // CMDPools init for each queue family per frame in flight  
 	}
 	this->oneShotCommandPools.destroy();
-	this->graphicsPipelines.clear(); 
+	this->gpuPipelinesManager.destroyAllPipelines(); 
 	this->renderPasses.clear();
 	this->swapchain.destroyFramebuffers(); 
 	this->presentationRenderPass.destroy(); 

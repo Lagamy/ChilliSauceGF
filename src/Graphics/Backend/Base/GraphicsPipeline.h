@@ -22,16 +22,18 @@ struct GraphicsPipeline {
 	PoolId vertexShaderId;
 	PoolId fragmentShaderId;
 	PoolId verticeLayoutId;
+	RenderPass* pRenderPass = nullptr; 
+	uint32_t subpassId = 0; 
 
 	PoolId notInUseFenceId; // So we don't rebuild Pipeline, Descriptors and the sets when they are used by the GPU  
 	
 	// void createPipelineLayout(VkPushConstantRange* pushConstRangeList_, uint32_t pushConstRangeCount_, std::string context);
 	
 	//void create(const std::string& vertexShaderPath_, const std::string& fragmentShaderPath_, VkPrimitiveTopology _primitiveToUse, VkPolygonMode _howToRasterizePrimirives, PipelineLayout& _pipelineLayout, RenderPass& _renderPass, uint32_t _subpassIndex);
-	void create(RenderPass& rRenderpass_, uint32_t subpassId_);
+	void create();
 	void destroy();
 	
-	GraphicsPipeline(PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_) : vertexShaderId(vertexShaderId_), fragmentShaderId(fragmentShaderId_), verticeLayoutId(verticeLayoutId_), primitiveType(primitiveType_), polygonMode(polygonMode_) {};
+	GraphicsPipeline(PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_) : vertexShaderId(vertexShaderId_), fragmentShaderId(fragmentShaderId_), verticeLayoutId(verticeLayoutId_), primitiveType(primitiveType_), polygonMode(polygonMode_), pRenderPass(&rRenderpass_), subpassId(subpassId_) {};
 	VkPipeline get() const;
 };
 }

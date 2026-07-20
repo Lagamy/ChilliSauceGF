@@ -12,7 +12,6 @@ void FrameCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum queue
     poolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.indices[queueFamilyEnum_]; 
 
-
     VkResult result = vkCreateCommandPool(getMainDevice().logicalDevice, &poolCreateInfo, nullptr, &this->vkHandle);
     if (result != VK_SUCCESS)
     {
@@ -48,14 +47,9 @@ void FrameCommandPool::allocateCmdBuffersFromPasses()
     }
 }
 
-void FrameCommandPool::resetCmdPool()
+void FrameCommandPool::rerecordEnabledCmdBuffers()
 {
-
 	vkResetCommandPool(getMainDevice().logicalDevice, this->vkHandle, 0); 
-}
-
-void FrameCommandPool::recordCmdBuffers()
-{
 	for(const auto& enabledCmdBufId : this->commandBuffers.enabled)
 	{
 		this->commandBuffers.commandsToRecord[enabledCmdBufId](this->commandBuffers.buffers[enabledCmdBufId]);

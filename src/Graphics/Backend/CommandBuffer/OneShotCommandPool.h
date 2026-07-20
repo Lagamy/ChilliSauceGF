@@ -16,8 +16,7 @@ struct OneShotCommandPool {
     CmdBuffersInPasses commandBuffers; 
 
     void create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_);
-    void resetCmdBuffer(); 
-	void recordCmdBuffers();
+	void rerecordEnabledCmdBuffers();
 	void submitCmdBuffer(uint32_t id_);
 	void dealocateCMDBuffers();
     void destroy();

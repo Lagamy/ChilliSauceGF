@@ -23,8 +23,15 @@ struct CmdPoolsPack {
 		this->pools[1].destroy(); 
 		this->pools[2].destroy(); 	
 	}
+
+	void rerecordEnabledCmdBuffers()
+	{
+		this->pools[0].rerecordEnabledCmdBuffers();
+		this->pools[1].rerecordEnabledCmdBuffers();
+		this->pools[2].rerecordEnabledCmdBuffers();
+	}
 	
-	CmdPool& getPoolByQueue(QueueFamilyEnum queueFamily_)
+	CmdPool& getPoolByQueue(uint8_t queueFamily_)
 	{
 		return this->pools[queueFamily_];
 	}

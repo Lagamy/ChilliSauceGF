@@ -8,6 +8,9 @@ namespace Graphics
 struct GPUPipelinesManager
 {
 	Pool<GraphicsPipeline> graphicsPipelines = ("Graphics Pipelines");
-    Pool<ComputePipeline> computePipelines = ("Compute Pipelines"); 
+    Pool<ComputePipeline> computePipelines = ("Compute Pipelines");
+
+    void createAllPipelines(); 
+    void destroyAllPipelines();
 }; 
 }

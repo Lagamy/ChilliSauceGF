@@ -5,7 +5,6 @@
 #include <stdexcept>
 #include <set>
 #include <cstring>
-#include "Queues.h"
 #include "Utilities.h"
 
 namespace Graphics

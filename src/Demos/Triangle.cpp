@@ -66,7 +66,7 @@ namespace Graphics
 
 		/* Create Graphics Pipeline */
 
-		this->graphicsPipelineId = addGraphicsPipeline("Draw Triangle", this->vertexShaderId, this->fragmentShaderId, rMesh.verticeLayoutId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
+		this->graphicsPipelineId = addGraphicsPipelineLayout("Draw Triangle", this->vertexShaderId, this->fragmentShaderId, rMesh.verticeLayoutId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL);
 
 		/* Initialize Command Buffer Blueprints */
 		this->cmdBufferId = addCmdBufferBlueprint(

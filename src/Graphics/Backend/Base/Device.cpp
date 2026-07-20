@@ -1,5 +1,6 @@
 #include "Device.h"
 #include "Api.h"
+#include "Utilities.h"
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
@@ -50,9 +51,9 @@ void Device::createLogicalDevice() {
 
 	// Queues the logical device needs to create, and info to do so(Only 1 now, will add more later!)
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	std::set<int32_t> neededQueueIndexes = { this->queueFamilyIndices.graphicsFamily, this->queueFamilyIndices.presentationFamily }; // So if some family indices are pointing to the same Queue - We wouldn't create it multiple times.
+	// std::set<int32_t> neededQueueIndexes = { this->queueFamilyIndices.graphicsFamily, this->queueFamilyIndices.presentationFamily }; // So if some family indices are pointing to the same Queue - We wouldn't create it multiple times.
 
-	for (int queueFamilyIndex : neededQueueIndexes)
+	for (int queueFamilyIndex : this->queueFamilyIndices.indices)
 	{
 		VkDeviceQueueCreateInfo queueCreateInfo = {};
 		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -69,7 +70,7 @@ void Device::createLogicalDevice() {
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
 	// Queues
-	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(neededQueueIndexes.size()); // Number of queue CreateInfos
+	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(this->queueFamilyIndices.indices.size()); // Number of queue CreateInfos
 	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data(); // List of queue infos, so device can create required queues
 
 	// Logical Device extensions
@@ -90,11 +91,10 @@ void Device::createLogicalDevice() {
 	// Queues are created at the same time as the device..
 	// So we want handle to queues
 	// From our logical device, of given Queue Family, of given Queue Index(0, since we only got one), place reference in given VkQueue
-	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.graphicsFamily, 0, &this->queues.graphicsQueue);
-	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.transferFamily, 0, &this->queues.transferQueue); // Maybe same as graphics queue(depends on device)
+	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.indices[GRAPHICS], 0, &this->queues[GRAPHICS]);
+	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.indices[TRANSFER], 0, &this->queues[TRANSFER]); // Maybe same as graphics queue(depends on device)
 	// vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.commandFamily, 0, &this->queues.commandQueue);
-	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.presentationFamily, 0, &this->queues.presentQueue);
-	
+	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.indices[PresentationQueueId], 0, &this->queues[PresentationQueueId]);
 }
 
 
@@ -170,19 +170,19 @@ QueueFamilyIndices Device::getQueueFamilies(VkPhysicalDevice & rDevice)
 			// Graphics Queue family index search
 			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 			{
-				indicies.graphicsFamily = i;
+				indicies.indices[GRAPHICS] = i;
 			}
 
 			// Transfer Queue family index search
 			if (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
 			{
-				indicies.transferFamily = i;
+				indicies.indices[TRANSFER] = i;
 			}
 
 			// Compute Queue family index search
 			if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
 			{
-				indicies.computeFamily = i;
+				indicies.indices[COMPUTE] = i;
 			}
 
 			// Presentation capable Queue index search
@@ -192,18 +192,18 @@ QueueFamilyIndices Device::getQueueFamilies(VkPhysicalDevice & rDevice)
 			vkGetPhysicalDeviceSurfaceSupportKHR(rDevice, i, getSurface().get(), &presentationSupport);
 			if (presentationSupport == VK_TRUE)
 			{
-				indicies.presentationFamily = i;
+				indicies.indices[PresentationQueueId] = i;
 			}
 		}
 
-		if (indicies.transferFamily == -1) // Default to graphics queue
+		if (indicies.indices[TRANSFER] == -1) // Default to graphics queue
 		{
-			indicies.transferFamily = indicies.graphicsFamily; 
+			indicies.indices[TRANSFER] = indicies.indices[GRAPHICS]; 
 		}
 
-		if (indicies.computeFamily == -1) // Default to graphics queue
+		if (indicies.indices[COMPUTE] == -1) // Default to graphics queue
 		{
-			indicies.computeFamily = indicies.graphicsFamily;
+			indicies.indices[COMPUTE] = indicies.indices[GRAPHICS];
 		}
 
 		// Check if all required queues were found. 

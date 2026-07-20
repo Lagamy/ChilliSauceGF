@@ -32,7 +32,7 @@
 					// Queue can be multiple types, defined by bitfield(flags). Use biwise AND. 
 					if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 					{
-						indicies.graphicsFamily = i;
+						indicies.indices[GRAPHICS] = i;
 					}
 
 					// Presentation Queue search 
@@ -42,7 +42,7 @@
 					vkGetPhysicalDeviceSurfaceSupportKHR(device_, i, getSurface().get(), &presentationSupport);
 					if (presentationSupport == VK_TRUE)
 					{
-						indicies.presentationFamily = i;
+						indicies.indices[PresentationQueueId] = i;
 					}
 				}
 
