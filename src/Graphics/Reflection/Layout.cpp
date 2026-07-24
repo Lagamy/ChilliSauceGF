@@ -17,6 +17,12 @@ PoolId ReflectionLayout::addMemberBlueprint(const char* name_, DataTypeEnum data
     return id;
 }
 
+
+PoolId ReflectionLayout::getMemberIdFromName(const char* name_)
+{
+    return this->memberBlueprints.getIdByName(name_);
+}; 
+
 void ReflectionLayout::setDataContainer(PoolId derivedDataContainerId_, void* data_, size_t offset_, size_t size_)
 {
     DataContainer& rDataContainer = this->dataContainers.get(derivedDataContainerId_); 

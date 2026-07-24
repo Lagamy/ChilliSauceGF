@@ -58,9 +58,9 @@ add_executable(PBRVulkanDemo
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" 
 	"src/Graphics/MemoryManagment/GPUHeap.cpp" "src/Graphics/SyncManager.cpp"
 	"src/Graphics/MemoryManagment/StagingHeap.cpp" "src/Graphics/MemoryManagment/StaticAllocator.cpp"
-	"src/Graphics/FrameResources.cpp" "src/Graphics/GPUMemoryManager.cpp" "src/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
+	"src/Graphics/FrameResources.cpp" "src/Graphics/MemoryManager.cpp" "src/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
 	"src/Graphics/ShadersManager.cpp" "src/Graphics/Resources/Mesh.cpp" "src/Graphics/Pass/Task.cpp" "src/Graphics/Pass/Pass.cpp"
-	"src/Graphics/PassesManager.cpp" 
+	"src/Graphics/PassesGraph.cpp" "src/Graphics/PipelinesManager.cpp"
 
 	# Demos
 	"src/Demos/Triangle.cpp"
@@ -70,7 +70,6 @@ add_executable(PBRVulkanDemo
 
 	# Reflection 
 	"src/Graphics/Reflection/Layout.cpp" "src/Graphics/Reflection/MemberBlueprint.cpp"
-	src/Graphics/GPUPipelinesManager.cpp
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")

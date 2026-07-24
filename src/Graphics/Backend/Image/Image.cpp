@@ -89,13 +89,8 @@ void Image::init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D ext
 	metadata.flags = flags_;
 	metadata.tiling = cpuBitmapEdits_ ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL; // VK_IMAGE_TILING_OPTIMAL = GPU driver chooses best memory layout for GPU side performance. 
 	metadata.usage = usageFlags_ /* | additionalUsageFlags_ */;
-	this->imageInUseSemaphoreFinished.create(); 
+	this->imageInUseSemaphoreFinishedId = addSemaphore(); 
 	this->initialized = true; 
-}
-
-VkSemaphore& Image::getInUseSemaphoreFinished()
-{
-	return this->imageInUseSemaphoreFinished.get();
 }
 
 void Image::setImage(VkImage& srcImage_)
@@ -193,7 +188,6 @@ void Image::destroyViews()
 void Image::destroy()
 {
 	this->destroyViews();
-	this->imageInUseSemaphoreFinished.destroy(); 
 	vkDestroyImage(getMainDevice().logicalDevice, this->vkHandle, nullptr);
 	this->vkHandle = VK_NULL_HANDLE; 
 }

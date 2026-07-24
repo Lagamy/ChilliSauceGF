@@ -7,16 +7,17 @@ namespace Graphics
 	{
 		std::ostringstream name;
 		this->id = id_; 
-		this->frameCmdPools.create();
-		this->imageAcquireSemaphore.create(); 
-		this->frameAvailableFence.create(VK_FENCE_CREATE_SIGNALED_BIT); 
+		this->imageAcquiredSemaphoreId = addSemaphore();
+		this->frameAvailableFenceId = addFence(true);
 	}
 
+	void FrameResources::createCmdPools()
+	{
+		this->frameCmdPools.create();
+	}
 
 	void FrameResources::destroy()
 	{
-		this->imageAcquireSemaphore.destroy();
-		this->frameAvailableFence.destroy(); 
 		this->frameCmdPools.destroy();
 	};
 }

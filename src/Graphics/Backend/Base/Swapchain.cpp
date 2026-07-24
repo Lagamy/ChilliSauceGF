@@ -1,6 +1,7 @@
 #include "Swapchain.h"
 #include "Framebuffer.h"
 #include "Api.h"
+#include "Utilities.h"
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -51,7 +52,7 @@ void Swapchain::create() {
 	QueueFamilyIndices indices = getQueueFamilies(getMainDevice().physicalDevice);
 	// If Graphics and Presentation queue is same - we dont need to share image with other queues. 
 	// Otherwise - it needs to be shared between 2 queues (Slower) 
-	if (indices.graphicsFamily == indices.presentationFamily)
+	if (indices.indices[GRAPHICS] == indices.indices[PresentationQueueId])
 	{
 		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		// 0 and nulltr, since we are not sharing this image with any other queue
@@ -61,10 +62,10 @@ void Swapchain::create() {
 	else
 	{
 		uint32_t queueFamilyIndices[] = {
-			static_cast<uint32_t>(indices.graphicsFamily),
-			static_cast<uint32_t>(indices.presentationFamily),
-			static_cast<uint32_t>(indices.transferFamily),
-			static_cast<uint32_t>(indices.computeFamily)
+			static_cast<uint32_t>(indices.indices[GRAPHICS]),
+			static_cast<uint32_t>(indices.indices[PresentationQueueId]),
+			static_cast<uint32_t>(indices.indices[TRANSFER]),
+			static_cast<uint32_t>(indices.indices[COMPUTE])
 		};
 		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		swapchainCreateInfo.queueFamilyIndexCount = 2;
@@ -94,7 +95,7 @@ void Swapchain::create() {
 		name.clear(); 
 		// Add initialized images to swapchain rendertargets 
 		this->renderTargets[i].setImage(images[i]);
-		this->renderTargets[i].imageInUseSemaphoreFinished.create();
+		this->renderTargets[i].imageInUseSemaphoreFinishedId = addSemaphore(); 
 		this->renderTargets[i].addView("Swapchain", this->imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 0);
 		name << "Swapchain Image " << i << " Use Finished";
 	}
@@ -124,7 +125,6 @@ void Swapchain::destroy()
 	{	
 		swapchainRenderTarget.destroyViews();
 		//vkDestroyImage(Globals::device.logicalDevice, swapchainImage.image, nullptr); // vkDestroySwapchainKHR also destroys images
-		swapchainRenderTarget.imageInUseSemaphoreFinished.destroy();
 		swapchainRenderTarget.vkHandle = VK_NULL_HANDLE;
 	}
 	vkDestroySwapchainKHR(getMainDevice().logicalDevice, this->vkHandle, nullptr);

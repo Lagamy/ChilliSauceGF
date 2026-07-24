@@ -41,20 +41,20 @@ namespace Graphics
 		return Globals::renderer.demoManager;
 	}
 
-	GPUMemoryManager& getGPUMemoryManager()
+	MemoryManager& getMemoryManager()
 	{
-		return Globals::renderer.gpuMemoryManager; 
+		return Globals::renderer.memoryManager; 
 	}
 
-	PassesManager& getPassesManager()
+	PassesGraph& getPassesManager()
 	{
-		return  Globals::renderer.passesManager;
+		return  Globals::renderer.passesGraph;
 	}
 
 	// For now i only need 1 of each
 	GraphicsPipeline& getGraphicsPipeline(PoolId layoutId_)
 	{
-		return Globals::renderer.gpuPipelinesManager.graphicsPipelines.get(layoutId_); 
+		return Globals::renderer.pipelinesManager.graphicsPipelines.get(layoutId_); 
 	}
 
 	RenderPass& getPresentationRenderPass()
@@ -87,10 +87,16 @@ namespace Graphics
 	{
 		//if(id_allocatorType == STATIC)
 		//{
-			return Globals::renderer.gpuMemoryManager.staticAllocator.getUploadEntry(id_);
+			return Globals::renderer.memoryManager.staticAllocator.getUploadEntry(id_);
 		//}
 
 	}
+
+	bool isUploadInGPU(UploadId uploadId_)
+	{
+		return Globals::renderer.memoryManager.isUploadInGPU(uploadId_); 
+	}
+
 	uint32_t getUploadStartingByteInGPUHeap(UploadId id_)
 	{
 		const UploadEntry& rEntry = getUploadEntry(id_); 
@@ -101,13 +107,13 @@ namespace Graphics
 	{
 		//if(allocatorType_ == STATIC)
 		//{
-			return Globals::renderer.gpuMemoryManager.staticAllocator.getBuffer(uploadType_);
+			return Globals::renderer.memoryManager.staticAllocator.getBuffer(uploadType_);
 		//}
 	}
 	
 	uint32_t getGPUBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_)
 	{
-		return  Globals::renderer.gpuMemoryManager.staticAllocator.gpuHeap.bufferOffsets[uploadType_]; 
+		return  Globals::renderer.memoryManager.staticAllocator.gpuHeap.bufferOffsets[uploadType_]; 
 	}
 
 	uint32_t& getCurrentImageIndex()
@@ -168,16 +174,31 @@ namespace Graphics
 		Globals::renderer.framesAtFlightCount = count_;
 	}
 
+	void resetFences(std::span<VkFence> fences_)
+	{
+		vkResetFences(getMainDevice().logicalDevice, fences_.size(), fences_.data());	
+	}
+	
+	void resetFence(PoolId fenceId_)
+	{
+		vkResetFences(getMainDevice().logicalDevice, 1, &getFence(fenceId_));	
+	}
+	
+	bool wasFenceSignaled(PoolId fenceId_)
+	{
+		VkResult result = vkGetFenceStatus(getMainDevice().logicalDevice, getFence(fenceId_));
+		return result == VK_SUCCESS; 
+	}
 
 	// Add
-	PoolId addSemaphore(const char* name_)
+	PoolId addSemaphore()
 	{
-		return Globals::renderer.syncManager.addSemaphore(name_);
+		return Globals::renderer.syncManager.addSemaphore();
 	}
 		
-	PoolId addFence(const char* name_, bool createSignaled_)
+	PoolId addFence(bool createSignaled_)
 	{
-		return Globals::renderer.syncManager.addFence(name_, createSignaled_);
+		return Globals::renderer.syncManager.addFence(createSignaled_);
 	}
 
 	PoolId addShader(const char* name_, const char* path_)
@@ -196,7 +217,7 @@ namespace Graphics
 	{
 		// if(allocatorType_ == STATIC)
 		// {
-		return Globals::renderer.gpuMemoryManager.staticAllocator.addUpload(name_, data_, size_, uploadType_);
+		return Globals::renderer.memoryManager.staticAllocator.addUpload(name_, data_, size_, uploadType_);
 		// }
 	}
 
@@ -219,52 +240,52 @@ namespace Graphics
 
 	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_)
 	{
-		return Globals::renderer.gpuPipelinesManager.graphicsPipelines.add(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
+		return Globals::renderer.pipelinesManager.graphicsPipelines.add(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
 	} 
 
 	void createAllPipelines()
 	{
-		Globals::renderer.gpuPipelinesManager.createAllPipelines(); 
+		Globals::renderer.pipelinesManager.createAllPipelines(); 
 	}
 
 	void destroyAllPipelines()
 	{
-		Globals::renderer.gpuPipelinesManager.destroyAllPipelines();
+		Globals::renderer.pipelinesManager.destroyAllPipelines();
 	}
 	
 	PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_)
     {
-		return addPass(name_, cmdType_, queueFamily_, signalFenceId_);
+		return Globals::renderer.passesGraph.addPass(name_, cmdType_, queueFamily_, signalFenceId_);
 	}
 
 	PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_)
 	{
-		return Globals::renderer.passesManager.addPass(name_, cmdType_, queueFamily_);
+		return Globals::renderer.passesGraph.addPass(name_, cmdType_, queueFamily_);
 	} 
 
     uint32_t addTaskToPass(PassId passId_, const char* name_, CmdBufferFunc cmdBufferFunc_)
 	{
-		return Globals::renderer.passesManager.addTaskToPass(passId_, name_, cmdBufferFunc_);
+		return Globals::renderer.passesGraph.addTaskToPass(passId_, name_, cmdBufferFunc_);
 	}
 
 	void addWaitSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_)
 	{
-		Globals::renderer.passesManager.getPass(passsId_).tasks[taskId_].addWaitSemaphore(waitSemaphoreId_, pipelineStage_);
+		Globals::renderer.passesGraph.getPass(passsId_).tasks[taskId_].addWaitSemaphore(waitSemaphoreId_, pipelineStage_);
 	} 
 
 	void addSignalSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId signalSemaphoreId_)
 	{
-		Globals::renderer.passesManager.getPass(passsId_).tasks[taskId_].addSignalSemaphore(signalSemaphoreId_);
+		Globals::renderer.passesGraph.getPass(passsId_).tasks[taskId_].addSignalSemaphore(signalSemaphoreId_);
 	}
 	
 	void enablePass(PassId passId_)
 	{
-		Globals::renderer.passesManager.enablePass(passId_); 
+		Globals::renderer.passesGraph.enablePass(passId_); 
 	} 
 
     void disablePass(PassId passId_) // Since oneshot - self disables
 	{
-		Globals::renderer.passesManager.disableFramePass(passId_);
+		Globals::renderer.passesGraph.disableFramePass(passId_);
 	}
 
 	void beginCMDsRecording(VkCommandBuffer &cmdBuffer_)
@@ -296,23 +317,23 @@ namespace Graphics
 		vkCmdBindPipeline(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, getGraphicsPipeline(graphicsPipelineId_).get());
 	}
 
-	void bindMesh(PoolId meshId_, VkCommandBuffer &cmdBuffer_) 
+	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer &cmdBuffer_) 
 	{
 		Mesh& rMesh = getMesh(meshId_); 
-		const UploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId); 
-		VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
-		VkDeviceSize vOffsets[] = { vertexUpload.inBufferFirstByte }; 
-		vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
+		if(isUploadInGPU(rMesh.vbMemoryUploadId) && isUploadInGPU(rMesh.ibMemoryUploadId))
+		{
+			const UploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
+			const UploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
+			VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
+			VkDeviceSize vOffsets[] = { vertexUpload.inBufferFirstByte }; 
+			vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
 
-		// Bind index buffer 
-		const UploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
-		vkCmdBindIndexBuffer(cmdBuffer_, getGPUBuffer(STATIC, INDEX).get(), indexUpload.inBufferFirstByte, VK_INDEX_TYPE_UINT32);
-	}
-
-
-	void drawIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer& cmdBuffer_) 
-	{
-		vkCmdDrawIndexed(cmdBuffer_, getMesh(meshId_).indices.size(), instanceCount_, 0, 0, 0); 
+			// Bind index buffer 
+			vkCmdBindIndexBuffer(cmdBuffer_, getGPUBuffer(STATIC, INDEX).get(), indexUpload.inBufferFirstByte, VK_INDEX_TYPE_UINT32);
+		
+			// Draw indexed 
+			vkCmdDrawIndexed(cmdBuffer_, getMesh(meshId_).indices.size(), instanceCount_, 0, 0, 0); 
+		}
 	}
 
 	void endCMDsRecording(VkCommandBuffer &cmdBuffer_)
@@ -321,34 +342,6 @@ namespace Graphics
 		vkEndCommandBuffer(cmdBuffer_);
 	}
 
-
-	void submitPassesToQueues() // Note: Clear one shot passes submissions after submissions.
-	{
-		for(uint8_t i = 0; i < 3; i++)
-		{
-			Pool<SubmissionBatch>& rSubmissionBatches = getPassesManager().submissionBatchesPerQueue[i]; 
-			for(uint32_t j = 0; j < rSubmissionBatches.size(); j++)
-			{
-				VkFence signalFence = VK_NULL_HANDLE; 
-				if(rSubmissionBatches.objects[j].signalFenceId != UninitializedPoolId)
-				{
-					signalFence = getFence(rSubmissionBatches.objects[j].signalFenceId); 
-				}
-
-				vkQueueSubmit(getQueue(i), rSubmissionBatches.objects[j].submissions.size(), rSubmissionBatches.objects[j].submissions.data(), signalFence); 
-				if(rSubmissionBatches.objects[j].oneShot) // disable cmdBuffers, and remove this submissionBatch from list 
-				{
-					for(const auto& rCmdBufferToDisable : rSubmissionBatches.objects[j].cmdBuffersToDisable)
-					{ 
-						CmdBuffersInPasses& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(i).commandBuffers; 
-                    	rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rCmdBufferToDisable]); 
-                    	rCommandBuffers.buffersToEnabled[rCmdBufferToDisable] = UninitializedId; 
-					}
-					rSubmissionBatches.removeInternal(j); 
-				}
-			}
-		}
-	}
 
 	void setViewportAndScissors(VkCommandBuffer& cmdBuffer_)
 	{
@@ -371,7 +364,7 @@ namespace Graphics
 
 	void presentToScreen()
 	{
-		VkSemaphore* pImageUseFinishedSemaphore = &getCurrentSwapchainImage().getInUseSemaphoreFinished();
+		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getCurrentSwapchainImage().imageInUseSemaphoreFinishedId);
 		// Present Frame 
 		VkPresentInfoKHR presentInfo = {}; 
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; 

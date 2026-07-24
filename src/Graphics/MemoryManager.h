@@ -10,6 +10,7 @@
 #include "Image.h"
 #include "StaticAllocator.h"
 #include "Utilities.h"
+#include <functional>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics
@@ -21,6 +22,7 @@ struct UpdateEntry
 	size_t byteAmount = 0; 
 	size_t heapStartingByte = 0; 
 	size_t dstStartingByte = 0; 
+	AllocatorTypeEnum allocatorType; 
 
 	bool partialUpdate;
 
@@ -29,7 +31,7 @@ struct UpdateEntry
 };
 
 
-struct GPUMemoryManager 
+struct MemoryManager 
 { 
 	StaticAllocator staticAllocator;
 	std::vector<UpdateEntry> updateEntries; 
@@ -37,16 +39,15 @@ struct GPUMemoryManager
 	void submitTransferCmds();
 	PoolId updateFinishedSemaphoreId; 
 	PoolId updateFinishedFenceId; 
-	PoolId staticUploadFinishedSemaphoreId; 
-	PoolId staticUploadFinishedFenceId;
-	PassId staticUploadPassId;
+	const uint8_t allocatorsCount = 1; 
 
+	bool isUploadInGPU(UploadId uploadId_);
+	void checkUploadsStatus(); 
+	
 	void addUpdate(PoolId entryId_, const void* data_); // full upload
 	void addUpdate(PoolId entryId_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload
 
 	// For device local uploads
-	// void recordUpdatesCMDs(VkCommandBuffer& cmdBuffer_);
-	void submitStaticUploads(); 
 	void submitUpdateCmdsIfNeeded();
 
 	void create();

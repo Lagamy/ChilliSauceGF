@@ -1,8 +1,8 @@
-#include "GPUPipelinesManager.h"
+#include "PipelinesManager.h"
 
 namespace Graphics
 {
-void GPUPipelinesManager::createAllPipelines()
+void PipelinesManager::createAllPipelines()
 {
     for(auto& rGraphicsPipeline : this->graphicsPipelines.objects)
     {
@@ -10,7 +10,7 @@ void GPUPipelinesManager::createAllPipelines()
     }
 } 
 
-void GPUPipelinesManager::destroyAllPipelines()
+void PipelinesManager::destroyAllPipelines()
 {
     this->graphicsPipelines.clear(); 
     this->computePipelines.clear();

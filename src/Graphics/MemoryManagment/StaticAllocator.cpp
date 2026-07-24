@@ -1,5 +1,6 @@
 #include "StaticAllocator.h"
 #include "Api.h"
+#include <cmath>
 
 namespace Graphics
 {
@@ -67,11 +68,12 @@ void StaticAllocator::recordCMDs(VkCommandBuffer& cmdBuffer_)
 	vkEndCommandBuffer(cmdBuffer_);
 }
 
-void StaticAllocator::allocate()
+void StaticAllocator::allocateAndUpload()
 {
 	this->stagingHeap.create("Static Staging Heap", VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE);
 	this->gpuHeap.create();
 	this->allocated = true; 
+	this->submitUploads(); 
 }
 
 void StaticAllocator::deallocate()
@@ -80,4 +82,33 @@ void StaticAllocator::deallocate()
 	this->stagingHeap.destroy();
 	this->allocated = false; 
 }
+
+void StaticAllocator::create()
+{
+	this->uploadFinishedSemaphoreId = addSemaphore();
+	this->uploadFinishedFenceId = addFence(true); 
+	this->uploadPassId = addPass("Static Allocator Uploading",ONESHOT,TRANSFER,this->uploadFinishedFenceId);
+	uint32_t taskId = addTaskToPass(this->uploadPassId, "Static Upload", [this](VkCommandBuffer& cmd) { this->recordCMDs(cmd); }); 
+	addSignalSemaphoreToTask(this->uploadPassId, taskId, this->uploadFinishedSemaphoreId);
+	
+}
+
+void StaticAllocator::submitUploads()
+{
+	vkResetFences(getMainDevice().logicalDevice, 1, &getFence(uploadFinishedFenceId));
+	enablePass(this->uploadPassId); 
+}
+
+
+void StaticAllocator::checkUploadsStatus()
+{
+	if(!this->uploadsInGPU)
+	{
+		if(wasFenceSignaled(this->uploadFinishedFenceId))
+		{
+			this->uploadsInGPU = true; 
+		}
+	} 
+}
+ 
 }

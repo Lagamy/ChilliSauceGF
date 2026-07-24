@@ -5,7 +5,7 @@
 
 namespace Graphics
 {
-struct GPUPipelinesManager
+struct PipelinesManager
 {
 	Pool<GraphicsPipeline> graphicsPipelines = ("Graphics Pipelines");
     Pool<ComputePipeline> computePipelines = ("Compute Pipelines");

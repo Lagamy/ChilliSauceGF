@@ -1,7 +1,8 @@
-#include "GPUMemoryManager.h"
+#include "MemoryManager.h"
 #include "Fence.h"
 #include "Api.h"
 #include "MemoryBlock.h"
+#include "UploadId.h"
 #include "Utilities.h"
 #include <limits>
 #include <stdexcept>
@@ -10,29 +11,34 @@
 namespace Graphics
 {
 
-void GPUMemoryManager::create()
+void MemoryManager::create()
 {
-	this->staticUploadFinishedSemaphoreId = addSemaphore("Upload Finished");
-	this->staticUploadFinishedFenceId = addFence("Upload Finished", true); 
-	this->staticUploadPassId = addPass("Static Allocator Uploading",ONESHOT,TRANSFER,this->staticUploadFinishedFenceId);
-	uint32_t taskId = addTaskToPass(this->staticUploadPassId, "Static Upload", [this](VkCommandBuffer& cmd) { this->staticAllocator.recordCMDs(cmd); }); 
-	addSignalSemaphoreToTask(this->staticUploadPassId, taskId, this->staticUploadFinishedSemaphoreId);
+	this->staticAllocator.create(); 
 }
 
-void GPUMemoryManager::destroy() 
+void MemoryManager::destroy() 
 {
 	this->staticAllocator.deallocate();
 }
 
-
-void GPUMemoryManager::submitStaticUploads()
+bool MemoryManager::isUploadInGPU(UploadId uploadId_)
 {
-
-	vkResetFences(getMainDevice().logicalDevice, 1, &getFence(staticUploadFinishedFenceId));
-	enablePass(this->staticUploadPassId); 
+	if(uploadId_.allocatorType == STATIC)
+	{
+		return this->staticAllocator.allocated; 
+	}
+	else 
+	{
+		return getUploadEntry(uploadId_).inGPU; 
+	}
 }
 
-void GPUMemoryManager::submitUpdateCmdsIfNeeded()
+void MemoryManager::checkUploadsStatus()
+{
+	this->staticAllocator.checkUploadsStatus(); 
+}
+
+void MemoryManager::submitUpdateCmdsIfNeeded()
 {
 	// if(this->updateNeeded)
 	// {

@@ -1,8 +1,8 @@
 #pragma once 
-#include "GPUMemoryManager.h"
+#include "MemoryManager.h"
 #include "DemoManager.h"
-#include "GPUPipelinesManager.h"
-#include "PassesManager.h"
+#include "PipelinesManager.h"
+#include "PassesGraph.h"
 #include "Pool.h"
 #include "RenderPass.h" 
 #include "Instance.h"
@@ -31,14 +31,14 @@ struct Renderer {
 	Device mainDevice;
 	Surface surface;
 	Swapchain swapchain;
-	GPUMemoryManager gpuMemoryManager;
+	MemoryManager memoryManager;
 	SyncManager syncManager; 
 	ShadersManager shadersManager;
 	ImagesManager imagesManager; 
 	ResourceManager resourcesManager; 
-	GPUPipelinesManager gpuPipelinesManager;
+	PipelinesManager pipelinesManager;
 	ReflectionSystem reflectionSystem;
-	PassesManager passesManager; 
+	PassesGraph passesGraph; 
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass presentationRenderPass;

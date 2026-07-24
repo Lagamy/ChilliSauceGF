@@ -1,6 +1,6 @@
 #pragma once 
 #include "Layout.h"
-#include "PassesManager.h"
+#include "PassesGraph.h"
 #include "PoolId.h"
 #include "PassId.h"
 #include "Pass.h"
@@ -23,8 +23,8 @@ namespace Graphics
 	Surface& getSurface();
 	Swapchain& getSwapchain();
 	DemoManager& getDemoManager();
-	GPUMemoryManager& getGPUMemoryManager(); 
-	PassesManager& getPassesManager(); 
+	MemoryManager& getMemoryManager(); 
+	PassesGraph& getPassesManager(); 
 	
 	VkSemaphore& getSemaphore(PoolId semaphoreId_);
 	VkFence& getFence(PoolId fenceId_);
@@ -34,6 +34,7 @@ namespace Graphics
 	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_); 
 	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_);
 	const UploadEntry& getUploadEntry(UploadId id_); 
+	bool isUploadInGPU(UploadId uploadId_);
 	Mesh& getMesh(PoolId meshId_); 
 	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);
 	uint32_t getGPUBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);
@@ -54,6 +55,10 @@ namespace Graphics
 	// Set
 	void setFramesAtFlightCount(uint32_t count_); 
 
+	void resetFences(std::span<VkFence> fences_);
+	void resetFence(PoolId fenceId_); 
+	bool wasFenceSignaled(PoolId fenceId_); 
+	
 	// Record 
 	void recordOneShotCmdBuf(QueueFamilyEnum queueFamily_, uint32_t id_);
 	void recordCurrentFrameCmdPools(); 
@@ -63,8 +68,8 @@ namespace Graphics
 	void resetCurrentFrameCmdPools();
 	
 	// Add
-	PoolId addSemaphore(const char* name_);
-	PoolId addFence(const char* name_, bool createSignaled_);
+	PoolId addSemaphore();
+	PoolId addFence(bool createSignaled_);
 	PoolId addShader(const char* name_, const char* path_); 
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
@@ -90,12 +95,10 @@ namespace Graphics
 	// Commands Recording
 	void beginCMDsRecording(VkCommandBuffer& cmdBuffer_);
 	void bindGraphicsPipeline(PoolId graphicsPipelineId_, VkCommandBuffer& cmdBuffer_); 
-	void bindMesh(PoolId meshId_, VkCommandBuffer& cmdBuffer_);
-	void drawIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer& cmdBuffer_); 
+	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer& cmdBuffer_);
 	void endCMDsRecording(VkCommandBuffer& cmdBuffer_); 
 
 	// Misc/Internal 
-	void submitPassesToQueues(); // Note: Clear one shot passes submissions after submissions.
 	void setViewportAndScissors(VkCommandBuffer& cmdBuffer_); 
 	void presentToScreen(); 
 };

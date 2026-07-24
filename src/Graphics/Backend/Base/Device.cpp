@@ -2,6 +2,7 @@
 #include "Api.h"
 #include "Utilities.h"
 #include <stdexcept>
+#include <set>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics
@@ -45,56 +46,85 @@ void Device::getPhysicalDevice() {
 }
 
 
-void Device::createLogicalDevice() {
-	// Get queue family indices for the chosen Physical Device
-	this->queueFamilyIndices = getQueueFamilies(this->physicalDevice);
+void Device::createLogicalDevice()
+{
+    this->queueFamilyIndices = getQueueFamilies(this->physicalDevice);
 
-	// Queues the logical device needs to create, and info to do so(Only 1 now, will add more later!)
-	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	// std::set<int32_t> neededQueueIndexes = { this->queueFamilyIndices.graphicsFamily, this->queueFamilyIndices.presentationFamily }; // So if some family indices are pointing to the same Queue - We wouldn't create it multiple times.
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
-	for (int queueFamilyIndex : this->queueFamilyIndices.indices)
-	{
-		VkDeviceQueueCreateInfo queueCreateInfo = {};
-		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-		queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
-		queueCreateInfo.queueCount = 1;											// Number of queues to create 
-		float priority = 1.0;													// Which queue is used first, second, etc. Normalized
-		queueCreateInfo.pQueuePriorities = &priority;
+    // Remove duplicate queue families.
+    std::set<uint32_t> uniqueQueueFamilies(
+        this->queueFamilyIndices.indices.begin(),
+        this->queueFamilyIndices.indices.end()
+    );
 
-		queueCreateInfos.emplace_back(queueCreateInfo);
-	}
+    float priority = 1.0f;
 
-	// Info to create Logical Device
-	VkDeviceCreateInfo deviceCreateInfo = {};
-	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    for (uint32_t queueFamilyIndex : uniqueQueueFamilies)
+    {
+        VkDeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+        queueCreateInfo.queueCount = 1;
+        queueCreateInfo.pQueuePriorities = &priority;
 
-	// Queues
-	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(this->queueFamilyIndices.indices.size()); // Number of queue CreateInfos
-	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data(); // List of queue infos, so device can create required queues
+        queueCreateInfos.emplace_back(queueCreateInfo);
+    }
 
-	// Logical Device extensions
-	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()); // Number of enabled Logical Device Extensions(Swapchain, RTX, DSSL, etc) 
-	deviceCreateInfo.ppEnabledExtensionNames = requiredDeviceExtensions.data(); // List of enabled Extensions 
+    VkDeviceCreateInfo deviceCreateInfo{};
+    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
-	// Physical Device Features - the Logical Device will be using 
-	VkPhysicalDeviceFeatures deviceFeatures = {};
-	//deviceFeatures.depthClamp = VK_TRUE; Enable - if you want to enable clamping in Rasterizer 
-	deviceCreateInfo.pEnabledFeatures = &deviceFeatures; // default, as empty. 
+    deviceCreateInfo.queueCreateInfoCount =
+        static_cast<uint32_t>(queueCreateInfos.size());
+    deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-	VkResult result = vkCreateDevice(this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice); // third arg - allocator
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create Logical Device");
-	}
+    deviceCreateInfo.enabledExtensionCount =
+        static_cast<uint32_t>(requiredDeviceExtensions.size());
+    deviceCreateInfo.ppEnabledExtensionNames =
+        requiredDeviceExtensions.data();
 
-	// Queues are created at the same time as the device..
-	// So we want handle to queues
-	// From our logical device, of given Queue Family, of given Queue Index(0, since we only got one), place reference in given VkQueue
-	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.indices[GRAPHICS], 0, &this->queues[GRAPHICS]);
-	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.indices[TRANSFER], 0, &this->queues[TRANSFER]); // Maybe same as graphics queue(depends on device)
-	// vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.commandFamily, 0, &this->queues.commandQueue);
-	vkGetDeviceQueue(this->logicalDevice, this->queueFamilyIndices.indices[PresentationQueueId], 0, &this->queues[PresentationQueueId]);
+    VkPhysicalDeviceFeatures deviceFeatures{};
+    deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
+
+    VkResult result = vkCreateDevice(
+        this->physicalDevice,
+        &deviceCreateInfo,
+        nullptr,
+        &this->logicalDevice
+    );
+
+    if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to create Logical Device");
+    }
+
+    vkGetDeviceQueue(
+        this->logicalDevice,
+        this->queueFamilyIndices.indices[GRAPHICS],
+        0,
+        &this->queues[GRAPHICS]
+    );
+
+    vkGetDeviceQueue(
+        this->logicalDevice,
+        this->queueFamilyIndices.indices[TRANSFER],
+        0,
+        &this->queues[TRANSFER]
+    );
+
+    vkGetDeviceQueue(
+        this->logicalDevice,
+        this->queueFamilyIndices.indices[COMPUTE],
+        0,
+        &this->queues[COMPUTE]
+    );
+
+    vkGetDeviceQueue(
+        this->logicalDevice,
+        this->queueFamilyIndices.indices[PresentationQueueId],
+        0,
+        &this->queues[PresentationQueueId]
+    );
 }
 
 

@@ -16,8 +16,9 @@ struct ReflectionLayout
     size_t size = 0; 
 
     PoolId addMemberBlueprint(const char* name_, DataTypeEnum dataType_);
+    PoolId getMemberIdFromName(const char* name_);
     PoolId createDataContainer(const char* name_, uint32_t repeatCount_); // repeatCount - exist for repeating data with same blueprint, like vertices; 
-    
+
     template<typename T>
     void setMemberInDataContainer(PoolId memberBlueprintId_, T data_, PoolId dataContainerId_, uint32_t repeatUnitId_)
     {

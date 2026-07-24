@@ -11,6 +11,7 @@ void OneShotCommandPool::create(VkCommandBufferLevel level_, QueueFamilyEnum que
 	this->queueFamilyEnum = queueFamilyEnum_; 
     this->level = level_; 
     VkCommandPoolCreateInfo poolCreateInfo = {};
+    poolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolCreateInfo.queueFamilyIndex = getMainDevice().queueFamilyIndices.indices[queueFamilyEnum_]; 
 
@@ -56,8 +57,9 @@ void OneShotCommandPool::rerecordEnabledCmdBuffers()
 	    vkResetCommandBuffer(this->commandBuffers.buffers[this->commandBuffers.enabled[i]], 0); 
         uint32_t& enabledCmdBufId = this->commandBuffers.enabled[i]; 
 		this->commandBuffers.commandsToRecord[enabledCmdBufId](this->commandBuffers.buffers[enabledCmdBufId]);
-        this->commandBuffers.enabled.erase(this->commandBuffers.enabled.begin() + i); 
     }
+    
+    this->commandBuffers.enabled.clear();
 }
 
 

@@ -1,16 +1,16 @@
 #pragma once 
-#include "Pool.h"
+#include "PoolNameless.h"
 #include "Semaphore.h"
 #include "Fence.h"
 
 namespace Graphics
 {
 struct SyncManager { 
-	Pool<Fence> fences = ("Fences"); 
-	Pool<Semaphore> semaphores = ("Semaphores");
+	PoolNameless<Fence> fences = ("Fences"); 
+	PoolNameless<Semaphore> semaphores = ("Semaphores");
 
-	PoolId addSemaphore(const char* name_); 
-	PoolId addFence(const char* name_, VkFenceCreateFlags flags_);
+	PoolId addSemaphore(); 
+	PoolId addFence(VkFenceCreateFlags flags_);
 	Semaphore& getSemaphore(PoolId id_);  
 	Fence& getFence(PoolId id_); 
 	void destroy();

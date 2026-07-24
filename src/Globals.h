@@ -1,7 +1,7 @@
 #pragma once 
 
 #include "Renderer.h"
-#include "GPUMemoryManager.h"
+#include "MemoryManager.h"
 #include "ReflectionSystem.h"
 // #include "AssetsManager.h"
 #include "Utilities.h"

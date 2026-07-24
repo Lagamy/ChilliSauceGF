@@ -9,20 +9,26 @@
 
 namespace Graphics
 {
+struct TriangleVertexMemberIds 
+{
+	PoolId positionId; 
+	PoolId colorId; 
+}; 
+
 struct Triangle { 
 	PoolId vertexShaderId; 
 	PoolId fragmentShaderId; 
-	PoolId verticeLayoutId; 
+	PoolId vertexLayoutId; 
+	TriangleVertexMemberIds vertexMemberIds; 
+
 	PoolId meshId;
 	PoolId graphicsPipelineId; 
 
-	uint32_t cmdBufferId;
-	bool firstFrame = true;  
-
-	void load(); 
-	void createGPUObjects();
+	void defineLayouts();
+	void defineResources(); 
+	void definePasses(); 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_);
-	void submit(); // Triggers every frame
+	
 	Triangle();
 }; 
 }

@@ -15,11 +15,8 @@ void Renderer::setup()
 	this->surface.create(); // I need to know - what surface will be used, so I could check if device supports it. 
 	this->mainDevice.setup();
 	this->swapchain.create();
-	this->gpuMemoryManager.create();
+	this->memoryManager.create();
 	
-
-	// Demo setup 
-	this->demoManager.defineDemo();
 
 	// Configure RenderPass
 	this->presentationRenderPass.addColorAttachment(getSwapchain().imageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR,  VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR); // STORE_OP_DONT_CARE - means we dont care what will happen to the attachment after reading it
@@ -34,43 +31,48 @@ void Renderer::setup()
 	subpassLayoutTransition.dependencyFlags = 0; 
 	this->presentationRenderPass.addSubpass(subpassDescription, subpassLayoutTransition); 
 	
-	// Send static uploads to the GPU
-	this->gpuMemoryManager.staticAllocator.allocate(); 
-
-	// Create GPU resources
+	// Create Swapchain related resources
 	this->presentationRenderPass.create();
 	this->swapchain.createFramebuffers(this->presentationRenderPass);
 	this->framesResources.resize(this->framesAtFlightCount);
-	createAllPipelines();
 
-	// Create CmdBuffers and Synchronisation
+	// Demo setup 
+	this->demoManager.defineDemo();
+
+	// Send static uploads to the GPU
+	this->memoryManager.staticAllocator.allocateAndUpload();
+
+	// Create Pipelines, CmdBuffers and Synchronisation
+	createAllPipelines(); 
 	this->oneShotCommandPools.create();
 	for (uint32_t i = 0; i < this->framesAtFlightCount; i++)
 	{
 		this->framesResources[i].setup(i);
 	}
-	this->gpuMemoryManager.submitStaticUploads(); // Upload all preloaded with scene / static assets to the GPU
 }
 
 void Renderer::draw() 
 {
 	if(!Globals::resizing)
 	{
-		VkFence* pCurrentFrameAvailable = &this->framesResources[this->currentFrame].frameAvailableFence.get();
-
+		this->memoryManager.checkUploadsStatus(); 
+		VkFence* pCurrentFrameAvailable = &getFence(this->framesResources[this->currentFrame].frameAvailableFenceId);
 		vkWaitForFences(this->mainDevice.logicalDevice, 1, pCurrentFrameAvailable, VK_TRUE, std::numeric_limits<uint64_t>::max()); // wait for frame available fence signal
 		vkResetFences(this->mainDevice.logicalDevice, 1, pCurrentFrameAvailable); // unsignal fence
 																
 		vkAcquireNextImageKHR(
 			this->mainDevice.logicalDevice, this->swapchain.get(), std::numeric_limits<uint64_t>::max(), 
-			this->framesResources[currentFrame].imageAcquireSemaphore.get(), VK_NULL_HANDLE, &imageIndex
+			getSemaphore(this->framesResources[currentFrame].imageAcquiredSemaphoreId), VK_NULL_HANDLE, &imageIndex
 		);
 		// Rerecord enabled cmdBuffers
 		this->oneShotCommandPools.rerecordEnabledCmdBuffers();
 		getCurrentFrameResources().frameCmdPools.rerecordEnabledCmdBuffers();
-		
-		// Submit Passes to queues
-		submitPassesToQueues();
+
+		// Compile passesGraph 
+		this->passesGraph.compileIfDirty(); 
+
+		// Submit graph to queues
+		this->passesGraph.submitToGPU();
 		
 		presentToScreen(); 
 		this->currentFrame = (this->currentFrame + 1) % this->framesAtFlightCount; 
@@ -86,12 +88,12 @@ void Renderer::shutdown()
 		rFrameResources.destroy(); // CMDPools init for each queue family per frame in flight  
 	}
 	this->oneShotCommandPools.destroy();
-	this->gpuPipelinesManager.destroyAllPipelines(); 
+	this->pipelinesManager.destroyAllPipelines(); 
 	this->renderPasses.clear();
 	this->swapchain.destroyFramebuffers(); 
 	this->presentationRenderPass.destroy(); 
 	this->shadersManager.destroy(); 
-	this->gpuMemoryManager.destroy(); 
+	this->memoryManager.destroy(); 
 	this->swapchain.destroy(); 
 	this->mainDevice.destroy(); 
 	this->surface.destroy(); 
