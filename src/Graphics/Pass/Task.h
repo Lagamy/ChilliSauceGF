@@ -2,12 +2,22 @@
 #include "PoolId.h"
 #include "Utilities.h"
 #include <array>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+
 
 namespace Graphics
 {
+using SyncRetrivalFunc = std::function<PoolId()>;
+struct DynamicSemaphoreRef
+{
+    SyncRetrivalFunc func; 
+    uint32_t id; 
+};
+ 
 using CmdBufferFunc = std::function<void(VkCommandBuffer&)>;
 struct Task
 {
@@ -20,8 +30,13 @@ struct Task
     bool requiresAllocationToProceed = false;
     std::vector<AllocatorTypeEnum> allocatorsToWaitOn;  
 
+    std::vector<DynamicSemaphoreRef> dynamicWaitSemaphoreRefs;
+    std::vector<DynamicSemaphoreRef> dynamicSignalSemaphoreRefs;
+    
     Task(const char* name_, CmdBufferFunc cmdBufferFunc_); 
     void addWaitSemaphore(PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_);  
     void addSignalSemaphore(PoolId signalSemaphoreId_);
+    void addDynamicWaitSemaphore(SyncRetrivalFunc semaphoreRetrivalFunc_, VkPipelineStageFlags pipelineStage_); 
+    void addDynammicSignalSemaphore(SyncRetrivalFunc semaphoreRetrivalFunc_); 
 };
 }

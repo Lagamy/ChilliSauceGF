@@ -263,6 +263,11 @@ namespace Graphics
 		return Globals::renderer.passesGraph.addPass(name_, cmdType_, queueFamily_);
 	} 
 
+    PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc signalFenceRetrivalFunc_)
+	{
+		return Globals::renderer.passesGraph.addPass(name_, cmdType_, queueFamily_);
+	} 
+
     uint32_t addTaskToPass(PassId passId_, const char* name_, CmdBufferFunc cmdBufferFunc_)
 	{
 		return Globals::renderer.passesGraph.addTaskToPass(passId_, name_, cmdBufferFunc_);
@@ -276,6 +281,16 @@ namespace Graphics
 	void addSignalSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId signalSemaphoreId_)
 	{
 		Globals::renderer.passesGraph.getPass(passsId_).tasks[taskId_].addSignalSemaphore(signalSemaphoreId_);
+	}
+
+	void addDynamicWaitSemaphoreToTask(PassId passId_, uint32_t taskId_, SyncRetrivalFunc semaphoreRetrivalFunc_, VkPipelineStageFlags pipelineStage_)
+	{
+		Globals::renderer.passesGraph.addDynamicWaitSemaphoreToTask(passId_, taskId_, semaphoreRetrivalFunc_, pipelineStage_);
+	} 
+
+    void addDynamicSignalSemaphoreToTask(PassId passId_, uint32_t taskId_, SyncRetrivalFunc semaphoreRetrivalFunc_)
+	{
+		Globals::renderer.passesGraph.addDynamicSignalSemaphoreToTask(passId_, taskId_, semaphoreRetrivalFunc_);
 	}
 	
 	void enablePass(PassId passId_)

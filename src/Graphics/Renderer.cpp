@@ -15,6 +15,11 @@ void Renderer::setup()
 	this->surface.create(); // I need to know - what surface will be used, so I could check if device supports it. 
 	this->mainDevice.setup();
 	this->swapchain.create();
+	this->framesResources.resize(this->framesAtFlightCount);
+	for (uint32_t i = 0; i < this->framesAtFlightCount; i++)
+	{
+		this->framesResources[i].setup(i);
+	}
 	this->memoryManager.create();
 	
 
@@ -34,7 +39,6 @@ void Renderer::setup()
 	// Create Swapchain related resources
 	this->presentationRenderPass.create();
 	this->swapchain.createFramebuffers(this->presentationRenderPass);
-	this->framesResources.resize(this->framesAtFlightCount);
 
 	// Demo setup 
 	this->demoManager.defineDemo();
@@ -42,12 +46,12 @@ void Renderer::setup()
 	// Send static uploads to the GPU
 	this->memoryManager.staticAllocator.allocateAndUpload();
 
-	// Create Pipelines, CmdBuffers and Synchronisation
+	// Create Pipelines, CmdBuffers
 	createAllPipelines(); 
 	this->oneShotCommandPools.create();
 	for (uint32_t i = 0; i < this->framesAtFlightCount; i++)
 	{
-		this->framesResources[i].setup(i);
+		this->framesResources[i].createCmdPools();
 	}
 }
 
@@ -68,9 +72,11 @@ void Renderer::draw()
 		this->oneShotCommandPools.rerecordEnabledCmdBuffers();
 		getCurrentFrameResources().frameCmdPools.rerecordEnabledCmdBuffers();
 
+	
 		// Compile passesGraph 
 		this->passesGraph.compileIfDirty(); 
-
+		// Resolve dynamic sync
+		this->passesGraph.resolveDynamicSync();
 		// Submit graph to queues
 		this->passesGraph.submitToGPU();
 		

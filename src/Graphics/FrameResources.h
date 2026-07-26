@@ -14,8 +14,9 @@ struct FrameResources {
 	PoolId imageAcquiredSemaphoreId; 
 	PoolId frameAvailableFenceId; 
 
+
 	void setup(uint32_t id_);
-	void createCmdPools(); 
+	void createCmdPools();
 	void destroy();
 };
 }

@@ -50,10 +50,11 @@ namespace Graphics
 
 	void Triangle::definePasses()
 	{
-		PassId passId = addPass("Triangle Pass", FRAME, GRAPHICS, getCurrentFrameResources().frameAvailableFenceId); 
+		PassId passId = addPass("Triangle Pass", FRAME, GRAPHICS, [](){return getCurrentFrameResources().frameAvailableFenceId; }); 
 		uint32_t taskId = addTaskToPass(passId, "Draw Triangle", [this](VkCommandBuffer& cmd) { recordCMDs(cmd); }); 
-		addWaitSemaphoreToTask(passId, taskId, getCurrentFrameResources().imageAcquiredSemaphoreId, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-		addSignalSemaphoreToTask(passId, taskId, getCurrentSwapchainImage().imageInUseSemaphoreFinishedId);
+		
+		addDynamicWaitSemaphoreToTask(passId, taskId, [](){return getCurrentFrameResources().imageAcquiredSemaphoreId;}, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		addDynamicSignalSemaphoreToTask(passId, taskId, []() {return getCurrentSwapchainImage().imageInUseSemaphoreFinishedId;});
 		enablePass(passId); 
 	}
 
