@@ -1,11 +1,12 @@
 #include "PassesGraph.h"
 #include "Api.h"
-#include "CmdBuffersInPasses.h"
+#include "CmdBuffers.h"
 #include "FrameResources.h"
 #include "Globals.h"
 #include "PassId.h"
 #include "PassesPack.h"
 #include "SubmissionBatch.h"
+#include "SubmissionSync.h"
 #include "Task.h"
 #include "Utilities.h"
 #include <cstddef>
@@ -67,17 +68,17 @@ uint32_t PassesGraph::addTaskToPass(PassId passId_, const char* name_, CmdBuffer
     
     if(passId_.cmdLifetime == ONESHOT)
     {
-        CmdBuffersInPasses& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
-        rTask.cmdId = rCommandBuffers.commandsToRecord.size(); 
+        CmdBuffers& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
+        rTask.cmdIds.emplace_back(rCommandBuffers.commandsToRecord.size()); 
         rCommandBuffers.commandsToRecord.emplace_back(rTask.cmdBufferFunc);
         rCommandBuffers.buffersToEnabled.emplace_back(UninitializedId); 
     }
     else
     {
-        rTask.cmdId = getCurrentFrameResources().frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers.commandsToRecord.size(); // All frame resources are 1:1. So we can get Id by fetching size any of them 
         for(auto& rFrameResource : Globals::renderer.framesResources)
         {
-            CmdBuffersInPasses& rCommandBuffers = rFrameResource.frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
+            CmdBuffers& rCommandBuffers = rFrameResource.frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
+            rTask.cmdIds.emplace_back(rCommandBuffers.commandsToRecord.size());
             rCommandBuffers.commandsToRecord.emplace_back(rTask.cmdBufferFunc); 
             rCommandBuffers.buffersToEnabled.emplace_back(UninitializedId); 
         }
@@ -100,10 +101,10 @@ void PassesGraph::enablePass(PassId passId_)
                         // Enable Cmds. 
             if(passId_.cmdLifetime == ONESHOT)
             {
-                rSubmissionBatch.cmdBuffersToDisable.emplace_back(rTask.cmdId);
-                CmdBuffersInPasses& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
-                rCommandBuffers.buffersToEnabled[rTask.cmdId] = rCommandBuffers.enabled.size();
-                rCommandBuffers.enabled.emplace_back(rTask.cmdId);
+                rSubmissionBatch.cmdBuffersToDisable.emplace_back(rTask.cmdIds[0]);
+                CmdBuffers& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
+                rCommandBuffers.buffersToEnabled[rTask.cmdIds[0]] = rCommandBuffers.enabled.size();
+                rCommandBuffers.enabled.emplace_back(rTask.cmdIds[0]);
             }
             else
             {
@@ -111,9 +112,13 @@ void PassesGraph::enablePass(PassId passId_)
                 for(uint32_t i = 0; i < rFrameResources.size(); i++)
                 {
                                         
-                    CmdBuffersInPasses& rCommandBuffers = rFrameResources[i].frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
-                    rCommandBuffers.buffersToEnabled[rTask.cmdId] = rCommandBuffers.enabled.size();
-                    rCommandBuffers.enabled.emplace_back(rTask.cmdId);
+                    CmdBuffers& rCommandBuffers = rFrameResources[i].frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers;
+
+                    for(const auto frameCmdId : rTask.cmdIds)
+                    {
+                        rCommandBuffers.buffersToEnabled[frameCmdId] = rCommandBuffers.enabled.size();
+                        rCommandBuffers.enabled.emplace_back(frameCmdId);
+                    }
                 }
             }
         }
@@ -135,9 +140,9 @@ void PassesGraph::disableFramePass(PassId passId_)
             {
                 if(passId_.cmdLifetime == ONESHOT)
                 {
-                    CmdBuffersInPasses& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
-                    rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rTask.cmdId]); 
-                    rCommandBuffers.buffersToEnabled[rTask.cmdId] = UninitializedId; 
+                    CmdBuffers& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
+                    rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rTask.cmdIds[0]]); 
+                    rCommandBuffers.buffersToEnabled[rTask.cmdIds[0]] = UninitializedId; 
                 }
                 else
                 {
@@ -145,9 +150,12 @@ void PassesGraph::disableFramePass(PassId passId_)
                     for(uint32_t i = 0; i < rFrameResources.size(); i++)
                     {
                                         
-                        CmdBuffersInPasses& rCommandBuffers = rFrameResources[i].frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
-                        rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rTask.cmdId]); 
-                        rCommandBuffers.buffersToEnabled[rTask.cmdId] = UninitializedId;  
+                        CmdBuffers& rCommandBuffers = rFrameResources[i].frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
+                        for(const auto& rCmdId : rTask.cmdIds)
+                        {
+                            rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rCmdId]); 
+                            rCommandBuffers.buffersToEnabled[rCmdId] = UninitializedId;  
+                        }
                     }
                 }
             }
@@ -174,39 +182,36 @@ void PassesGraph::compileIfDirty()
                     // Add submission
                     // Add secondary buffer support later on.
                     SubmissionBatch& rSubmissionBatch = this->submissionBatchesPerQueue[rPassId.queueFamily].back(); 
-                    rSubmissionBatch.waitSemaphores.emplace_back(); 
-                    rSubmissionBatch.signalSemaphores.emplace_back();
-                    std::vector<VkSemaphore>& rWaitSemaphores = rSubmissionBatch.waitSemaphores.back(); 
-                    std::vector<VkSemaphore>& rSignalSemaphores = rSubmissionBatch.signalSemaphores.back(); 
-                    
+                    rSubmissionBatch.perSubmissionSync.emplace_back(); 
+                    SubmissionSync& rSync = rSubmissionBatch.perSubmissionSync.back(); 
 
-                    rWaitSemaphores.resize(rTask.waitSemaphoresIds.size());
-                    for(uint32_t j = 0; j < rWaitSemaphores.size(); j++)
+                    rSync.waitSemaphores.resize(rTask.waitSemaphoresIds.size());
+                    for(uint32_t j = 0; j < rSync.waitSemaphores.size(); j++)
                     {   
                         if(rTask.waitSemaphoresIds[j] != UninitializedPoolId)
                         {
-                            rWaitSemaphores[j] = getSemaphore(rTask.waitSemaphoresIds[j]); 
+                           rSync.waitSemaphores[j] = getSemaphore(rTask.waitSemaphoresIds[j]); 
                         }
                     }
-                    rSignalSemaphores.resize(rTask.signalSemaphoresIds.size()); 
-                    for(uint32_t j = 0; j < rSignalSemaphores.size(); j++)
+                    rSync.signalSemaphores.resize(rTask.signalSemaphoresIds.size()); 
+                    for(uint32_t j = 0; j < rSync.signalSemaphores.size(); j++)
                     {
                         if(rTask.signalSemaphoresIds[j] != UninitializedPoolId)
                         {
-                            rSignalSemaphores[j] = getSemaphore(rTask.signalSemaphoresIds[j]); 
+                            rSync.signalSemaphores[j] = getSemaphore(rTask.signalSemaphoresIds[j]); 
                         }
                     }
-                    
+
                     // Add secondary buffer support later on.
                     VkSubmitInfo submitInfo = {}; 
                     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-                    submitInfo.pCommandBuffers = &getCommandBuffer(rPassId.queueFamily, rPassId.cmdLifetime, rTask.cmdId);
-                    submitInfo.commandBufferCount = 1;  
-                    submitInfo.pWaitSemaphores = rWaitSemaphores.data(); 
-                    submitInfo.waitSemaphoreCount = static_cast<uint32_t>(rWaitSemaphores.size()); 
+                    submitInfo.pWaitSemaphores = rSync.waitSemaphores.data(); 
+                    submitInfo.waitSemaphoreCount = static_cast<uint32_t>(rSync.waitSemaphores.size()); 
                     submitInfo.pWaitDstStageMask = rTask.waitStages.data(); 
-                    submitInfo.pSignalSemaphores = rSignalSemaphores.data(); 
-                    submitInfo.signalSemaphoreCount = static_cast<uint32_t>(rSignalSemaphores.size());
+                    submitInfo.pSignalSemaphores = rSync.signalSemaphores.data(); 
+                    submitInfo.signalSemaphoreCount = static_cast<uint32_t>(rSync.signalSemaphores.size());
+                    submitInfo.pCommandBuffers = &getCommandBuffer(rPassId.queueFamily, rPassId.cmdLifetime, rTask.cmdIds[0]);
+                    submitInfo.commandBufferCount = 1; 
                     
                     rSubmissionBatch.submissions.emplace_back(submitInfo);
                 }
@@ -234,19 +239,34 @@ void PassesGraph::resolveDynamicSync()
         Pass& rPass = this->getPass(rPassId);
         if(rPass.enabled)
         { 
+            SubmissionBatch& rSubmissionBatch = this->submissionBatchesPerQueue[rPassId.queueFamily].get(rPass.submissionBatchId); 
             for(uint32_t i = 0; i < rPass.tasks.size(); i++)
             {
-            
-                SubmissionBatch& rSubmissionBatch = this->submissionBatchesPerQueue[rPassId.queueFamily].get(rPass.submissionBatchId); 
                 for(const auto& rDynamicWaitRef : rPass.tasks[i].dynamicWaitSemaphoreRefs)
                 {
-                    rSubmissionBatch.waitSemaphores[i][rDynamicWaitRef.id] = getSemaphore(rDynamicWaitRef.func());
+                    rSubmissionBatch.perSubmissionSync[i].waitSemaphores[rDynamicWaitRef.id] = getSemaphore(rDynamicWaitRef.func());
+                    // rSubmissionBatch.submissions[i].pWaitSemaphores[rDynamicWaitRef.id] = 
                 }
             
                 for(const auto& rDynamicSignalRef : rPass.tasks[i].dynamicSignalSemaphoreRefs)
                 {
-                    rSubmissionBatch.signalSemaphores[i][rDynamicSignalRef.id] = getSemaphore(rDynamicSignalRef.func());
+                    rSubmissionBatch.perSubmissionSync[i].signalSemaphores[rDynamicSignalRef.id] = getSemaphore(rDynamicSignalRef.func());
                 }
+            
+            }
+        }
+    }
+
+
+    for(uint8_t i = 0; i < 3; i++)
+    {
+        for(const auto& rPass: this->passesPerCmdType[FRAME].passesPerQueue[i])
+        {
+
+            SubmissionBatch& rSubmissionBatch = this->submissionBatchesPerQueue[i].get(rPass.submissionBatchId); 
+            for(const auto& rTask : rPass.tasks)
+            {
+                rSubmissionBatch.submissions[i].pCommandBuffers = &getCommandBuffer(i, FRAME, rTask.cmdIds[getCurrentFrameIndex()]);
             }
         }
     }
@@ -259,7 +279,7 @@ void PassesGraph::submitToGPU()
 		Pool<SubmissionBatch>& rSubmissionBatches = this->submissionBatchesPerQueue[i]; 
 		for(uint32_t j = 0; j < rSubmissionBatches.size(); j++)
 		{
-			VkFence signalFence = VK_NULL_HANDLE; 
+            VkFence signalFence = VK_NULL_HANDLE; 
 			if(rSubmissionBatches.objects[j].signalFenceId != UninitializedPoolId)
 			{
 				signalFence = getFence(rSubmissionBatches.objects[j].signalFenceId); 
@@ -270,7 +290,7 @@ void PassesGraph::submitToGPU()
 			{
 				for(const auto& rCmdBufferToDisable : rSubmissionBatches.objects[j].cmdBuffersToDisable)
 				{ 
-					CmdBuffersInPasses& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(i).commandBuffers; 
+					CmdBuffers& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(i).commandBuffers; 
                     rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rCmdBufferToDisable]); 
                     rCommandBuffers.buffersToEnabled[rCmdBufferToDisable] = UninitializedId; 
 				}

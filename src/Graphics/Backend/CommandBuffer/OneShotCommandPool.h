@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.h>
-#include "CmdBuffersInPasses.h"
+#include "CmdBuffers.h"
 #include "Utilities.h"
 
 namespace Graphics
@@ -13,7 +13,7 @@ struct OneShotCommandPool {
     VkCommandBufferLevel level;  // Primary - can only be run by queue. Secondary - can only be called in another command buffer(using vkCmdExecureCommands(cmBuffer)).
 	QueueFamilyEnum queueFamilyEnum; 
 
-    CmdBuffersInPasses commandBuffers; 
+    CmdBuffers commandBuffers; 
 
     void create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_);
 	void rerecordEnabledCmdBuffers();

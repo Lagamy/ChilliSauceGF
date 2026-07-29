@@ -1,5 +1,6 @@
 #pragma once 
 #include "PoolId.h"
+#include "SubmissionSync.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 
@@ -9,8 +10,7 @@ struct SubmissionBatch
 {
     bool oneShot; 
     std::vector<VkSubmitInfo> submissions;
-    std::vector<std::vector<VkSemaphore>> waitSemaphores;
-    std::vector<std::vector<VkSemaphore>> signalSemaphores;
+    std::vector<SubmissionSync> perSubmissionSync; 
     std::vector<uint32_t> cmdBuffersToDisable; 
     PoolId signalFenceId; 
 

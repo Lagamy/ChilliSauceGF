@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.h>
-#include "CmdBuffersInPasses.h"
+#include "CmdBuffers.h"
 #include "Utilities.h"
 #include "Fence.h"
 
@@ -14,7 +14,7 @@ struct FrameCommandPool {
     VkCommandBufferLevel level;  // Primary - can only be run by queue. Secondary - can only be called in another command buffer(using vkCmdExecureCommands(cmBuffer)).
 	QueueFamilyEnum queueFamilyEnum; 
 	
-	CmdBuffersInPasses commandBuffers;
+	CmdBuffers commandBuffers;
 	
     void create(VkCommandBufferLevel level_, QueueFamilyEnum queueFamilyEnum_);
 	void rerecordEnabledCmdBuffers();

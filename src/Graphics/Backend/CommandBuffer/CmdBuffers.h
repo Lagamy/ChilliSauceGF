@@ -5,7 +5,7 @@
 
 namespace Graphics
 {
-struct CmdBuffersInPasses { 
+struct CmdBuffers { 
 	std::vector<VkCommandBuffer> buffers;
 	std::vector<CmdBufferFunc> commandsToRecord; 
 	std::vector<uint32_t> buffersToEnabled; // mirrored 1:1 with buffers vector

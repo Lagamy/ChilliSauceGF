@@ -22,8 +22,9 @@ using CmdBufferFunc = std::function<void(VkCommandBuffer&)>;
 struct Task
 {
     std::string name; 
-    CmdBufferFunc cmdBufferFunc; 
-    uint32_t cmdId; 
+    CmdBufferFunc cmdBufferFunc;
+    std::vector<uint32_t> cmdIds; // TODO: make per frame tasks retrive cmds each frame  
+
     std::vector<PoolId> waitSemaphoresIds; 
     std::vector<VkPipelineStageFlags> waitStages; 
     std::vector<PoolId> signalSemaphoresIds;

@@ -122,6 +122,11 @@ namespace Graphics
 	}
 
 
+	uint32_t& getCurrentFrameIndex()
+	{
+		return Globals::renderer.currentFrame;
+	} 
+
 	FrameResources& getCurrentFrameResources()
 	{
 		return Globals::renderer.framesResources[Globals::renderer.currentFrame]; 
@@ -132,7 +137,7 @@ namespace Graphics
 		return getSwapchain().renderTargets[getCurrentImageIndex()];
 	}
 
-	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_)
+	VkCommandBuffer& getCommandBuffer(uint8_t queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_)
 	{
 			
 		if(poolType_ == FRAME)

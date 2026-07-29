@@ -31,7 +31,7 @@ namespace Graphics
 	VkQueue& getQueue(uint8_t id_); 
 	Shader& getShader(PoolId shaderId_); 
 	uint32_t getBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
-	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_); 
+	VkCommandBuffer& getCommandBuffer(uint8_t queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_); 
 	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_);
 	const UploadEntry& getUploadEntry(UploadId id_); 
 	bool isUploadInGPU(UploadId uploadId_);
@@ -42,6 +42,7 @@ namespace Graphics
 	Pass& getPass(PassId passId_);
 
 	uint32_t& getCurrentImageIndex();
+	uint32_t& getCurrentFrameIndex(); 
 	FrameResources& getCurrentFrameResources(); 
 	Image& getCurrentSwapchainImage(); 
 
