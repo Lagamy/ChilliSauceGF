@@ -63,6 +63,10 @@ void Renderer::draw()
 {
 	if(!Globals::resizing)
 	{
+		this->gpuSceneManager.syncLayouts(); 
+		this->gpuSceneManager.syncResources(); 
+		this->gpuSceneManager.syncPasses(); 
+		
 		this->memoryManager.checkUploadsStatus(); 
 		VkFence* pCurrentFrameAvailable = &getFence(this->framesResources[this->currentFrame].frameAvailableFenceId);
 		vkWaitForFences(this->mainDevice.logicalDevice, 1, pCurrentFrameAvailable, VK_TRUE, std::numeric_limits<uint64_t>::max()); // wait for frame available fence signal
