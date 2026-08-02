@@ -3,7 +3,7 @@
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
-namespace Graphics
+namespace Graphics 
 {
 struct TriangleVertexMemberIds 
 {
@@ -11,20 +11,20 @@ struct TriangleVertexMemberIds
 	PoolId colorId; 
 }; 
 
-struct Triangle { 
-	PoolId vertexShaderId; 
-	PoolId fragmentShaderId; 
-	PoolId vertexLayoutId; 
-	TriangleVertexMemberIds vertexMemberIds; 
+namespace Triangle { 
+	inline PoolId vertexShaderId; 
+	inline PoolId fragmentShaderId; 
+	inline PoolId vertexLayoutId; 
+	inline TriangleVertexMemberIds vertexMemberIds; 
 
-	PoolId meshId;
-	PoolId graphicsPipelineId; 
+	inline PoolId meshId;
+	inline PoolId graphicsPipelineId; 
 
 	void defineLayouts();
 	void defineResources(); 
 	void definePasses(); 
 	void recordCMDs(VkCommandBuffer& cmdBuffer_);
 	
-	Triangle();
+	void setGPUSceneToTriangle();
 }; 
 }

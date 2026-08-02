@@ -95,7 +95,7 @@ void Swapchain::create() {
 		name.clear(); 
 		// Add initialized images to swapchain rendertargets 
 		this->renderTargets[i].setImage(images[i]);
-		this->renderTargets[i].imageInUseSemaphoreFinishedId = addSemaphore(); 
+		this->renderTargets[i].imageUseFinishedSemaphoreId = addSemaphore(); 
 		this->renderTargets[i].addView("Swapchain", this->imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, 0);
 		name << "Swapchain Image " << i << " Use Finished";
 	}

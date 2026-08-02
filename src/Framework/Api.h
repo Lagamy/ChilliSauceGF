@@ -22,7 +22,7 @@ namespace Graphics
 	Device& getMainDevice(); 
 	Surface& getSurface();
 	Swapchain& getSwapchain();
-	GPUSceneManager& getGPUSceneManager();
+	GPUScene& getGPUSceneManager();
 	MemoryManager& getMemoryManager(); 
 	PassesGraph& getPassesManager(); 
 	
@@ -40,6 +40,10 @@ namespace Graphics
 	uint32_t getGPUBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);
 	uint32_t getUploadStartingByteInGPUHeap(UploadId id_);
 	Pass& getPass(PassId passId_);
+	PoolId getCurrentSwapchainImageUseFinishedSemaphore(); 
+	PoolId getCurrentFrameImageIsAcquiredSemaphore(); 
+	PoolId getCurrentFrameAvailableFence();
+
 
 	uint32_t& getCurrentImageIndex();
 	uint32_t& getCurrentFrameIndex(); 

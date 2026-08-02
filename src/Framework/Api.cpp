@@ -36,7 +36,7 @@ namespace Graphics
 		return Globals::renderer.swapchain; 
 	}
 	
-	GPUSceneManager& getGPUSceneManager()
+	GPUScene& getGPUSceneManager()
 	{
 		return Globals::renderer.gpuSceneManager;
 	}
@@ -101,6 +101,27 @@ namespace Graphics
 	{
 		const UploadEntry& rEntry = getUploadEntry(id_); 
 		return getGPUBufferOffset(STATIC, rEntry.bufferType) + rEntry.inBufferFirstByte; 
+	}
+
+
+	Pass& getPass(PassId passId_)
+	{
+		return Globals::renderer.passesGraph.getPass(passId_);
+	}
+
+	PoolId getCurrentSwapchainImageUseFinishedSemaphore()
+	{
+		return getCurrentSwapchainImage().imageUseFinishedSemaphoreId;
+	} 
+
+	PoolId getCurrentFrameImageIsAcquiredSemaphore()
+	{
+		return getCurrentFrameResources().imageAcquiredSemaphoreId;
+	} 
+
+	PoolId getCurrentFrameAvailableFence()
+	{
+		return getCurrentFrameResources().frameAvailableFenceId;
 	}
 
 	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_)
@@ -384,7 +405,7 @@ namespace Graphics
 
 	void presentToScreen()
 	{
-		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getCurrentSwapchainImage().imageInUseSemaphoreFinishedId);
+		VkSemaphore* pImageUseFinishedSemaphore = &getSemaphore(getCurrentSwapchainImage().imageUseFinishedSemaphoreId);
 		// Present Frame 
 		VkPresentInfoKHR presentInfo = {}; 
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; 

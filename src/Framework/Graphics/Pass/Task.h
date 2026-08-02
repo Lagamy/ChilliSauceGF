@@ -11,7 +11,8 @@
 
 namespace Graphics
 {
-using CmdBufferFunc = std::function<void(VkCommandBuffer&)>;
+using CmdBufferFunc = void (*)(VkCommandBuffer&);
+
 struct Task
 {
     std::string name; 

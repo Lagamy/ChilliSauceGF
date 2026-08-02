@@ -6,7 +6,7 @@
   # set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 # endif()
 
-project("PBRVulkanDemo")
+project("ChilliSauceFramework")
 
 # Generate compile_commands.json for clangd
 set(CMAKE_CXX_STANDARD 20)
@@ -35,54 +35,53 @@ find_package(Vulkan REQUIRED)
 
 
 # Add source to this project's executable.
-add_executable(PBRVulkanDemo
+add_executable(ChilliSauceFramework
 	# Core 
-	"src/main.cpp" "src/Core.cpp" "src/Utilities.cpp" "src/Api.cpp" 
+	"src/Demo/main.cpp" "src/Framework/Core.cpp" "src/Framework/Utilities.cpp" "src/Framework/Api.cpp" 
 
 	# Managers
 	# "src/Core/Managers/AssetsManager.cpp"
 	# "src/Core/Managers/InputManager.cpp" 
 
 	# Graphics
-	"src/Graphics/FrameResources.cpp" "src/Graphics/Backend/Base/Shader.cpp"
-	"src/Graphics/Backend/Base/Device.cpp" "src/Graphics/Backend/Base/Instance.cpp" 
-   	"src/Graphics/Backend/Base/Swapchain.cpp" "src/Graphics/Renderer.cpp"	
-	"src/Graphics/Backend/Base/Surface.cpp" "src/Graphics/Backend/Image/Image.cpp"
-	"src/Graphics/Backend/Base/MemoryBlock.cpp" "src/Graphics/Backend/Base/Buffer.cpp" 
-	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/Backend/Base/Framebuffer.cpp"
+	"src/Framework/Graphics/FrameResources.cpp" "src/Framework/Graphics/Backend/Base/Shader.cpp"
+	"src/Framework/Graphics/Backend/Base/Device.cpp" "src/Framework/Graphics/Backend/Base/Instance.cpp" 
+   	"src/Framework/Graphics/Backend/Base/Swapchain.cpp" "src/Framework/Graphics/Renderer.cpp"	
+	"src/Framework/Graphics/Backend/Base/Surface.cpp" "src/Framework/Graphics/Backend/Image/Image.cpp"
+	"src/Framework/Graphics/Backend/Base/MemoryBlock.cpp" "src/Framework/Graphics/Backend/Base/Buffer.cpp" 
+	"src/Framework/Graphics/Backend/Base/RenderPass.cpp" "src/Framework/Graphics/Backend/Base/Framebuffer.cpp"
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
-	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" 
-	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.cpp" "src/Graphics/GPUSceneManager.cpp" 
-	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
-	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
+	"src/Framework/Graphics/Backend/Base/SubPass.cpp"	"src/Framework/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" 
+	"src/Framework/Graphics/Backend/CommandBuffer/OneShotCommandPool.cpp" "src/Framework/Graphics/GPUScene.cpp" 
+	"src/Framework/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Framework/Graphics/Backend/Base/PipelineLayout.cpp" 
+	"src/Framework/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Framework/Graphics/Backend/Synchronisation/Fence.cpp" 	
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" 
-	"src/Graphics/MemoryManagment/GPUHeap.cpp" "src/Graphics/SyncManager.cpp"
-	"src/Graphics/MemoryManagment/StagingHeap.cpp" "src/Graphics/MemoryManagment/StaticAllocator.cpp"
-	"src/Graphics/FrameResources.cpp" "src/Graphics/MemoryManager.cpp" "src/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
-	"src/Graphics/ShadersManager.cpp" "src/Graphics/Resources/Mesh.cpp" "src/Graphics/Pass/Task.cpp" "src/Graphics/Pass/Pass.cpp"
-	"src/Graphics/PassesGraph.cpp" "src/Graphics/PipelinesManager.cpp" "src/Graphics/Pass/SubmissionBatch.cpp"
+	"src/Framework/Graphics/MemoryManagment/GPUHeap.cpp" "src/Framework/Graphics/SyncManager.cpp"
+	"src/Framework/Graphics/MemoryManagment/StagingHeap.cpp" "src/Framework/Graphics/MemoryManagment/StaticAllocator.cpp"
+	"src/Framework/Graphics/FrameResources.cpp" "src/Framework/Graphics/MemoryManager.cpp" "src/Framework/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
+	"src/Framework/Graphics/ShadersManager.cpp" "src/Framework/Graphics/Resources/Mesh.cpp" "src/Framework/Graphics/Pass/Task.cpp" "src/Framework/Graphics/Pass/Pass.cpp"
+	"src/Framework/Graphics/PassesGraph.cpp" "src/Framework/Graphics/PipelinesManager.cpp" "src/Framework/Graphics/Pass/SubmissionBatch.cpp"
 
 	# Demos
-	"src/Demos/Triangle.cpp"
+	"src/Demo/Triangle.cpp"
 
 	# Misc 
-	"src/Misc/Bool.cpp"
+	"src/Framework/Misc/Bool.cpp"
 
 	# Reflection 
-	"src/Graphics/Reflection/Layout.cpp" "src/Graphics/Reflection/MemberBlueprint.cpp"
+	"src/Framework/Graphics/Reflection/Layout.cpp" "src/Framework/Graphics/Reflection/MemberBlueprint.cpp"
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(FRAMEWORK_DIR "${SRC_DIR}/Framework")
+set(DEMO_DIR "${SRC_DIR}/Demo")
 
-set(CORE_DIR "${SRC_DIR}/Core")
-set(GRAPHICS_DIR "${SRC_DIR}/Graphics")
-set(MISC_DIR "${SRC_DIR}/Misc")
-set(DEMOS_DIR "${SRC_DIR}/Demos")
+set(GRAPHICS_DIR "${FRAMEWORK_DIR}/Graphics")
+set(MISC_DIR "${FRAMEWORK_DIR}/Misc")
 
 # Core
 # set(ASSETS_DIR "${CORE_DIR}/Assets")
-set(MANAGERS_DIR "${CORE_DIR}/Managers")
-
+set(MANAGERS_DIR "${DEMO_DIR}/Managers")
 
 # Graphics
 set(RESOURCES_DIR "${GRAPHICS_DIR}/Resources")
@@ -100,16 +99,16 @@ set(MEMORY_MANAGMENT_DIR "${GRAPHICS_DIR}/MemoryManagment")
 set(REFLECTION_DIR "${GRAPHICS_DIR}/Reflection")
 
 # Link dependencies
-target_link_libraries(PBRVulkanDemo
+target_link_libraries(ChilliSauceFramework
     PUBLIC glfw3
     PUBLIC Vulkan::Vulkan
     PUBLIC glm
 )
 
-target_include_directories(PBRVulkanDemo PRIVATE 
+target_include_directories(ChilliSauceFramework PRIVATE 
 	# Src
-	${SRC_DIR} ${CORE_DIR} ${GRAPHICS_DIR}
-	${MISC_DIR} ${TEST_DIR}
+	${SRC_DIR} ${FRAMEWORK_DIR} ${DEMO_DIR}
+	${GRAPHICS_DIR} ${MISC_DIR} ${TEST_DIR}
 
 	# Core
 	# ${ASSETS_DIR} 
@@ -128,17 +127,10 @@ target_include_directories(PBRVulkanDemo PRIVATE
 )
 
 # Put the executable into /bin
-set_target_properties(PBRVulkanDemo PROPERTIES
+set_target_properties(ChilliSauceFramework PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-# Create a folder with Media
-# add_custom_command(TARGET PBRVulkanDemo POST_BUILD
-  # COMMAND ${CMAKE_COMMAND} -E copy_directory
-  # "${CMAKE_SOURCE_DIR}/Assets"
-  # "${RUNTIME_OUTPUT_DIRECTORY}/Assets"
-# )
-
-target_compile_definitions(PBRVulkanDemo PRIVATE
+target_compile_definitions(ChilliSauceFramework PRIVATE
 	$<$<CONFIG:Debug>:ENGINE_DEBUG>
 )

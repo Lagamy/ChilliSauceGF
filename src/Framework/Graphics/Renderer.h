@@ -1,6 +1,6 @@
 #pragma once 
 #include "MemoryManager.h"
-#include "GPUSceneManager.h"
+#include "GPUScene.h"
 #include "PipelinesManager.h"
 #include "PassesGraph.h"
 #include "Pool.h"
@@ -44,7 +44,7 @@ struct Renderer {
 	RenderPass presentationRenderPass;
 	Pool<RenderPass> renderPasses = ("RenderPasses"); 
 
-	GPUSceneManager gpuSceneManager;
+	GPUScene gpuSceneManager;
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
 	CmdPoolsPack<OneShotCommandPool> oneShotCommandPools; 
 

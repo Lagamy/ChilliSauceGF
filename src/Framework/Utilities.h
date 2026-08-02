@@ -21,6 +21,7 @@
 //#include "DescriptorSetLayout.h"
 inline const uint32_t UninitializedId = std::numeric_limits<uint32_t>::max(); 
 inline const PoolId UninitializedPoolId = PoolId{UninitializedId, UninitializedId};
+inline void EmptyFunction(){}
 namespace Graphics
 {
 	enum QueueFamilyEnum : uint8_t
@@ -68,7 +69,7 @@ namespace Graphics
 
 	inline const uint8_t BufferTypesCount = 2; 
 
-	using SyncRetrivalFunc = std::function<PoolId()>;
+	using SyncRetrivalFunc = PoolId(*)();
 	struct DynamicSemaphoreRef
 	{
     	SyncRetrivalFunc func; 

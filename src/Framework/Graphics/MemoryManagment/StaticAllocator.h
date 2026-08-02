@@ -10,9 +10,8 @@
 
 namespace Graphics
 {
-
+void staticUploadCMDs(VkCommandBuffer& cmdBuffer_);
 // Forward decloration 
-
 struct StaticAllocator { 
 	std::array<std::vector<UploadEntry>, BufferTypesCount> uploadEntriesGroups;
 	StagingHeap stagingHeap; 
@@ -25,7 +24,6 @@ struct StaticAllocator {
 	bool uploadsInGPU = false; 
 
 	void create(); 
-	void recordCMDs(VkCommandBuffer& cmdBuffer_);
 	void submitUploads();
 	void checkUploadsStatus();
 

@@ -1,9 +1,9 @@
-#include "GPUSceneManager.h"
+#include "GPUScene.h"
 #include "Utilities.h"
 
 namespace Graphics
 {
-void GPUSceneManager::changeGPUScene(gpuSceneFunc defineLayouts_, gpuSceneFunc defineResources_, gpuSceneFunc definePasses_, gpuSceneFunc syncLayouts_, gpuSceneFunc syncResources_, gpuSceneFunc syncPasses_, gpuSceneFunc destroy_)
+void GPUScene::changeGPUScene(gpuSceneFunc defineLayouts_, gpuSceneFunc defineResources_, gpuSceneFunc definePasses_, gpuSceneFunc syncLayouts_, gpuSceneFunc syncResources_, gpuSceneFunc syncPasses_, gpuSceneFunc destroy_)
 {
 	this->destroy(); 
 	

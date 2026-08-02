@@ -89,7 +89,7 @@ void Image::init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D ext
 	metadata.flags = flags_;
 	metadata.tiling = cpuBitmapEdits_ ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL; // VK_IMAGE_TILING_OPTIMAL = GPU driver chooses best memory layout for GPU side performance. 
 	metadata.usage = usageFlags_ /* | additionalUsageFlags_ */;
-	this->imageInUseSemaphoreFinishedId = addSemaphore(); 
+	this->imageUseFinishedSemaphoreId = addSemaphore(); 
 	this->initialized = true; 
 }
 

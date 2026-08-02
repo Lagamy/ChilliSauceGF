@@ -38,7 +38,7 @@ struct Image {
 	std::vector<std::string> viewNames; 
 	std::vector<VkImageView> viewHandles; 
 	std::vector<VkImageViewCreateInfo> viewMetadatas; 
-	PoolId imageInUseSemaphoreFinishedId; 
+	PoolId imageUseFinishedSemaphoreId; 
 
 	void init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_);
 	void setImage(VkImage& srcImage_); // Needed for swapchain(We dont create images there - we borrow them from swapchain itself)  

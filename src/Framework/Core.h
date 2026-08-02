@@ -1,10 +1,8 @@
 #pragma once 
 #include "Globals.h"
 #include "Api.h"
-#include "Triangle.h"
 
 struct Core {
-	Graphics::Triangle triangle; 
 	void setup(); 
 	void shutdown(); 
 	void loadProject(const char* path_);
