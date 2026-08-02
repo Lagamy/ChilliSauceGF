@@ -8,7 +8,7 @@ namespace Graphics
 	Triangle::Triangle()
 	{
 		GPUSceneManager& rGPUSceneManager = getGPUSceneManager(); 
-		rGPUSceneManager.changeGPUScene([this]{ this->defineLayouts(); }, [this] {this->defineResources(); }, [this]{this->definePasses();}, []{}, []{}, []{}); 
+		rGPUSceneManager.changeGPUScene([this]{ this->defineLayouts(); }, [this] {this->defineResources(); }, [this]{this->definePasses();}, []{}, []{}, []{}, []{}); 
 	}
 
 	void Triangle::defineLayouts()
