@@ -1,8 +1,6 @@
 #pragma once
 #include <vector>
-#include "SubmissionBatch.h"
 #include "Pass.h"
-#include "SubmissionBatch.h"
 
 // Im not using Pools here, due to Passes being not dynamically changable by design(can change) 
 namespace Graphics

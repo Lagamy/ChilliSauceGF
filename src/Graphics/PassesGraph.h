@@ -12,14 +12,10 @@ namespace Graphics
 struct PassesGraph 
 {
     std::array<PassesPack, 2> passesPerCmdType; 
-	std::array<Pool<SubmissionBatch>, 3> submissionBatchesPerQueue = { ("Graphics Submission Batches"), ("Transfer Submission Batches"), ("Compute Submission Batches")}; // Derives 1 time from passes, after all of them were declared 
+	std::vector<SubmissionBatch> submissionBatches;
     std::vector<PassId> passesOrder;
     
-    std::vector<PassId> passesWithDynamicFence;
-    std::vector<PassId> passesWithDynamicTasks;  
-
     bool orderDirty = false; 
-
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_);
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_);
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc singalFenceFunc_);
@@ -35,10 +31,8 @@ struct PassesGraph
     void disableFramePass(PassId passId_); // Since oneshot - self disables
 
     void compileIfDirty();
-    void resolveCmdBuffers(PassId passId_);
-    void resolveCmdsForFramePasses(); 
-    void resolveDynamicSync(); 
+    void resolveDynamicSync(SubmissionBatch& rSubmissionBatch_, SubmissionMetadata& rMetadata); 
 
-    void submitToGPU();     
+    void resolveSync_SubmitToGPU();     
 };
 }

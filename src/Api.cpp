@@ -36,9 +36,9 @@ namespace Graphics
 		return Globals::renderer.swapchain; 
 	}
 	
-	DemoManager& getDemoManager()
+	GPUSceneManager& getGPUSceneManager()
 	{
-		return Globals::renderer.demoManager;
+		return Globals::renderer.gpuSceneManager;
 	}
 
 	MemoryManager& getMemoryManager()
@@ -137,7 +137,7 @@ namespace Graphics
 		return getSwapchain().renderTargets[getCurrentImageIndex()];
 	}
 
-	VkCommandBuffer& getCommandBuffer(uint8_t queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_)
+	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_)
 	{
 			
 		if(poolType_ == FRAME)
@@ -270,7 +270,7 @@ namespace Graphics
 
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc signalFenceRetrivalFunc_)
 	{
-		return Globals::renderer.passesGraph.addPass(name_, cmdType_, queueFamily_);
+		return Globals::renderer.passesGraph.addPass(name_, cmdType_, queueFamily_, signalFenceRetrivalFunc_);
 	} 
 
     uint32_t addTaskToPass(PassId passId_, const char* name_, CmdBufferFunc cmdBufferFunc_)

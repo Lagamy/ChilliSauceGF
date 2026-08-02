@@ -28,6 +28,7 @@ struct Pool {
 	std::vector<std::string> names;
 	std::unordered_map<std::string, PoolId> nameToId;
 	std::string name;
+	uint32_t elementCount; 
 
 	Pool(const char* name_) : name(name_){};
 	void isPoolIdValid(PoolId pId_)
@@ -77,11 +78,15 @@ struct Pool {
 			this->alive[id.id] = true; 
         }
 		nameToId.emplace(name_, id);
+		this->elementCount++;
         return id;
     }
 
 	void remove(PoolId pId_) {
-		this->isPoolIdValid(pId_);
+
+		#ifdef ENGINE_DEBUG
+			this->isPoolIdValid(pId_);
+		#endif
 		this->generation[pId_.id]++; 
 		if constexpr (requires { T::destroy(nullptr); })
         {
@@ -90,7 +95,8 @@ struct Pool {
 		this->freeSlots.emplace_back(pId_.id);
 		this->nameToId.erase(this->names[pId_.id]);
 		this->names[pId_.id] = ""; 
-		this->alive[pId_.id] = false; 
+		this->alive[pId_.id] = false;
+		this->elementCount--;  
 	}
 
 	
@@ -115,6 +121,7 @@ struct Pool {
 		{
 			this->removeInternal(i); 
 		}
+		this->elementCount = 0; 
 	}
 
 	T& getInternal(uint32_t id_)
@@ -124,29 +131,37 @@ struct Pool {
 	
 	T& get(PoolId pId_)
 	{
-		this->isPoolIdValid(pId_); 
+
+		#ifdef ENGINE_DEBUG
+			this->isPoolIdValid(pId_); 
+		#endif
 		return this->objects[pId_.id];
 	}
 
 	T& back()
 	{
-		if(this->objects.empty())
-		{
-			std::stringstream errorMessageStream; 
-			errorMessageStream << this->name << ": Can't use back() on empty Pool."; 
-			throw std::runtime_error(errorMessageStream.str());
-		}
-
-		uint32_t id = this->size() - 1;
-		while(!this->alive[id])
-		{
-			if(id == 0)
+		
+		#ifdef ENGINE_DEBUG
+			if(this->objects.empty())
 			{
 				std::stringstream errorMessageStream; 
 				errorMessageStream << this->name << ": Can't use back() on empty Pool."; 
 				throw std::runtime_error(errorMessageStream.str());
 			}
-			id--; 
+		#endif
+
+		uint32_t id = this->allocatedSize() - 1;
+		while(!this->alive[id])
+		{
+			#ifdef ENGINE_DEBUG
+				if(id == 0)
+				{
+					std::stringstream errorMessageStream; 
+					errorMessageStream << this->name << ": Can't use back() on empty Pool."; 
+					throw std::runtime_error(errorMessageStream.str());
+				}
+				id--;
+			#endif 
 		}
 		return this->objects[id]; 
 	}
@@ -154,18 +169,24 @@ struct Pool {
 	PoolId getIdByName(const char* name_)
 	{
 		const auto& iterator = this->nameToId.find(name_);
-		if (iterator == this->nameToId.end()) // doesn't exist 
-		{
-			std::stringstream errorMessageStream;
-			errorMessageStream << name << " Pool: no object with name " << name_ << " was found.\n";
-			throw std::runtime_error(errorMessageStream.str());
-		}
+		
+		#ifdef ENGINE_DEBUG
+			if (iterator == this->nameToId.end()) // doesn't exist 
+			{
+				std::stringstream errorMessageStream;
+				errorMessageStream << name << " Pool: no object with name " << name_ << " was found.\n";
+				throw std::runtime_error(errorMessageStream.str());
+			}
+		#endif
 		return iterator->second;
 	}
 
 	std::string& getName(PoolId pId_)
 	{
-		this->isPoolIdValid(pId_);
+		
+		#ifdef ENGINE_DEBUG
+			this->isPoolIdValid(pId_);
+		#endif
 		return this->names[pId_.id]; 
 	}
 
@@ -174,15 +195,21 @@ struct Pool {
 		return this->objects.data();
 	}
 
-	const size_t size()
+	const uint32_t size()
+	{
+		return this->elementCount;
+	}
+
+	const size_t allocatedSize()
 	{
 		return this->objects.size();
 	}
 
-	const size_t sizeInBytes()
+	const size_t allocatedSizeInBytes()
 	{
 		return this->objects.size() * sizeof(T);
 	}
+
 };
 
 

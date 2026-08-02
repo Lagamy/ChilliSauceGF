@@ -5,7 +5,7 @@ namespace Graphics
 PoolId ReflectionLayout::addMemberBlueprint(const char* name_, DataTypeEnum dataType_)
 {
     PoolId id;
-    if(this->memberBlueprints.size() == 0)
+    if(this->memberBlueprints.allocatedSize() == 0)
     {
         id = this->memberBlueprints.add(name_, dataType_, 0);  
     }

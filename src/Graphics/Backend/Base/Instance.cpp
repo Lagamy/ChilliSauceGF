@@ -42,7 +42,7 @@ void Instance::setup() {
 	
 	/* Validation layers setup */
 	// Check if Debug or Release build(Enables Validation layers if Debug)
-	#ifdef DEMO_DEBUG
+	#ifdef ENGINE_DEBUG
 		this->validationLayers.debugMessenger.init(); 
 		for(const char* extension : this->validationLayers.extensions)
 		{

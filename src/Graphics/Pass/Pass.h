@@ -11,8 +11,9 @@ struct Pass
     std::string name;
     std::vector<Task> tasks;
     PoolId signalFenceId = UninitializedPoolId;
-    SyncRetrivalFunc dynamicSignalFenceFunc; 
-    PoolId submissionBatchId;
+    SyncRetrivalFunc dynamicSignalFenceFunc;
+    bool dynamicSignalFence = false;  
+    uint32_t submissionBatchId;
     bool enabled = false;
 
 

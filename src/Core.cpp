@@ -6,6 +6,7 @@
 void Core::setup()
 {
 	this->buildWindow();
+	
 	Globals::renderer.setup(); // Sets up instance, chooses device, created swapchain.  	
 }
 

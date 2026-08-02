@@ -11,13 +11,6 @@
 
 namespace Graphics
 {
-using SyncRetrivalFunc = std::function<PoolId()>;
-struct DynamicSemaphoreRef
-{
-    SyncRetrivalFunc func; 
-    uint32_t id; 
-};
- 
 using CmdBufferFunc = std::function<void(VkCommandBuffer&)>;
 struct Task
 {

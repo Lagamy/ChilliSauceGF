@@ -52,7 +52,7 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/Backend/Base/RenderPass.cpp" "src/Graphics/Backend/Base/Framebuffer.cpp"
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
 	"src/Graphics/Backend/Base/SubPass.cpp"	"src/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" 
-	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.cpp" "src/Graphics/DemoManager.cpp" 
+	"src/Graphics/Backend/CommandBuffer/OneShotCommandPool.cpp" "src/Graphics/GPUSceneManager.cpp" 
 	"src/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Graphics/Backend/Synchronisation/Fence.cpp" 	
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" 
@@ -60,7 +60,7 @@ add_executable(PBRVulkanDemo
 	"src/Graphics/MemoryManagment/StagingHeap.cpp" "src/Graphics/MemoryManagment/StaticAllocator.cpp"
 	"src/Graphics/FrameResources.cpp" "src/Graphics/MemoryManager.cpp" "src/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
 	"src/Graphics/ShadersManager.cpp" "src/Graphics/Resources/Mesh.cpp" "src/Graphics/Pass/Task.cpp" "src/Graphics/Pass/Pass.cpp"
-	"src/Graphics/PassesGraph.cpp" "src/Graphics/PipelinesManager.cpp"
+	"src/Graphics/PassesGraph.cpp" "src/Graphics/PipelinesManager.cpp" "src/Graphics/Pass/SubmissionBatch.cpp"
 
 	# Demos
 	"src/Demos/Triangle.cpp"
@@ -140,5 +140,5 @@ set_target_properties(PBRVulkanDemo PROPERTIES
 # )
 
 target_compile_definitions(PBRVulkanDemo PRIVATE
-	$<$<CONFIG:Debug>:DEMO_DEBUG>
+	$<$<CONFIG:Debug>:ENGINE_DEBUG>
 )

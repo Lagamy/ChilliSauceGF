@@ -68,6 +68,13 @@ namespace Graphics
 
 	inline const uint8_t BufferTypesCount = 2; 
 
+	using SyncRetrivalFunc = std::function<PoolId()>;
+	struct DynamicSemaphoreRef
+	{
+    	SyncRetrivalFunc func; 
+    	uint32_t id; 
+	};
+ 
 	/* Helper structs */
 
 	struct SwapchainDetails {

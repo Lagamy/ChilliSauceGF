@@ -1,19 +1,36 @@
 #pragma once 
 #include "PoolId.h"
-#include "SubmissionSync.h"
+#include "SubmissionMetadata.h"
+#include "Utilities.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 
 namespace Graphics 
 {
+
+// struct SubmissionId 
+// {
+//     CmdLifetimeEnum lifetime; 
+//     uint32_t id; 
+// };
+
 struct SubmissionBatch
 {
-    bool oneShot; 
-    std::vector<VkSubmitInfo> submissions;
-    std::vector<SubmissionSync> perSubmissionSync; 
+    std::string name; 
+    bool oneShot;
+    QueueFamilyEnum queueFamily; 
+    std::vector<SubmissionMetadata> perSubmissionMetadata; 
+    std::vector<VkSubmitInfo> submitInfos; 
+    
     std::vector<uint32_t> cmdBuffersToDisable; 
-    PoolId signalFenceId; 
+    SyncRetrivalFunc dynamicSignalFenceFunc; 
+    PoolId signalFenceId = UninitializedPoolId; 
+    bool dynamicSignalFence = false; 
 
-    SubmissionBatch(bool oneShot_, PoolId signalFenceId_) : oneShot(oneShot_), signalFenceId(signalFenceId_) {};
+    SubmissionBatch(std::string& name_, bool oneShot_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_);
+    SubmissionBatch(std::string& name_, bool oneShot_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc signalRetrivalFunc_);
+    
+    
+    ~SubmissionBatch() {}; 
 };
 }

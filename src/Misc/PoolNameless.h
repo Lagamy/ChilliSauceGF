@@ -18,6 +18,7 @@ struct PoolNameless {
 	std::vector<uint32_t> generation; 
 	std::vector<uint32_t> freeSlots;	
 	std::string name;
+	uint32_t elementCount; 
 
 	PoolNameless(const char* name_) : name(name_){};
 	void isPoolIdValid(PoolId pId_)
@@ -64,6 +65,7 @@ struct PoolNameless {
             id.generation = generation[id.id];
 			this->alive[id.id] = true; 
         }
+		this->elementCount++; 
         return id;
     }
 
@@ -76,6 +78,7 @@ struct PoolNameless {
 		}
 		this->freeSlots.emplace_back(pId_.id);
 		this->alive[pId_.id] = false; 
+		this->elementCount--; 
 	}
 
 	
@@ -98,6 +101,7 @@ struct PoolNameless {
 		{
 			this->removeInternal(i); 
 		}
+		this->elementCount = 0; 
 	}
 
 	T& getInternal(uint32_t id_)
@@ -120,7 +124,7 @@ struct PoolNameless {
 			throw std::runtime_error(errorMessageStream.str());
 		}
 
-		uint32_t id = this->size() - 1;
+		uint32_t id = this->allocatedSize() - 1;
 		while(!this->alive[id])
 		{
 			if(id == 0)
@@ -139,7 +143,12 @@ struct PoolNameless {
 		return this->objects.data();
 	}
 
-	const size_t size()
+	const uint32_t size()
+	{
+		return this->elementCount; 
+	}
+
+	const size_t allocatedSize()
 	{
 		return this->objects.size();
 	}

@@ -18,14 +18,14 @@ void Task::addSignalSemaphore(PoolId signalSemaphoreId_)
 
 void Task::addDynamicWaitSemaphore(SyncRetrivalFunc semaphoreRetrivalFunc_, VkPipelineStageFlags pipelineStage_)
 {
+    this->dynamicWaitSemaphoreRefs.emplace_back(semaphoreRetrivalFunc_, this->waitSemaphoresIds.size()); 
     this->waitSemaphoresIds.emplace_back(UninitializedPoolId); 
     this->waitStages.emplace_back(pipelineStage_); 
-    this->dynamicWaitSemaphoreRefs.emplace_back(semaphoreRetrivalFunc_, this->waitSemaphoresIds.size() - 1); 
 }
 
 void Task::addDynammicSignalSemaphore(SyncRetrivalFunc semaphoreRetrivalFunc_)
 {
+    this->dynamicSignalSemaphoreRefs.emplace_back(semaphoreRetrivalFunc_, this->signalSemaphoresIds.size());
     this->signalSemaphoresIds.emplace_back(UninitializedPoolId); 
-    this->dynamicSignalSemaphoreRefs.emplace_back(semaphoreRetrivalFunc_, this->signalSemaphoresIds.size() - 1);
 }
 }

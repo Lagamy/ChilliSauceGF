@@ -40,9 +40,13 @@ void Renderer::setup()
 	this->presentationRenderPass.create();
 	this->swapchain.createFramebuffers(this->presentationRenderPass);
 
-	// Demo setup 
-	this->demoManager.defineDemo();
-
+	// GPU Scene Description setup 
+	if(this->gpuSceneManager.changed)
+	{
+		this->gpuSceneManager.defineLayouts();
+		this->gpuSceneManager.defineResources(); 
+		this->gpuSceneManager.definePasses();
+	} 
 	// Send static uploads to the GPU
 	this->memoryManager.staticAllocator.allocateAndUpload();
 
@@ -75,10 +79,8 @@ void Renderer::draw()
 	
 		// Compile passesGraph 
 		this->passesGraph.compileIfDirty(); 
-		// Resolve dynamic sync
-		this->passesGraph.resolveDynamicSync();
-		// Submit graph to queues
-		this->passesGraph.submitToGPU();
+		// Resolve dynamic sync and Submit graph to queues
+ 		this->passesGraph.resolveSync_SubmitToGPU();
 		
 		presentToScreen(); 
 		this->currentFrame = (this->currentFrame + 1) % this->framesAtFlightCount; 

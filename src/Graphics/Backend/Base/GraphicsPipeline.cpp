@@ -40,7 +40,7 @@ void GraphicsPipeline::create()
 
 	// How attribute is defined within Vertex 
 	std::vector<VkVertexInputAttributeDescription> attributesDescriptions;
-	attributesDescriptions.resize(rVerticeLayout.memberBlueprints.size());
+	attributesDescriptions.resize(rVerticeLayout.memberBlueprints.allocatedSize());
 	
 	for(uint32_t i = 0; i < attributesDescriptions.size(); i++)
 	{
