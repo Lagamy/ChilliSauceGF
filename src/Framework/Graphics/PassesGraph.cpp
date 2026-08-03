@@ -89,7 +89,7 @@ void PassesGraph::enablePass(PassId passId_)
     if(!rPass.enabled)
     {
         rPass.submissionBatchId = this->submissionBatches.size(); 
-        this->submissionBatches.emplace_back(rPass.name, static_cast<bool>(passId_.cmdLifetime), passId_.queueFamily, rPass.signalFenceId); 
+        this->submissionBatches.emplace_back(rPass.name, passId_.cmdLifetime, passId_.queueFamily, rPass.signalFenceId); 
         SubmissionBatch& rSubmissionBatch = this->submissionBatches.back();
 
         for(const auto& rTask : rPass.tasks)
@@ -115,9 +115,10 @@ void PassesGraph::enablePass(PassId passId_)
                 }
             }
         }
+        this->enabledPassesCount++;
+        rPass.enabled = true;
+        this->orderDirty = true; 
     }
-    rPass.enabled = true;
-    this->orderDirty = true; 
 } 
 
 void PassesGraph::disableFramePass(PassId passId_)
@@ -147,42 +148,44 @@ void PassesGraph::disableFramePass(PassId passId_)
                     }
                 }
             }
+            this->enabledPassesCount++;
+            this->orderDirty = true; 
         }
     }
-    this->orderDirty = true; 
 }
 
 void PassesGraph::compileIfDirty()
 {
     if(this->orderDirty)
     {
-        this->submissionBatches.clear(); 
+        this->submissionBatches.clear();
+        this->submissionBatches.reserve(this->enabledPassesCount);
         for(const auto& rPassId : this->passesOrder)
         {
             Pass& rPass = getPass(rPassId);
             if(rPass.enabled)
             {
-                this->submissionBatches.emplace_back(rPass.name, static_cast<bool>(rPassId.cmdLifetime), rPassId.queueFamily, rPass.signalFenceId);  
-                SubmissionBatch& rSubmissionBatch = this->submissionBatches.back(); 
+                this->submissionBatches.emplace_back(rPass.name, rPassId.cmdLifetime, rPassId.queueFamily, rPass.signalFenceId);  
+                SubmissionBatch& rBatch = this->submissionBatches.back(); 
                 
                 if(rPass.dynamicSignalFence)
                 {
-                    rSubmissionBatch.dynamicSignalFence = true; 
-                    rSubmissionBatch.dynamicSignalFenceFunc = rPass.dynamicSignalFenceFunc;     
+                    rBatch.dynamicSignalFence = true; 
+                    rBatch.dynamicSignalFenceFunc = rPass.dynamicSignalFenceFunc;
                 }
                 else
                 {
-                    rSubmissionBatch.signalFenceId = rPass.signalFenceId; 
+                    rBatch.signalFenceId = rPass.signalFenceId; 
                 }
 
-                rSubmissionBatch.perSubmissionMetadata.reserve(rPass.tasks.size());
+                rBatch.perSubmissionMetadata.reserve(rPass.tasks.size());
 
                 for(const auto& rTask : rPass.tasks)
                 {
                     // Add submission
                     // Add secondary buffer support later on.
-                    rSubmissionBatch.perSubmissionMetadata.emplace_back(); 
-                    SubmissionMetadata& rMetadata = rSubmissionBatch.perSubmissionMetadata.back(); 
+                    rBatch.perSubmissionMetadata.emplace_back(); 
+                    SubmissionMetadata& rMetadata = rBatch.perSubmissionMetadata.back(); 
 
                     // Retrieving Semaphores 
                     rMetadata.waitSemaphores.resize(rTask.waitSemaphoresIds.size());
@@ -207,17 +210,26 @@ void PassesGraph::compileIfDirty()
                     // Set dynamic Semaphores Refs  
                     rMetadata.dynamicWaitSemRefs = rTask.dynamicWaitSemaphoreRefs; 
                     rMetadata.dynamicSignalSemRefs = rTask.dynamicSignalSemaphoreRefs; 
+                    
+                    if(!rMetadata.dynamicSignalSemRefs.empty() || rMetadata.dynamicSignalSemRefs.empty())
+                    {
+                        rBatch.submissionsWithDynamicSync.emplace_back(rBatch.perSubmissionMetadata.size() - 1);
+                    }
 
                     // Set cmd ids 
                     rMetadata.cmdIds = rTask.cmdIds;  
                 }
 
-                rSubmissionBatch.submitInfos.resize(rSubmissionBatch.perSubmissionMetadata.size());
-                if(rPassId.cmdLifetime == ONESHOT) rPass.enabled = false; 
+                rBatch.submitInfos.resize(rBatch.perSubmissionMetadata.size());
+                if(rPassId.cmdLifetime == ONESHOT)
+                {
+                    rPass.enabled = false;
+                    this->enabledPassesCount--;
+                } 
             }
         }
+        this->orderDirty = false; 
     }
-    this->orderDirty = false; 
 }
 
 void PassesGraph::resolveDynamicSync(SubmissionBatch& rBatch_, SubmissionMetadata& rMetadata)
@@ -264,7 +276,7 @@ void PassesGraph::resolveSync_SubmitToGPU()
             rSubmitInfo.pWaitDstStageMask = rMetadata.waitStages.data(); 
             rSubmitInfo.pSignalSemaphores = rMetadata.signalSemaphores.data(); 
             rSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(rMetadata.signalSemaphores.size());
-            if(rBatch.oneShot)
+            if(rBatch.lifetime == ONESHOT)
             {
                 rSubmitInfo.pCommandBuffers = &getCommandBuffer(rBatch.queueFamily, ONESHOT, rBatch.perSubmissionMetadata[submissionId].cmdIds[0]);
             }
@@ -276,7 +288,7 @@ void PassesGraph::resolveSync_SubmitToGPU()
         }
         
 	    vkQueueSubmit(getQueue(rBatch.queueFamily), rBatch.submitInfos.size(), rBatch.submitInfos.data(), signalFence); 
-        if(rBatch.oneShot) // disable cmdBuffers, and remove this submissionBatch from list 
+        if(rBatch.lifetime == ONESHOT) // disable cmdBuffers, and remove this submissionBatch from list 
 	    {
 		    for(const auto& rCmdBufferToDisable : this->submissionBatches[batchId].cmdBuffersToDisable)
 		    { 

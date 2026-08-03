@@ -83,7 +83,7 @@ namespace Graphics
 		return Globals::renderer.shadersManager.shaders.get(shaderId_); 
 	}
 
-	const UploadEntry& getUploadEntry(UploadId id_)
+	const GpuUploadEntry& getUploadEntry(UploadId id_)
 	{
 		//if(id_allocatorType == STATIC)
 		//{
@@ -99,7 +99,7 @@ namespace Graphics
 
 	uint32_t getUploadStartingByteInGPUHeap(UploadId id_)
 	{
-		const UploadEntry& rEntry = getUploadEntry(id_); 
+		const GpuUploadEntry& rEntry = getUploadEntry(id_); 
 		return getGPUBufferOffset(STATIC, rEntry.bufferType) + rEntry.inBufferFirstByte; 
 	}
 
@@ -363,8 +363,8 @@ namespace Graphics
 		Mesh& rMesh = getMesh(meshId_); 
 		if(isUploadInGPU(rMesh.vbMemoryUploadId) && isUploadInGPU(rMesh.ibMemoryUploadId))
 		{
-			const UploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
-			const UploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
+			const GpuUploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
+			const GpuUploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
 			VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
 			VkDeviceSize vOffsets[] = { vertexUpload.inBufferFirstByte }; 
 			vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 

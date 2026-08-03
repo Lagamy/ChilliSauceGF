@@ -6,7 +6,7 @@
 
 namespace Graphics
 {
-struct StagingHeap {
+struct CPUSharedHeap {
 	Buffer buffer; 
 
 	MemoryBlock memoryBlock;

@@ -57,7 +57,7 @@ add_executable(ChilliSauceFramework
 	"src/Framework/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Framework/Graphics/Backend/Synchronisation/Fence.cpp" 	
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" 
 	"src/Framework/Graphics/MemoryManagment/GPUHeap.cpp" "src/Framework/Graphics/SyncManager.cpp"
-	"src/Framework/Graphics/MemoryManagment/StagingHeap.cpp" "src/Framework/Graphics/MemoryManagment/StaticAllocator.cpp"
+	"src/Framework/Graphics/MemoryManagment/CPUSharedHeap.cpp" "src/Framework/Graphics/MemoryManagment/StaticAllocator.cpp"
 	"src/Framework/Graphics/FrameResources.cpp" "src/Framework/Graphics/MemoryManager.cpp" "src/Framework/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
 	"src/Framework/Graphics/ShadersManager.cpp" "src/Framework/Graphics/Resources/Mesh.cpp" "src/Framework/Graphics/Pass/Task.cpp" "src/Framework/Graphics/Pass/Pass.cpp"
 	"src/Framework/Graphics/PassesGraph.cpp" "src/Framework/Graphics/PipelinesManager.cpp" "src/Framework/Graphics/Pass/SubmissionBatch.cpp"

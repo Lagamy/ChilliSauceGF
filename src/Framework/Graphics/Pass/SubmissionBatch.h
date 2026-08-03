@@ -17,7 +17,7 @@ namespace Graphics
 struct SubmissionBatch
 {
     std::string name; 
-    bool oneShot;
+    CmdLifetimeEnum lifetime;
     QueueFamilyEnum queueFamily; 
     std::vector<SubmissionMetadata> perSubmissionMetadata; 
     std::vector<VkSubmitInfo> submitInfos; 
@@ -25,10 +25,12 @@ struct SubmissionBatch
     std::vector<uint32_t> cmdBuffersToDisable; 
     SyncRetrivalFunc dynamicSignalFenceFunc; 
     PoolId signalFenceId = UninitializedPoolId; 
+
+    std::vector<uint32_t> submissionsWithDynamicSync; 
     bool dynamicSignalFence = false; 
 
-    SubmissionBatch(std::string& name_, bool oneShot_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_);
-    SubmissionBatch(std::string& name_, bool oneShot_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc signalRetrivalFunc_);
+    SubmissionBatch(std::string& name_, CmdLifetimeEnum lifetime_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_);
+    SubmissionBatch(std::string& name_, CmdLifetimeEnum lifetime_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc signalRetrivalFunc_);
     
     
     ~SubmissionBatch() {}; 

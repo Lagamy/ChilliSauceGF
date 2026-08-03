@@ -14,6 +14,7 @@ struct PassesGraph
     std::array<PassesPack, 2> passesPerCmdType; 
 	std::vector<SubmissionBatch> submissionBatches;
     std::vector<PassId> passesOrder;
+    uint32_t enabledPassesCount = 0; 
     
     bool orderDirty = false; 
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_);
@@ -32,7 +33,9 @@ struct PassesGraph
 
     void compileIfDirty();
     void resolveDynamicSync(SubmissionBatch& rSubmissionBatch_, SubmissionMetadata& rMetadata); 
-
     void resolveSync_SubmitToGPU();     
+
+    // void resolveDynamicSync(SubmissionBatch& rSubmissionBatch_); 
+    // void resolveSync_SubmitToGPU();     
 };
 }

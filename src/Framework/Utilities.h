@@ -31,6 +31,12 @@ namespace Graphics
 		COMPUTE = 2,
 	};
 
+	enum MemoryVisabilityEnum : bool 
+	{
+		HOST_VISIBLE,
+		DEVICE_LOCAL
+	}; 
+
 	const inline uint8_t PresentationQueueId = 3; 
 
 	static std::string queueToName[3]
@@ -40,10 +46,10 @@ namespace Graphics
 		"Compute"
 	}; 
 
-	enum CmdLifetimeEnum : uint8_t 
+	enum CmdLifetimeEnum : bool
 	{
-		FRAME = 0, 
-		ONESHOT = 1
+		FRAME = false, 
+		ONESHOT = true
 	};
 
 	enum AttachmentTypeEnum {

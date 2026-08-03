@@ -1,9 +1,9 @@
-#include "StagingHeap.h"
+#include "CPUSharedHeap.h"
 #include "Api.h"
 
 namespace Graphics
 {
-void StagingHeap::create(const char* name_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_)
+void CPUSharedHeap::create(const char* name_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_)
 {
 	this->unit = BYTE;
 	std::array<VkMemoryRequirements, 1> memRequirement;
@@ -18,7 +18,7 @@ void StagingHeap::create(const char* name_, VkBufferUsageFlags bufferUsageFlags_
 }; 
 
 
-void StagingHeap::destroy()
+void CPUSharedHeap::destroy()
 {
 	this->memoryBlock.destroy(); 
 	this->buffer.destroy();

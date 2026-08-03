@@ -3,7 +3,7 @@
 #include "PassId.h"
 #include "Pass.h"
 #include "Semaphore.h"
-#include "StagingHeap.h"
+#include "CPUSharedHeap.h"
 #include "MemoryBlock.h"
 #include "Pool.h"
 #include "SyncManager.h"
