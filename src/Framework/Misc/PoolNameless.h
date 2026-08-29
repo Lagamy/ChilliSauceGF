@@ -21,6 +21,7 @@ struct PoolNameless {
 	uint32_t elementCount; 
 
 	PoolNameless(const char* name_) : name(name_){};
+	PoolNameless() {};
 	void isPoolIdValid(PoolId pId_)
 	{
 		if(pId_ == UninitializedPoolId)

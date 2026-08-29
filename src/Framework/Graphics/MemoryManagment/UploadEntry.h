@@ -13,6 +13,7 @@ namespace Graphics {
 		VkDeviceSize inGPUFirstByte = 0; 
 		BufferTypeEnum bufferType; 
     	UploadEntry(const char* name_, const void* data_, VkDeviceSize size_, BufferTypeEnum bufferType_, VkDeviceSize currentBuffSize_) : name(name_), data(data_), size(size_), bufferType(bufferType_), inBufferFirstByte(currentBuffSize_) {}; 
+    	UploadEntry(const char* name_, const void* data_, VkDeviceSize size_, BufferTypeEnum bufferType_) : name(name_), data(data_), size(size_), bufferType(bufferType_) {}; 
 		bool inGPU = false; // for Dynamic allocators. 
 	}; 
 }

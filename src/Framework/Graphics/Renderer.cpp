@@ -20,7 +20,7 @@ void Renderer::setup()
 	{
 		this->framesResources[i].setup(i);
 	}
-	this->memoryManager.create();
+	this->memoryManager.setup();
 	
 
 	// Configure RenderPass

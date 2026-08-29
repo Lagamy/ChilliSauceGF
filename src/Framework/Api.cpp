@@ -83,7 +83,7 @@ namespace Graphics
 		return Globals::renderer.shadersManager.shaders.get(shaderId_); 
 	}
 
-	const GpuUploadEntry& getUploadEntry(UploadId id_)
+	const UploadEntry& getUploadEntry(UploadId id_)
 	{
 		//if(id_allocatorType == STATIC)
 		//{
@@ -239,11 +239,11 @@ namespace Graphics
 
 
 
-	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
+	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
 	{
 		// if(allocatorType_ == STATIC)
 		// {
-		return Globals::renderer.memoryManager.staticAllocator.addUpload(name_, data_, size_, uploadType_);
+		return Globals::renderer.memoryManager.staticAllocator.addUpload(name_, data_, size_, memoryVisability_, uploadType_);
 		// }
 	}
 
@@ -363,8 +363,8 @@ namespace Graphics
 		Mesh& rMesh = getMesh(meshId_); 
 		if(isUploadInGPU(rMesh.vbMemoryUploadId) && isUploadInGPU(rMesh.ibMemoryUploadId))
 		{
-			const GpuUploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
-			const GpuUploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
+			const UploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
+			const UploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
 			VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
 			VkDeviceSize vOffsets[] = { vertexUpload.inBufferFirstByte }; 
 			vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 

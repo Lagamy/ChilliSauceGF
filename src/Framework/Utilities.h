@@ -11,6 +11,7 @@
 #include <sstream>
 #include <iomanip>
 #include <concepts>
+#include <vulkan/vulkan_core.h>
 #ifdef _WIN32
     #include <windows.h>
 #else
@@ -24,6 +25,22 @@ inline const PoolId UninitializedPoolId = PoolId{UninitializedId, UninitializedI
 inline void EmptyFunction(){}
 namespace Graphics
 {
+	enum StorageUnitEnum : uint8_t 
+	{ 
+		BYTE = 0,
+		KB = 1,
+		MB = 2,
+		GB = 3
+	};
+
+	inline uint32_t storageUnitToBytes[4]
+	{
+		1, 
+		1024,
+		1048576,
+		1073741824
+	}; 
+
 	enum QueueFamilyEnum : uint8_t
 	{
 		GRAPHICS = 0,
@@ -33,8 +50,8 @@ namespace Graphics
 
 	enum MemoryVisabilityEnum : bool 
 	{
-		HOST_VISIBLE,
-		DEVICE_LOCAL
+		GPU_ONLY,
+		CPU_SHARED
 	}; 
 
 	const inline uint8_t PresentationQueueId = 3; 
@@ -61,19 +78,31 @@ namespace Graphics
 	};
 
 	enum AllocatorTypeEnum { 
-		STATIC 
+		UI,
+		STATIC, 
+		DYNAMIC
 	};
+
+	const inline uint8_t AllocatorTypesCount = 3; 
 
 	enum BufferTypeEnum : uint8_t 
 	{
 		INDEX = 0, 
 		VERTEX = 1,  
-		// UNIFORM = 2,
-		// STORAGE = 3,
+		UNIFORM = 2,
+		STORAGE = 3,
 		// TEXTURE = 4
 	};
 
-	inline const uint8_t BufferTypesCount = 2; 
+	inline VkBufferUsageFlagBits BufferTypeToUsage[4]
+	{
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+	};
+
+	inline const uint8_t BufferTypesCount = 4; 
 
 	using SyncRetrivalFunc = PoolId(*)();
 	struct DynamicSemaphoreRef
@@ -127,6 +156,7 @@ namespace Graphics
 		}
 		// Todo: if there are no Transfer or Compute queues - assign their indices to available Graphics queue, so further code works anyways, just on one queue. 
 	};
+	
 	QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device_);
 	SwapchainDetails getSwapchainDetails(VkPhysicalDevice device_);
 

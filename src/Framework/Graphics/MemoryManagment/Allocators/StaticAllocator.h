@@ -1,23 +1,26 @@
 #pragma once
-#include "UploadEntry.h"
+#include "UploadEntryGroup.h"
 #include "GPUHeap.h"
 #include "CPUSharedHeap.h"
+#include "StagingHeap.h"
 #include "MemoryBlock.h"
 #include "Utilities.h"
 #include "UploadId.h"
 #include "PassId.h"
+#include "UpdateEntry.h"
 #include <stdexcept>
 
 namespace Graphics
 {
-void staticUploadCMDs(VkCommandBuffer& cmdBuffer_);
+void uploadCMDs(VkCommandBuffer& cmdBuffer_);
 // Forward decloration 
 struct StaticAllocator { 
-	std::array<std::vector<UploadEntry>, BufferTypesCount> gpuUploadEntryGroupPerBufferType;
-	std::array<std::vector<UploadEntry>, BufferTypesCount> cpuSharedUploadEntryGroupsPerBufferType;
+	std::array<UploadEntryGroup, 2> uploadEntryGroupPerMemVisability;
 	CPUSharedHeap cpuSharedHeap; 
-	CPUSharedHeap gpuStagingHeap;
+	StagingHeap stagingHeap;
 	GPUHeap gpuHeap;
+
+	std::vector<UpdateEntry> updateEntries; 
 
 	PoolId uploadFinishedSemaphoreId; 
 	PoolId uploadFinishedFenceId;
@@ -30,11 +33,12 @@ struct StaticAllocator {
 	void submitUploads();
 	void checkUploadsStatus();
 
-	MemoryBlock& getMemoryBlock(); 
+	MemoryBlock& getGPUMemoryBlock(); 
 	Buffer& getBuffer(BufferTypeEnum uploadType_);
-	UploadId addUpload(const char* name_, const void* data_, MemoryVisabilityEnum memoryVisability_, VkDeviceSize size_, BufferTypeEnum uploadType_);
+	UploadId addUpload(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
 	const UploadEntry& getUploadEntry(UploadId id_);	
 	void allocateAndUpload(); // Run only when you added all UploadEntries for that scene/demo 
 	void deallocate();
-}; 
-}
+};
+} 
+

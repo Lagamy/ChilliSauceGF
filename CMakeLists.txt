@@ -6,7 +6,7 @@
   # set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 # endif()
 
-project("ChilliSauceFramework")
+project("ChilliSauceGF")
 
 # Generate compile_commands.json for clangd
 set(CMAKE_CXX_STANDARD 20)
@@ -35,7 +35,7 @@ find_package(Vulkan REQUIRED)
 
 
 # Add source to this project's executable.
-add_executable(ChilliSauceFramework
+add_executable(ChilliSauceGF
 	# Core 
 	"src/Demo/main.cpp" "src/Framework/Core.cpp" "src/Framework/Utilities.cpp" "src/Framework/Api.cpp" 
 
@@ -56,8 +56,8 @@ add_executable(ChilliSauceFramework
 	"src/Framework/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Framework/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Framework/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Framework/Graphics/Backend/Synchronisation/Fence.cpp" 	
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSet.cpp" 
-	"src/Framework/Graphics/MemoryManagment/GPUHeap.cpp" "src/Framework/Graphics/SyncManager.cpp"
-	"src/Framework/Graphics/MemoryManagment/CPUSharedHeap.cpp" "src/Framework/Graphics/MemoryManagment/StaticAllocator.cpp"
+	 "src/Framework/Graphics/SyncManager.cpp"
+	
 	"src/Framework/Graphics/FrameResources.cpp" "src/Framework/Graphics/MemoryManager.cpp" "src/Framework/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
 	"src/Framework/Graphics/ShadersManager.cpp" "src/Framework/Graphics/Resources/Mesh.cpp" "src/Framework/Graphics/Pass/Task.cpp" "src/Framework/Graphics/Pass/Pass.cpp"
 	"src/Framework/Graphics/PassesGraph.cpp" "src/Framework/Graphics/PipelinesManager.cpp" "src/Framework/Graphics/Pass/SubmissionBatch.cpp"
@@ -70,6 +70,11 @@ add_executable(ChilliSauceFramework
 
 	# Reflection 
 	"src/Framework/Graphics/Reflection/Layout.cpp" "src/Framework/Graphics/Reflection/MemberBlueprint.cpp"
+
+	#Memory Managment 
+	"src/Framework/Graphics/MemoryManagment/Allocators/DynamicAllocator.cpp" "src/Framework/Graphics/MemoryManagment/Allocators/StaticAllocator.cpp"
+ 	"src/Framework/Graphics/MemoryManagment/Allocators/DynamicPages/GPUPage.cpp" "src/Framework/Graphics/MemoryManagment/Allocators/DynamicPages/CPUSharedPage.cpp"
+	"src/Framework/Graphics/MemoryManagment/StagingHeap.cpp"
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -98,14 +103,19 @@ set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
 set(MEMORY_MANAGMENT_DIR "${GRAPHICS_DIR}/MemoryManagment")
 set(REFLECTION_DIR "${GRAPHICS_DIR}/Reflection")
 
+#Memory Managment 
+set(ALLOCATORS_DIR "${MEMORY_MANAGMENT_DIR}/Allocators")
+set(STATIC_HEAPS_DIR "${ALLOCATORS_DIR}/StaticHeaps")
+set(DYNAMIC_PAGES_DIR "${ALLOCATORS_DIR}/DynamicPages")
+
 # Link dependencies
-target_link_libraries(ChilliSauceFramework
+target_link_libraries(ChilliSauceGF
     PUBLIC glfw3
     PUBLIC Vulkan::Vulkan
     PUBLIC glm
 )
 
-target_include_directories(ChilliSauceFramework PRIVATE 
+target_include_directories(ChilliSauceGF PRIVATE 
 	# Src
 	${SRC_DIR} ${FRAMEWORK_DIR} ${DEMO_DIR}
 	${GRAPHICS_DIR} ${MISC_DIR} ${TEST_DIR}
@@ -124,13 +134,16 @@ target_include_directories(ChilliSauceFramework PRIVATE
 
 	# Reflection
 	${REFLECTION_DIR}
+
+	# Memory Managment 
+	${ALLOCATORS_DIR} ${STATIC_HEAPS_DIR} ${DYNAMIC_PAGES_DIR}
 )
 
 # Put the executable into /bin
-set_target_properties(ChilliSauceFramework PROPERTIES
+set_target_properties(ChilliSauceGF PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-target_compile_definitions(ChilliSauceFramework PRIVATE
+target_compile_definitions(ChilliSauceGF PRIVATE
 	$<$<CONFIG:Debug>:ENGINE_DEBUG>
 )

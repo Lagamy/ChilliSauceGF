@@ -11,9 +11,10 @@
 namespace Graphics
 {
 
-void MemoryManager::create()
+void MemoryManager::setup()
 {
 	this->staticAllocator.create(); 
+	this->dynamicAllocator.create();
 }
 
 void MemoryManager::destroy() 
