@@ -18,12 +18,12 @@ PoolId SyncManager::addFence(VkFenceCreateFlags flags_)
 
 Semaphore& SyncManager::getSemaphore(PoolId id_)
 {
-	return this->semaphores.get(id_); 
+	return this->semaphores[id_]; 
 }
 
 Fence& SyncManager::getFence(PoolId id_)
 {
-	return this->fences.get(id_);
+	return this->fences[id_];
 }
 
 void SyncManager::destroy()

@@ -20,22 +20,22 @@ void Mesh::setVerticeDataContainer(void* data_, size_t offset_, size_t size_)
 
 void* Mesh::getData()
 {
-    return getVerticeLayout(this->verticeLayoutId).dataContainers.get(this->vertexDataContainerId).data.data(); 
+    return getVerticeLayout(this->verticeLayoutId).dataContainers[this->vertexDataContainerId].data.data(); 
 }
 
 size_t Mesh::getSize()
 {
-    return getVerticeLayout(this->verticeLayoutId).dataContainers.get(this->vertexDataContainerId).data.size();
+    return getVerticeLayout(this->verticeLayoutId).dataContainers[this->vertexDataContainerId].data.size();
 }
 
 void Mesh::queueStaticGPUUpload()
 {
     std::stringstream uploadName;
     uploadName << this->name << " Vertex data"; 
-    this->vbMemoryUploadId = addUpload(uploadName.str().c_str(), STATIC, VERTEX, this->getData(), this->getSize()); 
+    this->vbMemoryUploadId = addUpload(uploadName.str().c_str(), STATIC, GPU_ONLY, VERTEX, this->getData(), this->getSize()); 
 	uploadName.clear(); 
     // Create Index Buffer and fill it with data.
     uploadName << this->name << " Index data"; 
-	this->ibMemoryUploadId = addUpload(uploadName.str().c_str(), STATIC, INDEX, this->indices.data(), this->indices.size() * sizeof(uint32_t)); 
+	this->ibMemoryUploadId = addUpload(uploadName.str().c_str(), STATIC, GPU_ONLY, INDEX, this->indices.data(), this->indices.size() * sizeof(uint32_t)); 
 }
 } 

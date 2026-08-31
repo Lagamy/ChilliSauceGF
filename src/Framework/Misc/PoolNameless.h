@@ -71,7 +71,9 @@ struct PoolNameless {
     }
 
 	void remove(PoolId pId_) {
-		this->isPoolIdValid(pId_);
+		#ifdef ENGINE_DEBUG
+			this->isPoolIdValid(pId_);
+		#endif 
 		this->generation[pId_.id]++; 
 		if constexpr (requires { T::destroy(nullptr); })
         {
@@ -82,6 +84,21 @@ struct PoolNameless {
 		this->elementCount--; 
 	}
 
+	void resize(size_t size_) // Note: doesn't work for objects without default constructor 
+	{
+		#ifdef ENGINE_DEBUG
+			if(!this->objects.empty())
+			{
+				std::stringstream errorMessageStream;
+				errorMessageStream << name << " Pool: can't resize Pool that was already initialized\n";
+				throw std::runtime_error(errorMessageStream.str());
+			}
+		#endif
+
+		this->objects.resize(size_); 
+		this->alive.resize(size_); 
+		this->generation.resize(size_); 
+	}
 	
 	void removeInternal(uint32_t id_) {
 		if(this->alive[id_])
@@ -110,20 +127,32 @@ struct PoolNameless {
 		return this->objects[id_];
 	}
 	
-	T& get(PoolId pId_)
+	T& operator[](PoolId pId_)
 	{
-		this->isPoolIdValid(pId_); 
+		#ifdef ENGINE_DEBUG
+			this->isPoolIdValid(pId_); 
+		#endif
+		return this->objects[pId_.id];
+    }
+
+    const T& operator[](PoolId pId_) const 
+	{
+    	#ifdef ENGINE_DEBUG
+			this->isPoolIdValid(pId_); 
+		#endif
 		return this->objects[pId_.id];
 	}
 
 	T& back()
 	{
-		if(this->objects.empty())
-		{
-			std::stringstream errorMessageStream; 
-			errorMessageStream << this->name << ": Can't use back() on empty Pool."; 
-			throw std::runtime_error(errorMessageStream.str());
-		}
+		#ifdef ENGINE_DEBUG
+			if(this->objects.empty())
+			{
+				std::stringstream errorMessageStream; 
+				errorMessageStream << this->name << ": Can't use back() on empty Pool."; 
+				throw std::runtime_error(errorMessageStream.str());
+			}
+		#endif 
 
 		uint32_t id = this->allocatedSize() - 1;
 		while(!this->alive[id])
@@ -158,6 +187,8 @@ struct PoolNameless {
 	{
 		return this->objects.size() * sizeof(T);
 	}
+
+	
 };
 
 

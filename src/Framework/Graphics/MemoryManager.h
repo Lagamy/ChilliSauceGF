@@ -1,6 +1,6 @@
 // Represents resources that are in GPU currently
 #pragma once 
-#include "GPUHeap.h"
+#include "GPULocalHeap.h"
 #include "PassId.h"
 #include "Pass.h"
 #include "Semaphore.h"

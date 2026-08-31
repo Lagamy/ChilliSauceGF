@@ -104,6 +104,13 @@ namespace Graphics
 
 	inline const uint8_t BufferTypesCount = 4; 
 
+	struct memoryInterval  
+	{
+		std::vector<PoolId> bufferIds; 
+		uint64_t start;
+		uint64_t end;
+	};
+
 	using SyncRetrivalFunc = PoolId(*)();
 	struct DynamicSemaphoreRef
 	{

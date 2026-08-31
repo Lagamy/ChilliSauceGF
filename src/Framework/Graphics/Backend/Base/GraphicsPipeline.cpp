@@ -44,7 +44,7 @@ void GraphicsPipeline::create()
 	
 	for(uint32_t i = 0; i < attributesDescriptions.size(); i++)
 	{
-		MemberBlueprint& rMemberBlueprint = rVerticeLayout.memberBlueprints.get({i, 0}); 
+		MemberBlueprint& rMemberBlueprint = rVerticeLayout.memberBlueprints[{i, 0}]; 
 		attributesDescriptions[i].offset = rMemberBlueprint.firstByteId;
 		attributesDescriptions[i].binding = 0;
 		attributesDescriptions[i].location = i;

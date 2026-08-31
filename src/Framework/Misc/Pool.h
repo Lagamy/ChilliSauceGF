@@ -129,10 +129,17 @@ struct Pool {
 		return this->objects[id_];
 	}
 	
-	T& get(PoolId pId_)
+	T& operator[](PoolId pId_)
 	{
-
 		#ifdef ENGINE_DEBUG
+			this->isPoolIdValid(pId_); 
+		#endif
+		return this->objects[pId_.id];
+    }
+
+    const T& operator[](PoolId pId_) const 
+	{
+    	#ifdef ENGINE_DEBUG
 			this->isPoolIdValid(pId_); 
 		#endif
 		return this->objects[pId_.id];

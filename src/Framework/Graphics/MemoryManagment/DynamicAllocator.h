@@ -1,9 +1,9 @@
 #pragma once 
 #include "CPUSharedPage.h"
-#include "DynamicPages/GPUPage.h"
 #include "GPUPage.h"
 #include "StagingHeap.h"
 #include "UploadEntry.h"
+#include "UploadId.h"
 #include <vector>
 
 namespace Graphics
@@ -24,6 +24,7 @@ struct DynamicAllocator
     std::vector<GPUPage> gpuLocalPages; // Sorted by smallest upper bound size per entry -> biggest
     
 	void addPage(uint32_t upperBoundForEntrySize_, bool isCpuShared_);
+	UploadId addEntryAndUpload(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
     void create(); 
     DynamicAllocator(); 
 };

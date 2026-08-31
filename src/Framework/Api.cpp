@@ -54,7 +54,7 @@ namespace Graphics
 	// For now i only need 1 of each
 	GraphicsPipeline& getGraphicsPipeline(PoolId layoutId_)
 	{
-		return Globals::renderer.pipelinesManager.graphicsPipelines.get(layoutId_); 
+		return Globals::renderer.pipelinesManager.graphicsPipelines[layoutId_]; 
 	}
 
 	RenderPass& getPresentationRenderPass()
@@ -80,7 +80,7 @@ namespace Graphics
 
 	Shader& getShader(PoolId shaderId_)
 	{
-		return Globals::renderer.shadersManager.shaders.get(shaderId_); 
+		return Globals::renderer.shadersManager.shaders[shaderId_]; 
 	}
 
 	const UploadEntry& getUploadEntry(UploadId id_)
@@ -99,7 +99,7 @@ namespace Graphics
 
 	uint32_t getUploadStartingByteInGPUHeap(UploadId id_)
 	{
-		const GpuUploadEntry& rEntry = getUploadEntry(id_); 
+		const UploadEntry& rEntry = getUploadEntry(id_); 
 		return getGPUBufferOffset(STATIC, rEntry.bufferType) + rEntry.inBufferFirstByte; 
 	}
 
@@ -186,13 +186,13 @@ namespace Graphics
 
 	ReflectionLayout& getVerticeLayout(PoolId layoutId_)
 	{
-		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX - 1].get(layoutId_); // - 1 due to INDEX layout not existing  
+		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX - 1][layoutId_]; // - 1 due to INDEX layout not existing  
 	}
 
 
 	Mesh& getMesh(PoolId meshId_)
 	{
-		return Globals::renderer.resourcesManager.meshes.get(meshId_);
+		return Globals::renderer.resourcesManager.meshes[meshId_];
 	} 
 	
 	void setFramesAtFlightCount(uint32_t count_)
@@ -243,7 +243,7 @@ namespace Graphics
 	{
 		// if(allocatorType_ == STATIC)
 		// {
-		return Globals::renderer.memoryManager.staticAllocator.addUpload(name_, data_, size_, memoryVisability_, uploadType_);
+		return Globals::renderer.memoryManager.staticAllocator.addEntry(name_, data_, size_, memoryVisability_, uploadType_);
 		// }
 	}
 

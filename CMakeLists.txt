@@ -72,9 +72,10 @@ add_executable(ChilliSauceGF
 	"src/Framework/Graphics/Reflection/Layout.cpp" "src/Framework/Graphics/Reflection/MemberBlueprint.cpp"
 
 	#Memory Managment 
-	"src/Framework/Graphics/MemoryManagment/Allocators/DynamicAllocator.cpp" "src/Framework/Graphics/MemoryManagment/Allocators/StaticAllocator.cpp"
- 	"src/Framework/Graphics/MemoryManagment/Allocators/DynamicPages/GPUPage.cpp" "src/Framework/Graphics/MemoryManagment/Allocators/DynamicPages/CPUSharedPage.cpp"
-	"src/Framework/Graphics/MemoryManagment/StagingHeap.cpp"
+	"src/Framework/Graphics/MemoryManagment/DynamicAllocator.cpp" "src/Framework/Graphics/MemoryManagment/StaticAllocator.cpp"
+ 	"src/Framework/Graphics/MemoryManagment/Pages/GPUPage.cpp" "src/Framework/Graphics/MemoryManagment/Pages/CPUSharedPage.cpp"
+ 	"src/Framework/Graphics/MemoryManagment/Heaps/GPULocalHeap.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/CPUSharedHeap.cpp"
+	"src/Framework/Graphics/MemoryManagment/Heaps/StagingHeap.cpp"
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -104,9 +105,8 @@ set(MEMORY_MANAGMENT_DIR "${GRAPHICS_DIR}/MemoryManagment")
 set(REFLECTION_DIR "${GRAPHICS_DIR}/Reflection")
 
 #Memory Managment 
-set(ALLOCATORS_DIR "${MEMORY_MANAGMENT_DIR}/Allocators")
-set(STATIC_HEAPS_DIR "${ALLOCATORS_DIR}/StaticHeaps")
-set(DYNAMIC_PAGES_DIR "${ALLOCATORS_DIR}/DynamicPages")
+set(HEAPS_DIR "${MEMORY_MANAGMENT_DIR}/Heaps")
+set(PAGES_DIR "${MEMORY_MANAGMENT_DIR}/Pages")
 
 # Link dependencies
 target_link_libraries(ChilliSauceGF
@@ -136,7 +136,7 @@ target_include_directories(ChilliSauceGF PRIVATE
 	${REFLECTION_DIR}
 
 	# Memory Managment 
-	${ALLOCATORS_DIR} ${STATIC_HEAPS_DIR} ${DYNAMIC_PAGES_DIR}
+	${HEAPS_DIR} ${PAGES_DIR}
 )
 
 # Put the executable into /bin

@@ -22,7 +22,7 @@ struct ReflectionLayout
     template<typename T>
     void setMemberInDataContainer(PoolId memberBlueprintId_, T data_, PoolId dataContainerId_, uint32_t repeatUnitId_)
     {
-        MemberBlueprint& rMemberBlueprint = this->memberBlueprints.get(memberBlueprintId_); 
+        MemberBlueprint& rMemberBlueprint = this->memberBlueprints[memberBlueprintId_]; 
         if(GPUTypeMap<T>::value != rMemberBlueprint.dataType)
         {
             std::stringstream errorMessageStream; 
@@ -30,7 +30,7 @@ struct ReflectionLayout
             << dataTypeToName[GPUTypeMap<T>::value] << " type inside of " << this->dataContainers.getName(dataContainerId_) << ".\n"; 
 			throw std::runtime_error(errorMessageStream.str());
         }
-        DataContainer& rDataContainer = this->dataContainers.get(dataContainerId_);
+        DataContainer& rDataContainer = this->dataContainers[dataContainerId_];
         if(repeatUnitId_ >= rDataContainer.repeatCount)
         {
             std::stringstream errorMessageStream; 

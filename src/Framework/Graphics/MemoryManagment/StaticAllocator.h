@@ -1,6 +1,6 @@
 #pragma once
 #include "UploadEntryGroup.h"
-#include "GPUHeap.h"
+#include "GPULocalHeap.h"
 #include "CPUSharedHeap.h"
 #include "StagingHeap.h"
 #include "MemoryBlock.h"
@@ -16,9 +16,9 @@ void uploadCMDs(VkCommandBuffer& cmdBuffer_);
 // Forward decloration 
 struct StaticAllocator { 
 	std::array<UploadEntryGroup, 2> uploadEntryGroupPerMemVisability;
-	CPUSharedHeap cpuSharedHeap; 
+	CPUSharedHeap cpuSharedHeap = CPUSharedHeap(true); 
 	StagingHeap stagingHeap;
-	GPUHeap gpuHeap;
+	GPULocalHeap gpuHeap = GPULocalHeap(true);
 
 	std::vector<UpdateEntry> updateEntries; 
 
@@ -35,7 +35,7 @@ struct StaticAllocator {
 
 	MemoryBlock& getGPUMemoryBlock(); 
 	Buffer& getBuffer(BufferTypeEnum uploadType_);
-	UploadId addUpload(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
+	UploadId addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
 	const UploadEntry& getUploadEntry(UploadId id_);	
 	void allocateAndUpload(); // Run only when you added all UploadEntries for that scene/demo 
 	void deallocate();
