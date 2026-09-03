@@ -1,18 +1,19 @@
 #include "StaticAllocator.h"
 #include "Api.h"
-#include "UploadEntryGroup.h"
 #include "Utilities.h"
-#include <cmath>
 
 namespace Graphics
 {
 void uploadCMDs(VkCommandBuffer& cmdBuffer_)
 {
 	StaticAllocator& rStaticAllocator = getMemoryManager().staticAllocator; 
-	if(!rStaticAllocator.allocated)
-	{
-		throw std::runtime_error("Static Allocator: Can't record CMD Buffer for unallocated memory.");
-	}
+
+	#ifdef ENGINE_DEBUG
+		if(!rStaticAllocator.allocated)
+		{
+			throw std::runtime_error("Static Allocator: Can't record CMD Buffer for unallocated memory.\n");
+		}
+	#endif
 	size_t memoryBlockOffset = 0; 
 	// Info to begin the command buffer record 
 	VkCommandBufferBeginInfo beginInfo = {};
@@ -29,8 +30,8 @@ void uploadCMDs(VkCommandBuffer& cmdBuffer_)
 		for(auto& rUpload : entriesForCurrentBufferType)
 		{
 			// Since GPUHeap is allocated -> i can now find and save each Uploads first byte position in it. 
-			rUpload.inGPUFirstByte = rStaticAllocator.cpuSharedHeap.bufferOffsets[i] + rUpload.inBufferFirstByte; 
-			vkMapMemory(getMainDevice().logicalDevice, rStaticAllocator.cpuSharedHeap.memoryBlock.get(), memoryBlockOffset + rUpload.inBufferFirstByte, rUpload.size, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
+			rUpload.inGPUFirstByte = rStaticAllocator.cpuSharedHeap.bufferOffsets[{i, 0}] + rUpload.inBufferFirstByte; 
+			vkMapMemory(getMainDevice().logicalDevice, rStaticAllocator.cpuSharedHeap.memoryBlocks[0].get(), memoryBlockOffset + rUpload.inBufferFirstByte, rUpload.size, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
 			memcpy(pCPUSharedMemPoint, static_cast<const char*>(rUpload.data), rUpload.size);  // writes to *Staging/Shared memory in Ram* via CPU pointer
 			vkUnmapMemory(getMainDevice().logicalDevice, rStaticAllocator.stagingHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
 		}
@@ -59,12 +60,22 @@ void uploadCMDs(VkCommandBuffer& cmdBuffer_)
 		vkCmdCopyBuffer(cmdBuffer_, rStaticAllocator.stagingHeap.buffer.get(), rStaticAllocator.gpuHeap.buffers[{i, 0}].get(), 1, &bufferCopyRegion);
 	}
 	
+
+	rStaticAllocator.allocated = true; 
 	vkEndCommandBuffer(cmdBuffer_);
 }
 
 
 UploadId StaticAllocator::addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_) 
 {
+	
+	#ifdef ENGINE_DEBUG
+		if(this->allocated)
+		{
+			throw std::runtime_error("Static Allocator: Can't add entry to already allocated Static heaps.");  
+		}
+	#endif
+	
 	if(memoryVisability_ == GPU_ONLY)
 	{
 		this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_, this->gpuHeap.bufferSizes[{uploadType_, 0}]);
@@ -75,20 +86,32 @@ UploadId StaticAllocator::addEntry(const char* name_, const void* data_, VkDevic
 	else 
 	{
 		this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_);
-		this->cpuSharedHeap.bufferSizes[uploadType_] += size_; 
+		this->cpuSharedHeap.bufferSizes[{uploadType_, 0}] += size_; 
 		this->cpuSharedHeap.size += size_; 
 		return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
 	}
 }
 
-const UploadEntry& StaticAllocator::getUploadEntry(UploadId id_) 
+void StaticAllocator::updateEntry(UploadId entryId_, const void* data_, size_t entryOffset_, size_t srcOffset_, size_t byteAmmount_) 
+{
+
+	#ifdef ENGINE_DEBUG
+		if(!allocated)
+		{
+			throw std::runtime_error("Static Allocator: Can't update entry before allocation.");
+		}
+	#endif
+
+}
+
+const UploadEntry& StaticAllocator::getEntry(UploadId id_) 
 {
 	return this->uploadEntryGroupPerMemVisability[id_.memoryVisability][id_.uploadType][id_.id];
 }
 
 MemoryBlock& StaticAllocator::getGPUMemoryBlock()
 {
-	return this->gpuHeap.memoryBlock; 
+	return this->gpuHeap.memoryBlocks[0]; 
 }
 
 Buffer& StaticAllocator::getBuffer(BufferTypeEnum uploadType_)
@@ -101,16 +124,18 @@ void StaticAllocator::allocateAndUpload()
 	this->cpuSharedHeap.createStatic("Static CPU Shared Heap"); 
 	this->stagingHeap.create("Static Staging Heap");
 	this->gpuHeap.createStatic("Static GPU Heap");
-	this->allocated = true; 
 	this->submitUploads(); 
 }
 
 void StaticAllocator::deallocate()
 {
-	this->gpuHeap.destroy(); 
-	this->stagingHeap.destroy();
-	this->cpuSharedHeap.destroy(); 
-	this->allocated = false; 
+	if(this->allocated)
+	{
+		this->gpuHeap.destroy(); 
+		this->stagingHeap.destroy();
+		this->cpuSharedHeap.destroy(); 
+		this->allocated = false; 
+	}
 }
 
 void StaticAllocator::create()

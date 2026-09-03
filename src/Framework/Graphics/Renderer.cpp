@@ -63,9 +63,9 @@ void Renderer::draw()
 {
 	if(!Globals::resizing)
 	{
-		this->gpuSceneManager.syncLayouts(); 
-		this->gpuSceneManager.syncResources(); 
-		this->gpuSceneManager.syncPasses(); 
+		this->gpuSceneManager.updateLayouts(); 
+		this->gpuSceneManager.updateResources(); 
+		this->gpuSceneManager.updatePasses(); 
 		
 		this->memoryManager.checkUploadsStatus(); 
 		VkFence* pCurrentFrameAvailable = &getFence(this->framesResources[this->currentFrame].frameAvailableFenceId);

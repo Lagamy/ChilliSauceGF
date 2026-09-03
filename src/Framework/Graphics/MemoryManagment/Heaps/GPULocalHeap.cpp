@@ -24,22 +24,38 @@ void GPULocalHeap::createStatic(const char* name_)
 		this->bufferOffsets[{i, 0}] = alignUp(this->size, memReqs[i].alignment);
 		this->size = this->bufferOffsets[{i, 0}] + memReqs[i].size; 
 	}
-	 
-	this->memoryBlock.create(this->size, BYTE, memReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "GPU Heap");
+	this->memoryBlocks.emplace_back(); 
+	this->memoryBlocks[0].create(this->size, BYTE, memReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "GPU Heap");
 
 	for(uint8_t i = 0; i < BufferTypesCount; i++)
 	{
-		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffers[{i, 0}].get(), this->memoryBlock.get(), this->bufferOffsets[{i, 0}]);
+		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffers[{i, 0}].get(), this->memoryBlocks[0].get(), this->bufferOffsets[{i, 0}]);
 	}
 }
 
+void GPULocalHeap::addOrExtendBufferDynamic(VkDeviceSize size_, BufferTypeEnum bufferType_)
+{
+	
+}
+
+void GPULocalHeap::removeOrShrinkBufferDynamic(VkDeviceSize size_, BufferTypeEnum bufferType_)
+{
+
+}
+
+
+void createOrExtendMemoryBlockDynamic()
+{
+
+};
+
 void GPULocalHeap::destroy()
 {
-	this->memoryBlock.destroy();
+	this->memoryBlocks.clear(); 
 	this->buffers.clear();
 	this->bufferSizes.clear(); 
 	this->bufferOffsets.clear(); 
-	this->buffersFreeMemIntervalAfterDestruction.clear();
+	this->buffersFreeMemIntervalIdAfterDestruction.clear();
 	for(auto& rImage : this->images)
 	{
 		rImage.destroy(); 

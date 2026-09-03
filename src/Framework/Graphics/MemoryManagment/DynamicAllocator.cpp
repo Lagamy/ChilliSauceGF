@@ -76,4 +76,12 @@ UploadId DynamicAllocator::addEntryAndUpload(const char* name_, const void* data
 		return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
 	}
 };
+
+void DynamicAllocator::deallocate()
+{
+	if(this->initialized)
+	{
+        this->initialized = false; 
+    }; 
+}; 
 }

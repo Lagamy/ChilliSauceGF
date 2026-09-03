@@ -21,9 +21,9 @@ struct GPUScene
 	gpuSceneFunc defineResources; // Mesh/Textures
 	gpuSceneFunc definePasses; 
 
-	gpuSceneFunc syncLayouts; // add/remove Layouts. Usually during scene transition  
-	gpuSceneFunc syncResources; // add new Meshes/Textures or edit existing once in the GPU
-	gpuSceneFunc syncPasses; // enables or disbles existing passes
+	gpuSceneFunc updateLayouts; // add/remove Layouts. Usually during scene transition  
+	gpuSceneFunc updateResources; // add new Meshes/Textures or edit existing once in the GPU
+	gpuSceneFunc updatePasses; // enables or disbles existing passes
 	gpuSceneFunc destroy = EmptyFunction;
 
 	bool changed; 

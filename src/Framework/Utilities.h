@@ -104,9 +104,10 @@ namespace Graphics
 
 	inline const uint8_t BufferTypesCount = 4; 
 
-	struct memoryInterval  
+	struct MemoryInterval  
 	{
-		std::vector<PoolId> bufferIds; 
+		std::vector<PoolId> bufferIds;
+		uint32_t memoryBlockId; 
 		uint64_t start;
 		uint64_t end;
 	};

@@ -36,4 +36,14 @@ namespace Graphics
 	{
 		return this->vkHandle;
 	}
+
+	Buffer::Buffer(VkDeviceSize size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, const char* name_)
+	{
+		this->create(size_, bufferUsageFlags_, bufferSharingMode_, name_);
+	} 
+
+	Buffer::~Buffer()
+	{
+		this->destroy(); 
+	}
 }

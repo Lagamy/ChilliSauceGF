@@ -12,7 +12,7 @@ void CPUSharedHeap::createStatic(const char* name_)
 	this->buffers[{UNIFORM, 0}].create(this->bufferSizes[{UNIFORM, 0}], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, "Uniform Buffer");
 	this->buffers[{STORAGE, 0}].create(this->bufferSizes[{STORAGE, 0}], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, "Storage Buffer");
 	
-	std::array<VkMemoryRequirements, 1> memReqs;
+	std::array<VkMemoryRequirements, BufferTypesCount> memReqs;
 
 	// Allocate memory
 	this->size = 0;
@@ -28,21 +28,21 @@ void CPUSharedHeap::createStatic(const char* name_)
 	{
 		if(this->bufferSizes[{i, 0}] != 0)
 		{
-			vkBindBufferMemory(getMainDevice().logicalDevice, this->buffers[{i, 0}].get(), this->memoryBlock.get(), this->bufferOffsets[{i, 0}]);
+			vkBindBufferMemory(getMainDevice().logicalDevice, this->buffers[{i, 0}].get(), this->memoryBlocks[0].get(), this->bufferOffsets[{i, 0}]);
 		}
 	}
 	
-	this->memoryBlock.create(this->size, this->unit, memReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, name_);
+	this->memoryBlocks[0].create(this->size, this->unit, memReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, name_);
 }; 
 
 
 void CPUSharedHeap::destroy()
 {
-	this->memoryBlock.destroy(); 
+	this->memoryBlocks.clear(); 
 	this->buffers.clear();
 	this->bufferSizes.clear(); 
 	this->bufferOffsets.clear(); 
-	this->buffersFreeMemIntervalAfterDestruction.clear(); 
+	this->buffersFreeMemIntervalIdAfterDestruction.clear(); 
 }
 
 

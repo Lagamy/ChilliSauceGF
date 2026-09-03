@@ -12,7 +12,7 @@ namespace Graphics
 struct GPULocalHeap 
 {
 	std::string name; 
-	MemoryBlock memoryBlock;
+	std::vector<MemoryBlock> memoryBlocks; 
 	
 	// Buffers 
 	// Static Assumptions 
@@ -23,15 +23,17 @@ struct GPULocalHeap
 	PoolNameless<Buffer> buffers;
 	PoolNameless<uint32_t> bufferSizes;
 	PoolNameless<uint32_t> bufferOffsets;
-	PoolNameless<PoolId> buffersFreeMemIntervalAfterDestruction; // for Dynamic Allocator 
+	// for Dynamic Allocator
+	PoolNameless<PoolId> buffersFreeMemIntervalIdAfterDestruction;
+	std::vector<uint32_t> aliveBuffers;
 
 	VkDeviceSize size = 0;
 	std::vector<Image> images;
 
 	void createStatic(const char* name_);
-	void addBufferDynamic(); 
-	void removeBufferDynamic();
-
+	void addOrExtendBufferDynamic(VkDeviceSize size_, BufferTypeEnum bufferType_);
+	void removeOrShrinkBufferDynamic(VkDeviceSize size_, BufferTypeEnum bufferType_);
+	void createOrExtendMemoryBlockDynamic(VkDeviceSize byteAmount_); 
 	void destroy();
 	GPULocalHeap(bool isStatic_);
 };

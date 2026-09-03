@@ -100,17 +100,15 @@ struct PoolNameless {
 		this->generation.resize(size_); 
 	}
 	
-	void removeInternal(uint32_t id_) {
-		if(this->alive[id_])
+	void removeInternal(uint32_t id_) // Used mainly during itteration  
+	{
+		this->generation[id_]++; 
+		if constexpr (requires (T& obj) { obj.destroy(); })
 		{
-			this->generation[id_]++; 
-			if constexpr (requires (T& obj) { obj.destroy(); })
-			{
-    			objects[id_].destroy();
-			}
-			this->freeSlots.emplace_back(id_);
-			this->alive[id_] = false; 
+    		objects[id_].destroy();
 		}
+		this->freeSlots.emplace_back(id_);
+		this->alive[id_] = false; 
 	}
 
 	void clear() 

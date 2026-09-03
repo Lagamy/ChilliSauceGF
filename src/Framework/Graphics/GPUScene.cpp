@@ -10,9 +10,9 @@ void GPUScene::changeGPUScene(gpuSceneFunc defineLayouts_, gpuSceneFunc defineRe
 	this->defineLayouts = defineLayouts_; 
 	this->defineResources = defineResources_; 
 	this->definePasses = definePasses_; 
-	this->syncLayouts = syncLayouts_; 
-	this->syncResources = syncResources_; 
-	this->syncPasses = syncPasses_; 
+	this->updateLayouts = syncLayouts_; 
+	this->updateResources = syncResources_; 
+	this->updatePasses = syncPasses_; 
 	this->destroy = destroy_; 
 	this->changed = true; 
 }

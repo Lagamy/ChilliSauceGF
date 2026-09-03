@@ -9,6 +9,11 @@ namespace Graphics
 {
 struct MemoryBlock {
 	VkDeviceMemory vkHandle;
+	
+	VkDeviceSize size; 
+	VkDeviceSize occupiedSpace; 
+	VkDeviceSize freeSpace; 
+
 	void create(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* name_);
 
 	VkDeviceSize toBytes(size_t size_, StorageUnitEnum unit_);
@@ -16,8 +21,10 @@ struct MemoryBlock {
 	void destroy();
 
 	VkDeviceMemory get() const;
-
-
 	uint32_t findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, const char* name_);
+
+	MemoryBlock() = default; 
+	MemoryBlock(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* name_);
+	~MemoryBlock(); 
 };
 }

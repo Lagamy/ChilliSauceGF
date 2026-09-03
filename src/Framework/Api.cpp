@@ -87,7 +87,7 @@ namespace Graphics
 	{
 		//if(id_allocatorType == STATIC)
 		//{
-			return Globals::renderer.memoryManager.staticAllocator.getUploadEntry(id_);
+			return Globals::renderer.memoryManager.staticAllocator.getEntry(id_);
 		//}
 
 	}

@@ -7,7 +7,6 @@
 #include "Utilities.h"
 #include "UploadId.h"
 #include "PassId.h"
-#include "UpdateEntry.h"
 #include <stdexcept>
 
 namespace Graphics
@@ -19,8 +18,6 @@ struct StaticAllocator {
 	CPUSharedHeap cpuSharedHeap = CPUSharedHeap(true); 
 	StagingHeap stagingHeap;
 	GPULocalHeap gpuHeap = GPULocalHeap(true);
-
-	std::vector<UpdateEntry> updateEntries; 
 
 	PoolId uploadFinishedSemaphoreId; 
 	PoolId uploadFinishedFenceId;
@@ -36,7 +33,9 @@ struct StaticAllocator {
 	MemoryBlock& getGPUMemoryBlock(); 
 	Buffer& getBuffer(BufferTypeEnum uploadType_);
 	UploadId addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
-	const UploadEntry& getUploadEntry(UploadId id_);	
+	void updateEntry(UploadId entryId_, const void* data_, size_t entryOffset_, size_t srcOffset_, size_t byteAmmount_); 
+
+	const UploadEntry& getEntry(UploadId id_);	
 	void allocateAndUpload(); // Run only when you added all UploadEntries for that scene/demo 
 	void deallocate();
 };

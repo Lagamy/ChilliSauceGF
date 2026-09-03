@@ -8,7 +8,7 @@ namespace Graphics
 {
 struct CPUSharedHeap 
 {
-	MemoryBlock memoryBlock;
+	std::vector<MemoryBlock> memoryBlocks;
 	
 	// std::array<Buffer, BufferTypesCount> buffersPerType;
 	// std::array<uint32_t, BufferTypesCount> bufferSizes;
@@ -17,7 +17,7 @@ struct CPUSharedHeap
 	PoolNameless<Buffer> buffers;
 	PoolNameless<uint32_t> bufferSizes;
 	PoolNameless<uint32_t> bufferOffsets;
-	PoolNameless<PoolId> buffersFreeMemIntervalAfterDestruction; // for Dynamic Allocator 
+	PoolNameless<PoolId> buffersFreeMemIntervalIdAfterDestruction; // for Dynamic Allocator 
 
 
 	VkDeviceSize size; 
@@ -26,8 +26,8 @@ struct CPUSharedHeap
 	
 	void destroy();
 	void createStatic(const char* name_); 
-	void addBufferDynamic(); 
-	void removeBufferDynamic();
+	void addOrExtendBufferDynamic();
+	void removeOrShrinkBufferDynamic();
 	CPUSharedHeap(bool isStatic_);
 };
 }

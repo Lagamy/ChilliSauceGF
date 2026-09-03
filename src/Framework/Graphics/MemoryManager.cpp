@@ -20,6 +20,7 @@ void MemoryManager::setup()
 void MemoryManager::destroy() 
 {
 	this->staticAllocator.deallocate();
+	this->dynamicAllocator.deallocate(); 
 }
 
 bool MemoryManager::isUploadInGPU(UploadId uploadId_)

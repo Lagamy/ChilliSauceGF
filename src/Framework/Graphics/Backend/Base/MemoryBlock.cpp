@@ -20,6 +20,7 @@ void MemoryBlock::create(size_t size_, StorageUnitEnum unit_, std::span<VkMemory
 	{
 		throw std::runtime_error(std::format("Failed to allocate {} Memory Block!", name_));
 	}
+	this->size = size_; 
 }
 
 
@@ -76,4 +77,14 @@ VkDeviceSize MemoryBlock::toBytes(size_t size_, StorageUnitEnum unit_)
 {
 	return size_ << (10 * static_cast<uint8_t>(unit_));
 }
+
+MemoryBlock::MemoryBlock(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* name_)
+{
+	this->create(size_, unit_, memReqsSpan_, memoryTypeIndex_, name_);
+}
+
+MemoryBlock::~MemoryBlock()
+{
+	this->destroy(); 
+} 
 }
