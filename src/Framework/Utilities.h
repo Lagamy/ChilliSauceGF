@@ -107,9 +107,33 @@ namespace Graphics
 	struct MemoryInterval  
 	{
 		std::vector<PoolId> bufferIds;
-		uint32_t memoryBlockId; 
 		uint64_t start;
 		uint64_t end;
+
+		MemoryInterval(uint64_t start_, uint64_t end_) : start(start_), end(end_) {}
+	};
+
+	struct MemoryIntervalKey
+	{
+    	uint32_t memoryBlockId;
+    	uint64_t byteId;
+
+    	bool operator==(const MemoryIntervalKey& other) const
+    	{
+        	return memoryBlockId == other.memoryBlockId
+        	    && byteId == other.byteId;
+    	}
+};
+
+	struct MemoryIntervalKeyHash
+	{
+    	std::size_t operator()(const MemoryIntervalKey& key) const
+    	{
+        	std::size_t h1 = std::hash<uint32_t>{}(key.memoryBlockId);
+        	std::size_t h2 = std::hash<uint64_t>{}(key.byteId);
+
+        	return h1 ^ (h2 << 1);
+    	}
 	};
 
 	using SyncRetrivalFunc = PoolId(*)();

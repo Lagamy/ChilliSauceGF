@@ -6,7 +6,7 @@
 namespace Graphics
 {
 void CPUSharedHeap::createStatic(const char* name_)
-{	
+{
 	this->buffers[{INDEX, 0}].create(this->bufferSizes[{INDEX, 0}], VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, "Index Buffer");
 	this->buffers[{VERTEX, 0}].create(this->bufferSizes[{VERTEX, 0}], VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, "Vertex Buffer");
 	this->buffers[{UNIFORM, 0}].create(this->bufferSizes[{UNIFORM, 0}], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, "Uniform Buffer");
@@ -35,6 +35,15 @@ void CPUSharedHeap::createStatic(const char* name_)
 	this->memoryBlocks[0].create(this->size, this->unit, memReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, name_);
 }; 
 
+PoolId addBufferDynamic(uint32_t memoryId_, VkDeviceSize size_, BufferTypeEnum bufferType_)
+{
+	
+}
+
+void removeBufferDynamic(uint32_t memoryId_, PoolId bufferId_)
+{
+
+}
 
 void CPUSharedHeap::destroy()
 {
@@ -42,7 +51,7 @@ void CPUSharedHeap::destroy()
 	this->buffers.clear();
 	this->bufferSizes.clear(); 
 	this->bufferOffsets.clear(); 
-	this->buffersFreeMemIntervalIdAfterDestruction.clear(); 
+	// this->buffersFreeMemIntervalIdAfterDestruction.clear(); 
 }
 
 

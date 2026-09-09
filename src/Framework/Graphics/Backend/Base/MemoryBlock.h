@@ -9,10 +9,11 @@ namespace Graphics
 {
 struct MemoryBlock {
 	VkDeviceMemory vkHandle;
-	
+
 	VkDeviceSize size; 
 	VkDeviceSize occupiedSpace; 
 	VkDeviceSize freeSpace; 
+	std::vector<PoolId> bufferIds; 
 
 	void create(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* name_);
 

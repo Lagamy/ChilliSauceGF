@@ -1,4 +1,6 @@
 #pragma once 
+#include "PoolId.h"
+#include "Utilities.h"
 #include <vulkan/vulkan.h>
 #include <stdexcept>
 #include <format>
@@ -8,8 +10,9 @@ namespace Graphics
 {
 	struct Buffer {
 		VkBuffer vkHandle = VK_NULL_HANDLE;
-		VkMemoryRequirements memoryReqs; 
-		
+		VkMemoryRequirements memoryReqs;
+		uint32_t memoryBlockId; // For Dynamic  
+
 		void create(VkDeviceSize size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, const char* name_);
 		void destroy(); // temporary. Will move into destructor later, once I figure out - how i want my resource managment to be structured
 		VkBuffer get() const;
