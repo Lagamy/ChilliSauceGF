@@ -7,8 +7,6 @@
 
 namespace Graphics 
 {
-	CPUSharedPage::CPUSharedPage(uint32_t upperBoundEntrySize_) : upperBoundEntrySize(upperBoundEntrySize_) {};  
-
 	void CPUSharedPage::init()
 	{
 		std::array<Buffer, BufferTypesCount> ghostBuffers; 
@@ -23,53 +21,75 @@ namespace Graphics
 		}
 		// ghost buffers destructors are called automatically by array  
 	}
+	
+	PoolId addBufferInternal(uint32_t memoryId_, VkDeviceSize size_, BufferTypeEnum bufferType_)
+	{
 
+	}
+
+	void removeBufferInternal(uint32_t memoryId_, PoolId bufferId_)
+	{
+
+	}
+	
 	void CPUSharedPage::addBuffer(VkDeviceSize size_, BufferTypeEnum bufferType_)
 	{
 		
-		// uint32_t lastMemoryBlockId = this->heap.buffersPerMemoryBlock.size() - 1;
-		// std::vector<MemoryInterval>& MemIntervals = [lastMemoryBlockId];   
-		for(uint32_t i = 0; i < this->freeMemoryIntervalsPerBlock.size(); i++)
+		for (uint32_t memBlockId = 0; memBlockId < this->freeSpacePerBlock.size(); memBlockId++)
+		// for(FreeSpace& rFreeSpace : this->freeSpacePerBlock)
 		{
-			MemoryInterval& rFreeMemInterval = freeMemoryIntervalsPerBlock[i]; 
-			uint32_t intervalSize = rFreeMemInterval.end - rFreeMemInterval.start;
-			if(size_ <= intervalSize) // suitable for this buffer 
+			FreeSpace& rFreeSpace = this->freeSpacePerBlock[memBlockId]; 
+			for(uint32_t i = 0; i < rFreeSpace.aliveIntervals.size(); i++)
 			{
-				this->heap.addBufferDynamic(); 
-				this->freeByFirst.erase(rFreeMemInterval.start); 
-				rFreeMemInterval.start += size_ - 1; 
-				this->freeByFirst.emplace(rFreeMemInterval.start, i);
-				if(rFreeMemInterval.start == rFreeMemInterval.end)
-				{	
-					this->freeByFirst.erase(rFreeMemInterval.start); 
-					this->freeByLast.erase(rFreeMemInterval.end); 
-					this->freeMemoryIntervalsPerBlock.erase(this->freeMemoryIntervalsPerBlock.begin() + i); 
-				}
-				return; 
-			}
-			// If no interval was found 
-			if(this->heap.memoryBlocks.back().freeSpace < size_)
-			{
-				this->heap.memoryBlocks.emplace_back();
-				if(this->heap.memoryBlocks.back().freeSpace != 0)
+				PoolId intervalId = rFreeSpace.aliveIntervals[i];
+				MemoryInterval& rMemoryInterval = rFreeSpace.memoryIntervals[intervalId];  
+				uint32_t intervalSize = rMemoryInterval.end - rMemoryInterval.start;
+				if(size_ <= intervalSize) // suitable for this buffer 
 				{
-					this->freeMemoryIntervalsPerBlock[this->heap.memoryBlocks.size() - 1].emplace_back(); 
-					
+
+					this->addBufferInternal(memBlockId, size_, bufferType_);
+					rFreeSpace.intervalByFirst.erase(rMemoryInterval.start); 
+					rMemoryInterval.start += size_ - 1; 
+					rFreeSpace.intervalByFirst.emplace(rMemoryInterval.start, intervalId);
+
+					if(rMemoryInterval.start == rMemoryInterval.end)
+					{	
+						rFreeSpace.intervalByFirst.erase(rMemoryInterval.start); 
+						rFreeSpace.intervalByLast.erase(rMemoryInterval.end); 
+						rFreeSpace.aliveIntervals.erase(rFreeSpace.aliveIntervals.begin() + i); 
+						rFreeSpace.memoryIntervals.remove(intervalId); 
+					}
+					return; 
 				}
 			}
-
-			// uint32_t memoryBlockId = this->heap.memoryBlocks.size() - 1; 
-			this->heap.addBufferDynamic(); 
 		}
+
+		// If no interval was found 
+		uint32_t lastMemoryBlockId = this->memoryBlocks.size() - 1; 
+		MemoryBlock& rLastMemoryBlock = this->memoryBlocks.back();  
+		if(this->memoryBlocks.back().freeSpace < size_)
+		{
+			if(this->memoryBlocks.back().freeSpace != 0) // Free space Interval was formed, since there was still free bytes im memoryBlock 
+			{
+				PoolId id = this->freeSpacePerBlock[lastMemoryBlockId].memoryIntervals.add(rLastMemoryBlock.size - rLastMemoryBlock.freeSpace - 1, rLastMemoryBlock.size); 
+				this->freeSpacePerBlock[lastMemoryBlockId].aliveIntervals.emplace_back(id);
+			}
+				
+			this->memoryBlocks.emplace_back(this->memoryBlockSize, BYTE, this->memReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "Dynamic Memory Block");
+			this->freeSpacePerBlock.emplace_back(); 
+			this->size += this->memoryBlockSize; 
+			lastMemoryBlockId++; 
+		}
+		this->addBufferInternal(lastMemoryBlockId, size_, bufferType_);
 	}
 
 
 	void CPUSharedPage::removeBuffer(PoolId bufferId_)
 	{
-		Buffer& rBuffer = this->heap.buffers[bufferId_];
+		Buffer& rBuffer = this->buffers[bufferId_];
 		FreeSpace& rFreeSpace = this->freeSpacePerBlock[rBuffer.memoryBlockId];
-		uint64_t firstByte = this->heap.bufferOffsets[bufferId_]; 
-		uint64_t lastByte = firstByte + this->heap.bufferSizes[bufferId_] - 1; 
+		uint64_t firstByte = this->bufferOffsets[bufferId_]; 
+		uint64_t lastByte = firstByte + this->bufferSizes[bufferId_] - 1; 
 		
 		// Check if borders free mem interval to the left 
 		if(rFreeSpace.intervalByLast.contains(firstByte - 1)) // 
@@ -121,6 +141,29 @@ namespace Graphics
 		PoolId id = rFreeSpace.memoryIntervals.add(firstByte, lastByte); 
 		rFreeSpace.aliveIntervals.emplace_back(id); 
 	}
+
+	PoolId CPUSharedPage::addBufferInternal(uint32_t memoryId_, VkDeviceSize size_, BufferTypeEnum bufferType_)
+	{
+
+	}
+
+	void CPUSharedPage::removeBufferInternal(uint32_t memoryId_, PoolId bufferId_)
+	{
+
+	}
+	
+	void CPUSharedPage::destroy()
+	{
+		this->memoryBlocks.clear(); 
+		this->freeSpacePerBlock.clear(); 
+		this->buffers.clear();
+		this->bufferSizes.clear(); 
+		this->bufferOffsets.clear();
+		this->size = 0; 
+	}
+
+	
+	CPUSharedPage::CPUSharedPage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_) : upperBoundEntrySize(upperBoundEntrySize_), memoryBlockSize(memoryBlockSize_){}
 };
 
 

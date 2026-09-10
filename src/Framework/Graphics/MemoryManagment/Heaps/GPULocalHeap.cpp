@@ -5,14 +5,12 @@
 
 namespace Graphics
 {
-void GPULocalHeap::createStatic(const char* name_)
+void GPULocalHeap::create()
 {
-	this->name = name_; 
-	
-	this->buffers[{INDEX, 0}].create(this->bufferSizes[{INDEX, 0}], VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Index Buffer");
-	this->buffers[{VERTEX, 0}].create(this->bufferSizes[{VERTEX, 0}], VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Vertex Buffer");
-	this->buffers[{UNIFORM, 0}].create(this->bufferSizes[{UNIFORM, 0}], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Uniform Buffer");
-	this->buffers[{STORAGE, 0}].create(this->bufferSizes[{STORAGE, 0}], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Storage Buffer");
+	this->buffers[INDEX].create(this->bufferSizes[INDEX], VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Index Buffer");
+	this->buffers[VERTEX].create(this->bufferSizes[VERTEX], VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Vertex Buffer");
+	this->buffers[UNIFORM].create(this->bufferSizes[UNIFORM], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Uniform Buffer");
+	this->buffers[STORAGE].create(this->bufferSizes[STORAGE], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, "Storage Buffer");
 
 	std::array<VkMemoryRequirements, BufferTypesCount> memReqs; 
 	
@@ -20,56 +18,27 @@ void GPULocalHeap::createStatic(const char* name_)
 	this->size = 0;
 	for(uint8_t i = 0; i < BufferTypesCount; i++)
 	{
-		memReqs[i] = this->buffers[{i, 0}].memoryReqs; 
-		this->bufferOffsets[{i, 0}] = alignUp(this->size, memReqs[i].alignment);
-		this->size = this->bufferOffsets[{i, 0}] + memReqs[i].size; 
+		memReqs[i] = this->buffers[i].memoryReqs; 
+		this->bufferOffsets[i] = alignUp(this->size, memReqs[i].alignment);
+		this->size = this->bufferOffsets[i] + memReqs[i].size; 
 	}
-	this->memoryBlocks.emplace_back(); 
-	this->memoryBlocks[0].create(this->size, BYTE, memReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "GPU Heap");
+	this->memoryBlock.create(this->size, BYTE, memReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "GPU Heap");
 
 	for(uint8_t i = 0; i < BufferTypesCount; i++)
 	{
-		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffers[{i, 0}].get(), this->memoryBlocks[0].get(), this->bufferOffsets[{i, 0}]);
+		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffers[i].get(), this->memoryBlock.get(), this->bufferOffsets[i]);
 	}
 }
 
-void GPULocalHeap::addOrExtendBufferDynamic(VkDeviceSize size_, BufferTypeEnum bufferType_)
-{
-	
-}
-
-void GPULocalHeap::removeOrShrinkBufferDynamic(VkDeviceSize size_, BufferTypeEnum bufferType_)
-{
-
-}
-
-
-void createOrExtendMemoryBlockDynamic()
-{
-
-};
 
 void GPULocalHeap::destroy()
 {
-	this->memoryBlocks.clear(); 
-	this->buffers.clear();
-	this->bufferSizes.clear(); 
-	this->bufferOffsets.clear(); 
-	this->buffersFreeMemIntervalIdAfterDestruction.clear();
-	for(auto& rImage : this->images)
+	this->memoryBlock.destroy(); 
+	for(uint8_t i = 0; i < BufferTypesCount; i++)
 	{
-		rImage.destroy(); 
+		this->buffers[i].destroy(); 
+		this->bufferSizes[i] = 0; 
+		this->bufferOffsets[i] = 0; 
 	}
-}
-
-GPULocalHeap::GPULocalHeap(bool isStatic_)
-{
-	if(isStatic_)
-	{
-		// Init buffers per type 
-		this->buffers.resize(BufferTypesCount);
-		this->bufferSizes.resize(BufferTypesCount); 
-		this->bufferOffsets.resize(BufferTypesCount);
-	}; 
 }
 }

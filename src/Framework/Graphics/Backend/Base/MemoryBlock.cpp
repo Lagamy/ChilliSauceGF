@@ -5,21 +5,25 @@
 
 namespace Graphics
 {
-void MemoryBlock::create(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, const char* name_)
+void MemoryBlock::create(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, const char* context_)
 {
 	VkMemoryAllocateInfo memAllocInfo = {};
 	memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memAllocInfo.allocationSize = this->toBytes(size_, unit_);
 	// Which type of memory to allocate from(device-local VRAM only, host-visible system RAM shared, etc)
-	memAllocInfo.memoryTypeIndex = findMemoryTypeIndex(memReqsSpan_, properties_, name_); // Index of memory type on Physical Device that has required bit flags for this buffer
+	memAllocInfo.memoryTypeIndex = findMemoryTypeIndex(memReqsSpan_, properties_, context_); // Index of memory type on Physical Device that has required bit flags for this buffer
 	
 
 	// Allocate memory to VkDeviceMemory 
 	VkResult result = vkAllocateMemory(getMainDevice().logicalDevice, &memAllocInfo, nullptr, &this->vkHandle);
+	
+	#ifdef ENGINE_DEBUG
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error(std::format("Failed to allocate {} Memory Block!", name_));
+		throw std::runtime_error(std::format("Failed to allocate {} Memory Block!", context_));
 	}
+	#endif
+
 	this->size = size_; 
 }
 
@@ -39,7 +43,7 @@ VkDeviceMemory MemoryBlock::get() const
 	return this->vkHandle;
 }
 
-uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, const char* name_)
+uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, const char* context_)
 {
 	// Note: _allowedTypes - filter by hardware compatibility, so its GPU's driver responsability to give you that. DO NOT pass anything outside of VkMemoryRequirements.memoryTypeBits in it.  
 
@@ -69,7 +73,7 @@ uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReq
 		}
 	}
 	std::stringstream errorMessageStream; 
-	errorMessageStream << name_ << ": Failed to find suitable memory type."; 
+	errorMessageStream << context_ << ": Failed to find suitable memory type."; 
 	throw std::runtime_error(errorMessageStream.str());
 }
 
@@ -78,9 +82,9 @@ VkDeviceSize MemoryBlock::toBytes(size_t size_, StorageUnitEnum unit_)
 	return size_ << (10 * static_cast<uint8_t>(unit_));
 }
 
-MemoryBlock::MemoryBlock(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* name_)
+MemoryBlock::MemoryBlock(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* context_)
 {
-	this->create(size_, unit_, memReqsSpan_, memoryTypeIndex_, name_);
+	this->create(size_, unit_, memReqsSpan_, memoryTypeIndex_, context_);
 }
 
 MemoryBlock::~MemoryBlock()

@@ -1,23 +1,36 @@
 #pragma once
 #include "PoolNameless.h"
 #include "StagingHeap.h"
-#include "GPULocalHeap.h"
+#include "FreeSpace.h"
 #include <vulkan/vulkan.h>
 
 namespace Graphics
 {
 struct GPULocalPage
 {
-	uint32_t upperBoundEntrySize; 
-	StagingHeap stagingHeap;
-	GPULocalHeap heap = GPULocalHeap(false);
-	PoolNameless<MemoryInterval> freeMemIntervals;  // Use buffers in GPU heap as a base. Check if adjecent buffers exist to morf continious free mem intervals into 1 big one   
-	std::vector<uint32_t> aliveFreeMemIntervals; // I need to Use Pool on memIntervals for id stability, and this to avoid itterating through non alive freeMemIntervals 
+	uint32_t upperBoundEntrySize;
+	uint32_t memoryBlockSize; 
+	
+	StagingHeap stagingHeap; // Gets pre Sized on creation to handle uploads. If upload is bigger -> it resizes to be bigger. 
+	std::vector<MemoryBlock> memoryBlocks;
+	std::vector<FreeSpace> freeSpacePerBlock;  
 	std::array<VkMemoryRequirements, BufferTypesCount> memReqs;
+	
+	PoolNameless<Buffer> buffers;
+	PoolNameless<uint32_t> bufferSizes;
+	PoolNameless<uint32_t> bufferOffsets;
 
-	GPULocalPage(uint32_t upperBoundEntrySize_);
-	void addBuffer(); 
-	void removeBuffer();
+	VkDeviceSize size; // purely for debug porpuses 
+	bool created;
+	
+	void destroy();
+	PoolId addBufferInternal(uint32_t memoryId_, VkDeviceSize size_, BufferTypeEnum bufferType_);
+	void removeBufferInternal(uint32_t memoryId_, PoolId bufferId_);
+	void addBuffer(VkDeviceSize size_, BufferTypeEnum bufferType_);
+	void removeBuffer(PoolId bufferId_); // Adds free Mem Intervals
+	void recreateStagingHeapIfNeeded(uint32_t uploadSize_); 
 	void init();
+
+	GPULocalPage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_);
 };
 }

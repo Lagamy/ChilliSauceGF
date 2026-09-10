@@ -11,20 +11,16 @@ namespace Graphics
 {
 struct GPULocalHeap 
 {
-	std::string name; 
-	std::vector<MemoryBlock> memoryBlocks; 
-	PoolNameless<Buffer> buffers;
-	PoolNameless<uint32_t> bufferSizes;
-	PoolNameless<uint32_t> bufferOffsets;
+	MemoryBlock memoryBlock;
+	std::array<Buffer, BufferTypesCount> buffers;
+	std::array<uint32_t, BufferTypesCount> bufferSizes;
+	std::array<uint32_t, BufferTypesCount> bufferOffsets;
 
-	VkDeviceSize size = 0;
-	std::vector<Image> images;
-
-	void createStatic(const char* name_);
-	void addOrExtendBufferDynamic(VkDeviceSize size_, BufferTypeEnum bufferType_);
-	void removeOrShrinkBufferDynamic(VkDeviceSize size_, BufferTypeEnum bufferType_);
-	void createOrExtendMemoryBlockDynamic(VkDeviceSize byteAmount_); 
+	VkDeviceSize size; 
+	StorageUnitEnum unit;
+	bool created;
+	
 	void destroy();
-	GPULocalHeap(bool isStatic_);
+	void create();
 };
 }

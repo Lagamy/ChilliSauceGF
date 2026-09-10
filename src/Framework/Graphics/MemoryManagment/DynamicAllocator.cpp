@@ -7,10 +7,10 @@ namespace Graphics
 
 DynamicAllocator::DynamicAllocator()
 {
-    this->cpuSharedPageSizes.emplace_back(std::numeric_limits<uint32_t>::max());
+    this->cpuSharedPageInfos.emplace_back(std::numeric_limits<uint32_t>::max());
 }
 
-void DynamicAllocator::addPage(uint32_t upperBoundForEntrySize_, bool isCpuShared_)
+void DynamicAllocator::addPage(uint32_t upperBoundForEntrySize_, uint32_t memoryBlockSize_, bool isCpuShared_)
 {
 
 	#ifdef ENGINE_DEBUG
@@ -22,27 +22,27 @@ void DynamicAllocator::addPage(uint32_t upperBoundForEntrySize_, bool isCpuShare
 
     if(isCpuShared_)
     {
-        this->cpuSharedPages.emplace_back(upperBoundForEntrySize_); 
+        this->cpuSharedPageInfos.emplace_back(upperBoundForEntrySize_, memoryBlockSize_); 
         return; 
     }
-    this->gpuLocalPageSizes.emplace_back(upperBoundForEntrySize_);
+    this->gpuLocalPageInfos.emplace_back(upperBoundForEntrySize_, memoryBlockSize_);
 }
 
 void DynamicAllocator::create()
 {
-    std::sort(this->cpuSharedPageSizes.begin(), this->cpuSharedPageSizes.end()); 
-    std::sort(this->gpuLocalPageSizes.begin(), this->gpuLocalPageSizes.end());
-    this->cpuSharedPages.reserve(cpuSharedPageSizes.size());
-    this->gpuLocalPages.reserve(gpuLocalPageSizes.size());
+    std::sort(this->cpuSharedPageInfos.begin(), this->cpuSharedPageInfos.end()); 
+    std::sort(this->gpuLocalPageInfos.begin(), this->gpuLocalPageInfos.end());
+    this->cpuSharedPages.reserve(cpuSharedPageInfos.size());
+    this->gpuLocalPages.reserve(gpuLocalPageInfos.size());
 
-    for(uint32_t size : this->cpuSharedPageSizes)
+    for(PageInfo info : this->cpuSharedPageInfos)
     {
-        this->cpuSharedPages.emplace_back(size); 
+        this->cpuSharedPages.emplace_back(info.upperBoundEntrySize, info.memoryBlockSize); 
     } 
     
-    for(uint32_t size : this->gpuLocalPageSizes)
+    for(PageInfo info : this->gpuLocalPageInfos)
     {
-        this->gpuLocalPages.emplace_back(size); 
+        this->gpuLocalPages.emplace_back(info.upperBoundEntrySize, info.memoryBlockSize); 
     }
 
     this->initialized = true; 
@@ -55,7 +55,7 @@ UploadId DynamicAllocator::addEntryAndUpload(const char* name_, const void* data
     if(memoryVisability_ == GPU_ONLY)
 	{
         
-        for(uint32_t pageSize : this->cpuSharedPageSizes)
+        for(uint32_t pageSize : this->cpuSharedPageInfos)
         {
             if(size_ < pageSize)
             {

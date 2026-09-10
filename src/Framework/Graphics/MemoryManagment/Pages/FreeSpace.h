@@ -11,5 +11,13 @@ struct FreeSpace
 	std::vector<PoolId> aliveIntervals; // For quicker itteration. Self erases if is filled up in (Add buffer dynamic function)  
     std::unordered_map<uint64_t, PoolId> intervalByFirst;
 	std::unordered_map<uint64_t, PoolId> intervalByLast; 
+
+	void destroy()
+	{
+		this->memoryIntervals.clear(); 
+		this->aliveIntervals.clear(); 
+		this->intervalByFirst.clear(); 
+		this->intervalByLast.clear(); 
+	}
 };  
 }
