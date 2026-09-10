@@ -32,7 +32,7 @@ void CPUSharedHeap::create()
 		}
 	}
 	
-	this->memoryBlock.create(this->size, this->unit, memReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, name_);
+	this->memoryBlock.create(this->size, memReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "Static Memory Block");
 }; 
 
 void CPUSharedHeap::destroy()

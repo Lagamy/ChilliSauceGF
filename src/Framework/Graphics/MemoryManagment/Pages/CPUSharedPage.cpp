@@ -75,7 +75,7 @@ namespace Graphics
 				this->freeSpacePerBlock[lastMemoryBlockId].aliveIntervals.emplace_back(id);
 			}
 				
-			this->memoryBlocks.emplace_back(this->memoryBlockSize, BYTE, this->memReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "Dynamic Memory Block");
+			this->memoryBlocks.emplace_back(this->memoryBlockSize, this->memReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "Dynamic Memory Block");
 			this->freeSpacePerBlock.emplace_back(); 
 			this->size += this->memoryBlockSize; 
 			lastMemoryBlockId++; 

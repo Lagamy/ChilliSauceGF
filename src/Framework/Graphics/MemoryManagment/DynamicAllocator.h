@@ -12,6 +12,7 @@ namespace Graphics
 struct DynamicAllocator 
 {
     // Feel out before MemoryManager.setup() happens in . Its 1 time init  
+	StagingHeap stagingHeap; // Gets pre-Sized on creation to handle page with biggest upperBoundEntrySize. If upload is bigger -> it resizes to be bigger. 
     std::vector<PageInfo> cpuSharedPageInfos; 
     std::vector<PageInfo> gpuLocalPageInfos; 
     bool initialized = false; 
@@ -21,11 +22,10 @@ struct DynamicAllocator
     
     std::vector<CPUSharedPage> cpuSharedPages; // Sorted by smallest upper bound size per entry -> biggest 
     
-    StagingHeap stagingHeap; 
     std::vector<GPULocalPage> gpuLocalPages; // Sorted by smallest upper bound size per entry -> biggest
     uint32_t uploadCooldownMs;  
 
-	void addPage(uint32_t upperBoundForEntrySize_, uint32_t memoryBlockSize_, bool isCpuShared_);
+	void addPage(uint32_t upperBoundForEntrySize_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_, bool isCpuShared_);
 	UploadId addEntryAndUpload(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
 	void updateEntry(UploadId entryId_, const void* data_, size_t entryOffset_, size_t srcOffset_, size_t byteAmmount_); 
    

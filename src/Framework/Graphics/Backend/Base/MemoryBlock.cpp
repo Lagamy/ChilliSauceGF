@@ -5,11 +5,11 @@
 
 namespace Graphics
 {
-void MemoryBlock::create(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, const char* context_)
+void MemoryBlock::create(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, const char* context_)
 {
 	VkMemoryAllocateInfo memAllocInfo = {};
 	memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memAllocInfo.allocationSize = this->toBytes(size_, unit_);
+	memAllocInfo.allocationSize = size_;
 	// Which type of memory to allocate from(device-local VRAM only, host-visible system RAM shared, etc)
 	memAllocInfo.memoryTypeIndex = findMemoryTypeIndex(memReqsSpan_, properties_, context_); // Index of memory type on Physical Device that has required bit flags for this buffer
 	
@@ -77,14 +77,9 @@ uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReq
 	throw std::runtime_error(errorMessageStream.str());
 }
 
-VkDeviceSize MemoryBlock::toBytes(size_t size_, StorageUnitEnum unit_)
+MemoryBlock::MemoryBlock(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* context_)
 {
-	return size_ << (10 * static_cast<uint8_t>(unit_));
-}
-
-MemoryBlock::MemoryBlock(size_t size_, StorageUnitEnum unit_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* context_)
-{
-	this->create(size_, unit_, memReqsSpan_, memoryTypeIndex_, context_);
+	this->create(size_, memReqsSpan_, memoryTypeIndex_, context_);
 }
 
 MemoryBlock::~MemoryBlock()

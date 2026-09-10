@@ -22,7 +22,7 @@ void GPULocalHeap::create()
 		this->bufferOffsets[i] = alignUp(this->size, memReqs[i].alignment);
 		this->size = this->bufferOffsets[i] + memReqs[i].size; 
 	}
-	this->memoryBlock.create(this->size, BYTE, memReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "GPU Heap");
+	this->memoryBlock.create(this->size, memReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "GPU Heap");
 
 	for(uint8_t i = 0; i < BufferTypesCount; i++)
 	{
