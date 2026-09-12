@@ -46,8 +46,7 @@ namespace Graphics
 				uint32_t intervalSize = rMemoryInterval.end - rMemoryInterval.start;
 				if(size_ <= intervalSize) // suitable for this buffer 
 				{
-
-					this->addBufferInternal(memBlockId, size_, bufferType_);
+					this->addBufferInternal(memBlockId, rMemoryInterval.start, size_, bufferType_);
 					rFreeSpace.intervalByFirst.erase(rMemoryInterval.start); 
 					rMemoryInterval.start += size_ - 1; 
 					rFreeSpace.intervalByFirst.emplace(rMemoryInterval.start, intervalId);
@@ -80,7 +79,7 @@ namespace Graphics
 			this->size += this->memoryBlockSize; 
 			lastMemoryBlockId++; 
 		}
-		this->addBufferInternal(lastMemoryBlockId, size_, bufferType_);
+		this->addBufferInternal(lastMemoryBlockId, 0,  size_, bufferType_);
 	}
 
 
@@ -142,14 +141,19 @@ namespace Graphics
 		rFreeSpace.aliveIntervals.emplace_back(id); 
 	}
 
-	PoolId CPUSharedPage::addBufferInternal(uint32_t memoryId_, VkDeviceSize size_, BufferTypeEnum bufferType_)
+	PoolId CPUSharedPage::addBufferInternal(uint32_t memoryId_, VkDeviceSize memoryOffset_, VkDeviceSize size_, BufferTypeEnum bufferType_)
 	{
-
+		PoolId id = this->bufferOffsets.add(memoryOffset_); 
+		this->bufferSizes.add(size_);
+		this->buffers.add(size_, BufferTypeToUsage[bufferType_], VK_SHARING_MODE_EXCLUSIVE, "Dynamic CPU Shared Buffer"); 
+		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffers[id].get(), this->memoryBlocks[memoryId_].get(), memoryOffset_);
 	}
 
-	void CPUSharedPage::removeBufferInternal(uint32_t memoryId_, PoolId bufferId_)
+	void CPUSharedPage::removeBufferInternal(PoolId bufferId_)
 	{
-
+		this->bufferOffsets.remove(bufferId_);
+		this->bufferSizes.remove(bufferId_); 
+		this->buffers.remove(bufferId_); 
 	}
 	
 	void CPUSharedPage::destroy()

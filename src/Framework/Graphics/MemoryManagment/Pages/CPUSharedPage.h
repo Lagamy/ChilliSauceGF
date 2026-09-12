@@ -3,6 +3,7 @@
 #include "PoolNameless.h"
 #include "MemoryBlock.h"
 #include "Buffer.h"
+#include "Api.h"
 #include "Utilities.h"
 #include "FreeSpace.h"
 #include <unordered_map>
@@ -26,8 +27,8 @@ struct CPUSharedPage
 	bool created;
 	
 	void destroy();
-	PoolId addBufferInternal(uint32_t memoryId_, VkDeviceSize size_, BufferTypeEnum bufferType_);
-	void removeBufferInternal(uint32_t memoryId_, PoolId bufferId_);
+	PoolId addBufferInternal(uint32_t memoryId_, VkDeviceSize memoryOffset_, VkDeviceSize size_, BufferTypeEnum bufferType_);
+	void removeBufferInternal(PoolId bufferId_);
 	void addBuffer(VkDeviceSize size_, BufferTypeEnum bufferType_);
 	void removeBuffer(PoolId bufferId_); // Adds free Mem Intervals
 	void init();
