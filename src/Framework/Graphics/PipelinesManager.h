@@ -1,5 +1,5 @@
 #pragma once 
-#include "Pool.h"
+#include "PoolMap.h"
 #include "GraphicsPipeline.h"
 #include "ComputePipeline.h"
 
@@ -7,8 +7,8 @@ namespace Graphics
 {
 struct PipelinesManager
 {
-	Pool<GraphicsPipeline> graphicsPipelines = ("Graphics Pipelines");
-    Pool<ComputePipeline> computePipelines = ("Compute Pipelines");
+	PoolMap<GraphicsPipeline> graphicsPipelines = ("Graphics Pipelines");
+    PoolMap<ComputePipeline> computePipelines = ("Compute Pipelines");
 
     void createAllPipelines(); 
     void destroyAllPipelines();

@@ -12,7 +12,6 @@ namespace Graphics
 struct DynamicAllocator 
 {
     // Feel out before MemoryManager.setup() happens in . Its 1 time init  
-	StagingHeap stagingHeap; // Gets pre-Sized on creation to handle page with biggest upperBoundEntrySize. If upload is bigger -> it resizes to be bigger. 
     std::vector<PageInfo> cpuSharedPageInfos; 
     std::vector<PageInfo> gpuLocalPageInfos; 
     bool initialized = false; 

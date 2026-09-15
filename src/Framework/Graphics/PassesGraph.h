@@ -1,6 +1,6 @@
 #pragma once
 #include "PassId.h"
-#include "Pool.h"
+#include "PoolMap.h"
 #include "PassesPack.h"
 #include "SubmissionBatch.h"
 #include "Task.h"

@@ -11,8 +11,11 @@ struct StagingHeap {
 	VkDeviceSize size; 
 	void* pCpuSharedData; // Pointer to GPU buffered that was mapped to the CPU
 	bool created;
+	bool isDynamic; 
 	
 	void destroy();
-	void create(const char* name_); 
+	void createStatic(); 
+	StagingHeap() = default; 
+	StagingHeap(VkDeviceSize size_, const char* uploadName_); 
 };
 }

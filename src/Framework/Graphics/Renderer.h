@@ -3,7 +3,7 @@
 #include "GPUScene.h"
 #include "PipelinesManager.h"
 #include "PassesGraph.h"
-#include "Pool.h"
+#include "PoolMap.h"
 #include "RenderPass.h" 
 #include "Instance.h"
 #include "Device.h"
@@ -42,7 +42,7 @@ struct Renderer {
 
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass presentationRenderPass;
-	Pool<RenderPass> renderPasses = ("RenderPasses"); 
+	PoolMap<RenderPass> renderPasses = ("RenderPasses"); 
 
 	GPUScene gpuSceneManager;
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 

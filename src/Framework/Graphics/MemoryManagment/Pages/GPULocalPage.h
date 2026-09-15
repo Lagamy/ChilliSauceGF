@@ -1,5 +1,5 @@
 #pragma once
-#include "PoolNameless.h"
+#include "Pool.h"
 #include "StagingHeap.h"
 #include "FreeSpace.h"
 #include <vulkan/vulkan.h>
@@ -16,17 +16,17 @@ struct GPULocalPage
 	std::vector<FreeSpace> freeSpacePerBlock;  
 	std::array<VkMemoryRequirements, BufferTypesCount> memReqs;
 	
-	PoolNameless<Buffer> buffers;
-	PoolNameless<uint32_t> bufferSizes;
-	PoolNameless<uint32_t> bufferOffsets;
+	Pool<Buffer> buffers;
+	Pool<uint32_t> bufferSizes;
+	Pool<uint32_t> bufferOffsets;
 
 	VkDeviceSize size; // purely for debug porpuses 
 	bool created;
 	
 	void destroy();
-	PoolId addBufferInternal(uint32_t memoryId_, VkDeviceSize size_, BufferTypeEnum bufferType_);
+	PoolId addBufferInternal(uint32_t memoryId_, VkDeviceSize size_, BufferTypeEnum bufferType_, const char* uploadName_);
 	void removeBufferInternal(uint32_t memoryId_, PoolId bufferId_);
-	void addBuffer(VkDeviceSize size_, BufferTypeEnum bufferType_);
+	void addBuffer(VkDeviceSize size_, BufferTypeEnum bufferType_, const char* uploadName_);
 	void removeBuffer(PoolId bufferId_); // Adds free Mem Intervals
 	void recreateStagingHeapIfNeeded(uint32_t uploadSize_); 
 	void init();

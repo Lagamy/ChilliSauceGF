@@ -6,7 +6,7 @@
 #include "Semaphore.h"
 #include "CPUSharedHeap.h"
 #include "MemoryBlock.h"
-#include "Pool.h"
+#include "PoolMap.h"
 #include "StagingHeap.h"
 #include "SyncManager.h"
 #include "Image.h"

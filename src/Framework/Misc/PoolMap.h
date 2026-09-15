@@ -1,52 +1,44 @@
 #pragma once 
 #include "PoolId.h"
-#include "Pool.h"
 #include "Utilities.h"
 #include <unordered_map>
 #include <vector> 
-#include <queue>
 #include <cstdint>
 #include <stdexcept>
 #include <sstream>
-#include <optional>
-
+#include <format>
 
 template <typename T> 
-struct PoolNameless {
+struct PoolMap {
 	std::vector<T> objects;
 	std::vector<bool> alive;
 	std::vector<uint32_t> generation; 
 	std::vector<uint32_t> freeSlots;	
+	std::vector<std::string> names;
+	std::unordered_map<std::string, PoolId> nameToId;
 	std::string name;
 	uint32_t elementCount; 
 
-	PoolNameless(const char* name_) : name(name_){};
-	PoolNameless() {};
+	PoolMap(const char* name_) : name(name_){};
 	void isPoolIdValid(PoolId pId_)
 	{
 		if(pId_ == UninitializedPoolId)
 		{
-			std::stringstream errorMessageStream;
-			errorMessageStream << name << " Pool: UninitializedPoolId can't be used in get function.\n";
-			throw std::runtime_error(errorMessageStream.str());
+			throw std::runtime_error(std::format("{} Pool: UninitializedPoolId can't be used in get function.", this->name));
 		}
 
 		if(pId_.id >= this->objects.size() || !alive[pId_.id])
 		{
-			std::stringstream errorMessageStream;
-			errorMessageStream << name << " Pool: object with id: " << pId_.id << " doesn't exist.\n";
-			throw std::runtime_error(errorMessageStream.str());
+			throw std::runtime_error(std::format("{} Pool: object with id: {} doesn't exist.",this->name, pId_.id));
 		}
 		if(this->generation[pId_.id] != pId_.generation)
 		{
-			std::stringstream errorMessageStream;
-			errorMessageStream << name << " Pool: slot with id: " << pId_.id << " has bigger generation(" << pId_.generation << "), than passed one(" << this->generation[pId_.id] << ").\n";
-			throw std::runtime_error(errorMessageStream.str());
+			throw std::runtime_error(std::format("{} Pool: slot with id: {} has bigger generation({}), than passed one({}).", this->name, pId_.id, pId_.generation, this->generation[pId_.id]));
 		}
 	}
 
 	template <typename... Args>
-    PoolId add(Args&&... args)
+    PoolId add(const char* name_, Args&&... args)
     {
         PoolId id = {0, 0};
 
@@ -55,6 +47,7 @@ struct PoolNameless {
             id.id = static_cast<uint32_t>(objects.size());
             this->objects.emplace_back(std::forward<Args>(args)...);
             this->generation.emplace_back(id.generation);
+			this->names.emplace_back(name_);
 			this->alive.emplace_back(true); 
         }
         else
@@ -64,51 +57,45 @@ struct PoolNameless {
             // reconstruct in-place
 			this->objects[id.id] = T(std::forward<Args>(args)...);
             id.generation = generation[id.id];
+			this->names[id.id] = name_;
 			this->alive[id.id] = true; 
         }
-		this->elementCount++; 
+		nameToId.emplace(name_, id);
+		this->elementCount++;
         return id;
     }
 
 	void remove(PoolId pId_) {
+
 		#ifdef ENGINE_DEBUG
 			this->isPoolIdValid(pId_);
-		#endif 
+		#endif
 		this->generation[pId_.id]++; 
 		if constexpr (requires { T::destroy(nullptr); })
         {
         	    T::destroy(&objects[pId_.id]);
 		}
 		this->freeSlots.emplace_back(pId_.id);
-		this->alive[pId_.id] = false; 
-		this->elementCount--; 
+		this->nameToId.erase(this->names[pId_.id]);
+		this->names[pId_.id] = ""; 
+		this->alive[pId_.id] = false;
+		this->elementCount--;  
 	}
 
-	void resize(size_t size_) // Note: doesn't work for objects without default constructor 
-	{
-		#ifdef ENGINE_DEBUG
-			if(!this->objects.empty())
-			{
-				std::stringstream errorMessageStream;
-				errorMessageStream << name << " Pool: can't resize Pool that was already initialized\n";
-				throw std::runtime_error(errorMessageStream.str());
-			}
-		#endif
-
-		this->objects.resize(size_); 
-		this->alive.resize(size_); 
-		this->generation.resize(size_); 
-	}
 	
-	void removeInternal(uint32_t id_) // Used mainly during itteration  
-	{
-		this->generation[id_]++; 
-		if constexpr (requires (T& obj) { obj.destroy(); })
+	void removeInternal(uint32_t id_) {
+		if(this->alive[id_])
 		{
-    		objects[id_].destroy();
+			this->generation[id_]++; 
+			if constexpr (requires (T& obj) { obj.destroy(); })
+			{
+    			objects[id_].destroy();
+			}
+			this->freeSlots.emplace_back(id_);
+			this->nameToId.erase(this->names[id_]);
+			this->names[id_] = ""; 
+			this->alive[id_] = false; 
 		}
-		this->freeSlots.emplace_back(id_);
-		this->alive[id_] = false; 
 	}
 
 	void clear() 
@@ -143,27 +130,48 @@ struct PoolNameless {
 
 	T& back()
 	{
+		
 		#ifdef ENGINE_DEBUG
 			if(this->objects.empty())
 			{
-				std::stringstream errorMessageStream; 
-				errorMessageStream << this->name << ": Can't use back() on empty Pool."; 
-				throw std::runtime_error(errorMessageStream.str());
+				throw std::runtime_error(std::format("{} Pool: Can't use back() on empty Pool.", this->name));
 			}
-		#endif 
+		#endif
 
 		uint32_t id = this->allocatedSize() - 1;
 		while(!this->alive[id])
 		{
-			if(id == 0)
-			{
-				std::stringstream errorMessageStream; 
-				errorMessageStream << this->name << ": Can't use back() on empty Pool."; 
-				throw std::runtime_error(errorMessageStream.str());
-			}
-			id--; 
+			#ifdef ENGINE_DEBUG
+				if(id == 0)
+				{
+					throw std::runtime_error(std::format("{} Pool: Can't use back() on empty Pool.", this->name));
+				}
+				id--;
+			#endif 
 		}
 		return this->objects[id]; 
+	}
+
+	PoolId getIdByName(const char* name_)
+	{
+		const auto& iterator = this->nameToId.find(name_);
+		
+		#ifdef ENGINE_DEBUG
+			if (iterator == this->nameToId.end()) // doesn't exist 
+			{
+				throw std::runtime_error(std::format("{} Pool: no object with name {} was found.", this->name, name_));
+			}
+		#endif
+		return iterator->second;
+	}
+
+	std::string& getName(PoolId pId_)
+	{
+		
+		#ifdef ENGINE_DEBUG
+			this->isPoolIdValid(pId_);
+		#endif
+		return this->names[pId_.id]; 
 	}
 
 	T* data()
@@ -173,7 +181,7 @@ struct PoolNameless {
 
 	const uint32_t size()
 	{
-		return this->elementCount; 
+		return this->elementCount;
 	}
 
 	const size_t allocatedSize()
@@ -181,12 +189,11 @@ struct PoolNameless {
 		return this->objects.size();
 	}
 
-	const size_t sizeInBytes()
+	const size_t allocatedSizeInBytes()
 	{
 		return this->objects.size() * sizeof(T);
 	}
 
-	
 };
 
 

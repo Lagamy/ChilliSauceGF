@@ -34,8 +34,6 @@ void DynamicAllocator::create()
     std::sort(this->cpuSharedPageInfos.begin(), this->cpuSharedPageInfos.end()); 
     std::sort(this->gpuLocalPageInfos.begin(), this->gpuLocalPageInfos.end());
     
-    this->stagingHeap.size = this->gpuLocalPageInfos.back().upperBoundEntrySize; 
-    this->stagingHeap.create("Dynamic Staging Heap"); 
     this->cpuSharedPages.reserve(cpuSharedPageInfos.size());
     this->gpuLocalPages.reserve(gpuLocalPageInfos.size());
 
@@ -55,30 +53,26 @@ void DynamicAllocator::create()
 
 UploadId DynamicAllocator::addEntryAndUpload(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)
 {
-    // uint32_t id = 0; 
-    // if(memoryVisability_ == GPU_ONLY)
-	// {
+    uint32_t id = 0; 
+    if(memoryVisability_ == GPU_ONLY)
+	{
         
-    //     for(uint32_t pageSize : this->cpuSharedPageInfos)
-    //     {
-    //         if(size_ < pageSize)
-    //         {
-    //             GpuHeap& 
-	// 	        this->uploadEntriesPerMemVisability[memoryVisability_].emplace_back(name_, data_, size_, uploadType_, this->gpuHeap.bufferSizes[uploadType_]);
-    //             this->gpuHeap.bufferSizes[uploadType_] += size_; 
-	// 	        this->stagingHeap.size += size_; 
-	// 	        return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
-    //             break; 
-    //         }
-    //     }
-	// }
-	// else 
-	// {
-	// 	this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_);
-	// 	this->cpuSharedHeap.bufferSizes[uploadType_] += size_; 
-	// 	this->cpuSharedHeap.size += size_; 
-	// 	return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
-	// }
+        for(uint32_t pageSize : this->cpuSharedPageInfos)
+        {
+            if(size_ < pageSize)
+            {
+		        return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
+                break; 
+            }
+        }
+	}
+	else 
+	{
+		this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_);
+		this->cpuSharedHeap.bufferSizes[uploadType_] += size_; 
+		this->cpuSharedHeap.size += size_; 
+		return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
+	}
 };
 
 void DynamicAllocator::deallocate()

@@ -1,14 +1,14 @@
 #pragma once
 #include "Image.h"
-#include "Pool.h"
+#include "PoolMap.h"
 
 namespace Graphics 
 {
 struct ImagesManager 
 {
-    Pool<Image> cubemaps = ("Cubemap Images"); 
-    Pool<Image> volumetrics = ("Volumetric Images"); 
-    Pool<Image> textures = ("Texture Images"); 
-    Pool<Image> renderTargets = ("RenderTarget Images"); 
+    PoolMap<Image> cubemaps = ("Cubemap Images"); 
+    PoolMap<Image> volumetrics = ("Volumetric Images"); 
+    PoolMap<Image> textures = ("Texture Images"); 
+    PoolMap<Image> renderTargets = ("RenderTarget Images"); 
 };
 }

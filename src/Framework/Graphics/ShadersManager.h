@@ -1,11 +1,11 @@
 #pragma once 
 #include "Shader.h"
-#include "Pool.h"
+#include "PoolMap.h"
 
 namespace Graphics
 {
     struct ShadersManager { 
-        Pool<Shader> shaders = ("Shaders"); 
+        PoolMap<Shader> shaders = ("Shaders"); 
         void destroy();
     }; 
 }

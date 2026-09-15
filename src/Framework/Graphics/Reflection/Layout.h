@@ -1,18 +1,19 @@
 #pragma once 
-#include "Pool.h"
+#include "PoolMap.h"
 #include "DataContainer.h"
 #include "MemberBlueprint.h"
 #include "Utilities.h"
 #include <cstring>
 #include <stdexcept>
+#include <format>
 
 namespace Graphics { 
 struct ReflectionLayout
 {
     AlignmentLayoutEnum alignment = NONE; 
     uint32_t alignmentRule; 
-    Pool<MemberBlueprint> memberBlueprints = ("Member Blueprints"); 
-    Pool<DataContainer> dataContainers = ("Data Containers"); 
+    PoolMap<MemberBlueprint> memberBlueprints = ("Member Blueprints"); 
+    PoolMap<DataContainer> dataContainers = ("Data Containers"); 
     size_t size = 0; 
 
     PoolId addMemberBlueprint(const char* name_, DataTypeEnum dataType_);
@@ -25,10 +26,9 @@ struct ReflectionLayout
         MemberBlueprint& rMemberBlueprint = this->memberBlueprints[memberBlueprintId_]; 
         if(GPUTypeMap<T>::value != rMemberBlueprint.dataType)
         {
-            std::stringstream errorMessageStream; 
-			errorMessageStream << dataContainers.getName(dataContainerId_)<< " Data Container: Can't set Member " << this->memberBlueprints.getName(memberBlueprintId_) << " with type " << dataTypeToName[rMemberBlueprint.dataType] << " to "
-            << dataTypeToName[GPUTypeMap<T>::value] << " type inside of " << this->dataContainers.getName(dataContainerId_) << ".\n"; 
-			throw std::runtime_error(errorMessageStream.str());
+			throw std::runtime_error(std::format("{} Data Container: Can't set Member {} with type {} to {} type inside of {} ", 
+            dataContainers.getName(dataContainerId_), this->memberBlueprints.getName(memberBlueprintId_), 
+            dataTypeToName[rMemberBlueprint.dataType], dataTypeToName[GPUTypeMap<T>::value], this->dataContainers.getName(dataContainerId_)); 
         }
         DataContainer& rDataContainer = this->dataContainers[dataContainerId_];
         if(repeatUnitId_ >= rDataContainer.repeatCount)

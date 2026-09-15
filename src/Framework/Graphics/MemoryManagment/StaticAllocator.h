@@ -15,9 +15,9 @@ void uploadCMDs(VkCommandBuffer& cmdBuffer_);
 // Forward decloration 
 struct StaticAllocator { 
 	std::array<UploadEntryGroup, 2> uploadEntryGroupPerMemVisability;
-	CPUSharedHeap cpuSharedHeap = CPUSharedHeap(true); 
+	CPUSharedHeap cpuSharedHeap;
 	StagingHeap stagingHeap;
-	GPULocalHeap gpuHeap = GPULocalHeap(true);
+	GPULocalHeap gpuHeap;
 
 	PoolId uploadFinishedSemaphoreId; 
 	PoolId uploadFinishedFenceId;

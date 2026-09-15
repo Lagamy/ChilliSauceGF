@@ -30,12 +30,8 @@ size_t Mesh::getSize()
 
 void Mesh::queueStaticGPUUpload()
 {
-    std::stringstream uploadName;
-    uploadName << this->name << " Vertex data"; 
-    this->vbMemoryUploadId = addUpload(uploadName.str().c_str(), STATIC, GPU_ONLY, VERTEX, this->getData(), this->getSize()); 
-	uploadName.clear(); 
+    this->vbMemoryUploadId = addUpload(std::format("{} Vertex data", this->name).c_str(), STATIC, GPU_ONLY, VERTEX, this->getData(), this->getSize()); 
     // Create Index Buffer and fill it with data.
-    uploadName << this->name << " Index data"; 
-	this->ibMemoryUploadId = addUpload(uploadName.str().c_str(), STATIC, GPU_ONLY, INDEX, this->indices.data(), this->indices.size() * sizeof(uint32_t)); 
+	this->ibMemoryUploadId = addUpload(std::format("{} Index data", this->name).c_str(), STATIC, GPU_ONLY, INDEX, this->indices.data(), this->indices.size() * sizeof(uint32_t)); 
 }
 } 
