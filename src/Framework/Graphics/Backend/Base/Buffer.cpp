@@ -17,7 +17,7 @@ namespace Graphics
 			VkResult result = vkCreateBuffer(getMainDevice().logicalDevice, &bufferCreateInfo, nullptr, &this->vkHandle);
 			if (result != VK_SUCCESS)
 			{
-				throw std::runtime_error(std::format("Failed to create {} Buffer!", name_));
+				throw std::runtime_error(std::format("Failed to create Buffer! For upload {}", name_));
 			}
 			vkGetBufferMemoryRequirements(getMainDevice().logicalDevice, this->vkHandle, &memoryReqs); 
 		}

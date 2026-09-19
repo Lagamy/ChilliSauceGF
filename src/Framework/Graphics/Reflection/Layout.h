@@ -28,14 +28,13 @@ struct ReflectionLayout
         {
 			throw std::runtime_error(std::format("{} Data Container: Can't set Member {} with type {} to {} type inside of {} ", 
             dataContainers.getName(dataContainerId_), this->memberBlueprints.getName(memberBlueprintId_), 
-            dataTypeToName[rMemberBlueprint.dataType], dataTypeToName[GPUTypeMap<T>::value], this->dataContainers.getName(dataContainerId_)); 
+            dataTypeToName[rMemberBlueprint.dataType], dataTypeToName[GPUTypeMap<T>::value], 
+            this->dataContainers.getName(dataContainerId_))); 
         }
         DataContainer& rDataContainer = this->dataContainers[dataContainerId_];
         if(repeatUnitId_ >= rDataContainer.repeatCount)
         {
-            std::stringstream errorMessageStream; 
-			errorMessageStream << this->dataContainers.getName(dataContainerId_) << " Data Container: Repeat Unit " << repeatUnitId_ << " is out of bounds." << "\n"; 
-			throw std::runtime_error(errorMessageStream.str());
+			throw std::runtime_error(std::format("{} Data Container: Repeat Unit {} is out of bounds.", this->dataContainers.getName(dataContainerId_), repeatUnitId_));  
         }
         size_t repeatUnitOffset = repeatUnitId_ * this->size;  
         std::memcpy(&rDataContainer.data[repeatUnitOffset + rMemberBlueprint.firstByteId], &data_, rMemberBlueprint.size);

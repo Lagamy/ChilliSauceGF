@@ -81,14 +81,14 @@ UploadId StaticAllocator::addEntry(const char* name_, const void* data_, VkDevic
 		this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_, this->gpuHeap.bufferSizes[uploadType_]);
 		this->gpuHeap.bufferSizes[uploadType_] += size_; 
 		this->stagingHeap.size += size_; 
-		return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
+		return {STATIC, memoryVisability_, uploadType_, PoolId(this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1, 0)};
 	}
 	else 
 	{
-		this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_);
+		this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_, this->cpuSharedHeap.bufferSizes[uploadType_]);
 		this->cpuSharedHeap.bufferSizes[uploadType_] += size_; 
 		this->cpuSharedHeap.size += size_; 
-		return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
+		return {STATIC, memoryVisability_, uploadType_, PoolId(this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1, 0)};
 	}
 }
 
@@ -106,7 +106,7 @@ void StaticAllocator::updateEntry(UploadId entryId_, const void* data_, size_t e
 
 const UploadEntry& StaticAllocator::getEntry(UploadId id_) 
 {
-	return this->uploadEntryGroupPerMemVisability[id_.memoryVisability][id_.uploadType][id_.id];
+	return this->uploadEntryGroupPerMemVisability[id_.memoryVisability][id_.uploadType][id_.id.id]; // [id_.id.id] is UploadId -> PoolId -> id.
 }
 
 MemoryBlock& StaticAllocator::getGPUMemoryBlock()
@@ -122,7 +122,7 @@ Buffer& StaticAllocator::getBuffer(BufferTypeEnum uploadType_)
 void StaticAllocator::allocateAndUpload()
 {
 	this->cpuSharedHeap.create(); 
-	this->stagingHeap.create("Static Staging Heap");
+	this->stagingHeap.createStatic();
 	this->gpuHeap.create();
 	this->submitUploads(); 
 }
@@ -145,7 +145,6 @@ void StaticAllocator::create()
 	this->uploadPassId = addPass("Static Allocator Uploading",ONESHOT,TRANSFER,this->uploadFinishedFenceId);
 	uint32_t taskId = addTaskToPass(this->uploadPassId, "Static Upload", uploadCMDs); 
 	addSignalSemaphoreToTask(this->uploadPassId, taskId, this->uploadFinishedSemaphoreId);
-	
 }
 
 void StaticAllocator::submitUploads()

@@ -1,6 +1,8 @@
 #include "Utilities.h"
 #include "Api.h"
 #include "PoolMap.h"
+#include "Buffer.h"
+#include "MemoryBlock.h"
 #include "Semaphore.h"
 #include <vulkan/vulkan_core.h>
 #include <iostream>

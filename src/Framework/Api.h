@@ -28,6 +28,7 @@ namespace Graphics
 	
 	VkSemaphore& getSemaphore(PoolId semaphoreId_);
 	VkFence& getFence(PoolId fenceId_);
+	const VkFence& getFenceConst(PoolId fenceId_);
 	VkQueue& getQueue(uint8_t id_); 
 	Shader& getShader(PoolId shaderId_); 
 	uint32_t getBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
@@ -90,8 +91,8 @@ namespace Graphics
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_);
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc signalFenceRetrivalFunc_); 
     uint32_t addTaskToPass(PassId passId_, const char* name_, CmdBufferFunc cmdBufferFunc_);
-	void addWaitSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_); 
-	void addSignalSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId signalSemaphoreId_); 
+	void addWaitSemaphoreToTask(PassId passId_, uint32_t taskId_, PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_); 
+	void addSignalSemaphoreToTask(PassId passId_, uint32_t taskId_, PoolId signalSemaphoreId_); 
 	void addDynamicWaitSemaphoreToTask(PassId passId_, uint32_t taskId_, SyncRetrivalFunc semaphoreRetrivalFunc_, VkPipelineStageFlags pipelineStage_); 
     void addDynamicSignalSemaphoreToTask(PassId passId_, uint32_t taskId_, SyncRetrivalFunc semaphoreRetrivalFunc_);
 
@@ -101,6 +102,8 @@ namespace Graphics
 			
 	// Remove 
 	void removeShader(PoolId id_);
+	void removeFence(PoolId id_); 
+	void removeSemaphore(PoolId id_);
 	
 	// Commands Recording
 	void beginCMDsRecording(VkCommandBuffer& cmdBuffer_);

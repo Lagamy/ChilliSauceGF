@@ -14,8 +14,7 @@ struct StagingHeap {
 	bool isDynamic; 
 	
 	void destroy();
-	void createStatic(); 
-	StagingHeap() = default; 
-	StagingHeap(VkDeviceSize size_, const char* uploadName_); 
+	void createStatic();
+	void create(VkDeviceSize size_);  
 };
-}
+} 

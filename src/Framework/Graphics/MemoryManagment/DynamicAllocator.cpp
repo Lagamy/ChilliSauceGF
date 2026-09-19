@@ -1,35 +1,37 @@
 #include "DynamicAllocator.h"
+#include "Buffer.h"
+#include "PageInfo.h"
 #include "Utilities.h"
-#include <limits>
 #include <stdexcept>
 
 namespace Graphics 
 {
 
-DynamicAllocator::DynamicAllocator()
+void DynamicAllocator::addPage(uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_, bool isCpuShared_)
 {
-    // this->cpuSharedPageInfos.emplace_back(std::numeric_limits<uint32_t>::max(), 100, MB);
-}
-
-void DynamicAllocator::addPage(uint32_t upperBoundForEntrySize_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_, bool isCpuShared_)
-{
+    VkDeviceSize upperBoundEntrySizeInBytes = toBytes(upperBoundForEntrySize_, upperBoundUnit_); 
+    VkDeviceSize memoryBlockSizeInBytes = toBytes(memoryBlockSize_, memoryBlockSizeUnit_);
 
 	#ifdef ENGINE_DEBUG
         if(this->initialized)
         {
             throw std::runtime_error("Dynamic Memory Allocator: Can't add Page after allocator was created.");
         }
+        if(upperBoundEntrySizeInBytes > memoryBlockSizeInBytes)
+        {
+            throw std::runtime_error("Dynamic Memory Allocator: Can't add Page where upper bound Entry size is bigger than single memory block size.");
+        }
     #endif
 
     if(isCpuShared_)
     {
-        this->cpuSharedPageInfos.emplace_back(upperBoundForEntrySize_, memoryBlockSize_, memoryBlockSizeUnit_); 
+        this->cpuSharedPageInfos.emplace_back(upperBoundEntrySizeInBytes, memoryBlockSizeInBytes); 
         return; 
     }
-    this->gpuLocalPageInfos.emplace_back(upperBoundForEntrySize_, memoryBlockSize_, memoryBlockSizeUnit_);
+    this->gpuLocalPageInfos.emplace_back(upperBoundEntrySizeInBytes, memoryBlockSizeInBytes);
 }
 
-void DynamicAllocator::create()
+void DynamicAllocator::init()
 {
     std::sort(this->cpuSharedPageInfos.begin(), this->cpuSharedPageInfos.end()); 
     std::sort(this->gpuLocalPageInfos.begin(), this->gpuLocalPageInfos.end());
@@ -51,29 +53,54 @@ void DynamicAllocator::create()
 }; 
 
 
-UploadId DynamicAllocator::addEntryAndUpload(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)
+UploadId DynamicAllocator::addAndUploadEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)
 {
     uint32_t id = 0; 
-    if(memoryVisability_ == GPU_ONLY)
+    
+    if(memoryVisability_ == CPU_SHARED)
 	{
-        
-        for(uint32_t pageSize : this->cpuSharedPageInfos)
+        for(uint32_t i = 0; i < this->cpuSharedPages.size(); i++)
         {
-            if(size_ < pageSize)
+            PageInfo& rPageInfo = this->cpuSharedPageInfos[i]; 
+            if(size_ < rPageInfo.upperBoundEntrySize)
             {
-		        return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
-                break; 
-            }
+                PoolId bufferId = this->cpuSharedPages[i].addBuffer(size_, uploadType_, name_); 
+                Buffer& rBuffer = this->cpuSharedPages[i].buffers[bufferId]; 
+   
+                PoolId id = this->uploadEntries.add(name_, size_, uploadType_, memoryVisability_,i, bufferId);
+                UploadEntry& rUploadEntry = this->uploadEntries[id]; 
+                rUploadEntry.upload(data_, size_, 0); 
+
+                // Upload Data
+		        return {DYNAMIC, memoryVisability_, uploadType_, id}; 
+            } 
         }
 	}
-	else 
+    else 
 	{
-		this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_);
-		this->cpuSharedHeap.bufferSizes[uploadType_] += size_; 
-		this->cpuSharedHeap.size += size_; 
-		return {STATIC, memoryVisability_, uploadType_, this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1};
+        for(uint32_t i = 0; i < this->gpuLocalPages.size(); i++)
+        {
+            PageInfo& rPageInfo = this->gpuLocalPageInfos[i]; 
+            if(size_ < rPageInfo.upperBoundEntrySize)
+            {
+                PoolId bufferId = this->gpuLocalPages[i].addBuffer(size_, uploadType_, name_); 
+                Buffer& rBuffer = this->gpuLocalPages[i].buffers[bufferId]; 
+   
+                PoolId id = this->uploadEntries.add(name_, size_, uploadType_, memoryVisability_,i, bufferId);
+                UploadEntry& rUploadEntry = this->uploadEntries[id]; 
+                rUploadEntry.upload(data_, size_, 0); 
+
+                // Upload Data
+		        return {DYNAMIC, memoryVisability_, uploadType_, id}; 
+            } 
+        }
 	}
 };
+
+void removeEntry()
+{
+
+}
 
 void DynamicAllocator::deallocate()
 {

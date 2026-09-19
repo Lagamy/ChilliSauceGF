@@ -1,5 +1,6 @@
 #pragma once
-#include "UploadEntryGroup.h"
+#include "UploadEntry.h"
+#include "StaticUploadEntries.h"
 #include "GPULocalHeap.h"
 #include "CPUSharedHeap.h"
 #include "StagingHeap.h"
@@ -14,7 +15,7 @@ namespace Graphics
 void uploadCMDs(VkCommandBuffer& cmdBuffer_);
 // Forward decloration 
 struct StaticAllocator { 
-	std::array<UploadEntryGroup, 2> uploadEntryGroupPerMemVisability;
+	std::array<StaticUploadEntries<UploadEntry>, 2> uploadEntryGroupPerMemVisability;
 	CPUSharedHeap cpuSharedHeap;
 	StagingHeap stagingHeap;
 	GPULocalHeap gpuHeap;

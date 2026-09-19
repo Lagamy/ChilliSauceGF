@@ -8,7 +8,7 @@ namespace Graphics {
         AllocatorTypeEnum allocatorType; 
         MemoryVisabilityEnum memoryVisability; 
         BufferTypeEnum uploadType; 
-        VkDeviceSize id; 
+        PoolId id = UninitializedPoolId; // For static just use first field.  
     };
 }
      

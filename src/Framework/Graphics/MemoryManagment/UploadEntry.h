@@ -1,24 +1,44 @@
 #pragma once 
+#include "PoolId.h"
 #include "Utilities.h"
-#include <string> 
+#include "Semaphore.h"
+#include "PassId.h"
+#include <string>
 #include <vulkan/vulkan.h>
 
 namespace Graphics {
+	void uploadEntryCMDs(VkCommandBuffer& cmdBuffer_); 
 	struct UploadEntry 
 	{ 
 		std::string name; 
-		const void* data; 
-		uint32_t pageId; // Used only in Dynamically allocated Entries 
-		size_t inBufferFirstByte = 0; 
 		VkDeviceSize size = 0;
 		VkDeviceSize inGPUFirstByte = 0; 
-		BufferTypeEnum bufferType; 
-		PoolId bufferId; // Needed only if in dynamic allocator 
+		BufferTypeEnum bufferType;
+		bool isForDynamic; 
 
-    	UploadEntry(const char* name_, const void* data_, VkDeviceSize size_, BufferTypeEnum bufferType_, VkDeviceSize currentBuffSize_) : name(name_), data(data_), size(size_), bufferType(bufferType_), inBufferFirstByte(currentBuffSize_) {}; 
-    	UploadEntry(const char* name_, const void* data_, VkDeviceSize size_, BufferTypeEnum bufferType_) : name(name_), data(data_), size(size_), bufferType(bufferType_) {}; 
-		bool inGPU = false; // for Dynamic allocators. 
-	}; 
+		// For Upload(only for Update when static)
+		PoolId isUploadedFenceId; 
+		PoolId isUploadedSemaphoreId; 
+		PassId uploadPassId;
+		bool isPendingUpload(); 
+		void upload(const void* data_, uint64_t size_, uint64_t offset_);
+		Semaphore& getIsFinishedSemaphore();
+		
+		/* For Static */
+		const void* data; 
+		size_t inBufferFirstByte = 0; 
+		UploadEntry(const char* name_, const void* data_, VkDeviceSize size_, BufferTypeEnum bufferType_, VkDeviceSize currentBuffSize_);
+		/*-----------*/
+
+		/* For Dynamic */
+		uint32_t pageId;
+		PoolId bufferId;
+		MemoryVisabilityEnum memoryVisability; 
+		UploadEntry(const char* name_, VkDeviceSize size_,  BufferTypeEnum bufferType_, MemoryVisabilityEnum memoryVisability_, uint32_t pageId_, PoolId bufferId_);
+		~UploadEntry();
+		/*------------*/
+
+	};
 }
 
 

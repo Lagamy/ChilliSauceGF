@@ -1,55 +1,61 @@
 // TODO: Study this more, for more robust memory handling. 
 #include "MemoryBlock.h"
 #include "Api.h"
-#include <string>
+#include "PoolId.h"
+#include "Utilities.h"
 
 namespace Graphics
 {
-void MemoryBlock::createForStatic(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_)
+
+
+VkResult MemoryBlock::createInternal(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memPropertyIndex_)
 {
-	this->isStatic = true; 
 	VkMemoryAllocateInfo memAllocInfo = {};
 	memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memAllocInfo.allocationSize = size_;
 	// Which type of memory to allocate from(device-local VRAM only, host-visible system RAM shared, etc)
-	memAllocInfo.memoryTypeIndex = findMemoryTypeIndex(memReqsSpan_, properties_); // Index of memory type on Physical Device that has required bit flags for this buffer
-	
+	memAllocInfo.memoryTypeIndex = findMemoryTypeIndex(memReqsSpan_, memPropertyIndex_, false); // Index of memory type on Physical Device that has required bit flags for this buffer
+	this->size = size_; 
 
 	// Allocate memory to VkDeviceMemory 
-	VkResult result = vkAllocateMemory(getMainDevice().logicalDevice, &memAllocInfo, nullptr, &this->vkHandle);
-	
+	return vkAllocateMemory(getMainDevice().logicalDevice, &memAllocInfo, nullptr, &this->vkHandle);
+}
+
+void MemoryBlock::createForStaticOrStaging(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memPropertyIndex_, MemoryVisabilityEnum memVisability_, bool isStaging_)
+{
+	this->memVisability = memVisability_; 
+	this->isStaging = isStaging_; 
+	VkResult result = createInternal(size_, memReqsSpan_, memPropertyIndex_); 
 	#ifdef ENGINE_DEBUG
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to allocate Memory Block! For Static Allocator.");
+		if(isStaging_)
+		{
+			throw std::runtime_error("Failed to allocate Memory Block! For Staging uploads in Static Allocator.");
+		}
+		else
+		{
+			throw std::runtime_error(std::format("Failed to allocate Memory Block! For {} uploads in Static Allocator.", MemVisabilityTypeToName[memVisability_]));
+		}
 	}
 	#endif
-
-	this->size = size_; 
 }
 
 
-void MemoryBlock::create(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* uploadName_)
+void MemoryBlock::create(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memPropertyIndex_, MemoryVisabilityEnum memVisability_, uint32_t pageUpperBound_, PoolId memBlockId_)
 {
-	this->uploadName = uploadName_; 
-	VkMemoryAllocateInfo memAllocInfo = {};
-	memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memAllocInfo.allocationSize = size_;
-	// Which type of memory to allocate from(device-local VRAM only, host-visible system RAM shared, etc)
-	memAllocInfo.memoryTypeIndex = findMemoryTypeIndex(memReqsSpan_, memoryTypeIndex_); // Index of memory type on Physical Device that has required bit flags for this buffer
-	
+	this->memBlockId = memBlockId_;
+	this->pageUpperBound = pageUpperBound_; 
+	this->memVisability = memVisability_;
 
-	// Allocate memory to VkDeviceMemory 
-	VkResult result = vkAllocateMemory(getMainDevice().logicalDevice, &memAllocInfo, nullptr, &this->vkHandle);
-	
+	VkResult result = createInternal(size_, memReqsSpan_, memPropertyIndex_); 
 	#ifdef ENGINE_DEBUG
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error(std::format("Failed to allocate Memory Block! For upload: {}", this->uploadName));
+		
+		throw std::runtime_error(std::format("Failed to allocate Memory Block! For MemoryBlock id: {} generation: {}. Inside of {} Page {}.",  this->memBlockId.id, this->memBlockId.generation, MemVisabilityTypeToName[this->memVisability], this->pageUpperBound));
 	}
 	#endif
-
-	this->size = size_;
 }
 
 void MemoryBlock::destroy()
@@ -67,7 +73,7 @@ VkDeviceMemory MemoryBlock::get() const
 	return this->vkHandle;
 }
 
-uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_)
+uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_,  bool isStatic)
 {
 	// Note: _allowedTypes - filter by hardware compatibility, so its GPU's driver responsability to give you that. DO NOT pass anything outside of VkMemoryRequirements.memoryTypeBits in it.  
 
@@ -103,13 +109,15 @@ uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReq
 	}
 	else
 	{
-		throw std::runtime_error(std::format("Failed to find suitable memory type for {}.", this->uploadName)); 
+		if(this->isStaging)
+		{
+			throw std::runtime_error(std::format("Failed to find suitable memory type for MemoryBlock id: {} generation: {}. Inside of Staging Page {}.",  this->memBlockId.id, this->memBlockId.generation, this->pageUpperBound)); 
+		}
+		else
+		{
+			throw std::runtime_error(std::format("Failed to find suitable memory type for MemoryBlock id: {} generation: {}. Inside of {} Page {}.",  this->memBlockId.id, this->memBlockId.generation, MemVisabilityTypeToName[this->memVisability], this->pageUpperBound)); 
+		}
 	}
-}
-
-MemoryBlock::MemoryBlock(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memoryTypeIndex_, const char* uploadName_)
-{
-	this->create(size_, memReqsSpan_, memoryTypeIndex_, uploadName_);
 }
 
 MemoryBlock::~MemoryBlock()

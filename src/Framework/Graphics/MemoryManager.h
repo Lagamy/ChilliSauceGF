@@ -1,21 +1,9 @@
 // Represents resources that are in GPU currently
 #pragma once 
-#include "GPULocalHeap.h"
-#include "PassId.h"
-#include "Pass.h"
-#include "Semaphore.h"
-#include "CPUSharedHeap.h"
-#include "MemoryBlock.h"
-#include "PoolMap.h"
-#include "StagingHeap.h"
-#include "SyncManager.h"
-#include "Image.h"
 #include "DynamicAllocator.h"
 #include "StaticAllocator.h"
 #include "UploadEntry.h"
-#include "UploadEntryGroup.h"
 #include "Utilities.h"
-#include <functional>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics

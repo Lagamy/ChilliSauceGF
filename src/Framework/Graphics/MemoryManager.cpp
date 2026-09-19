@@ -14,25 +14,13 @@ namespace Graphics
 void MemoryManager::setup()
 {
 	this->staticAllocator.create(); 
-	this->dynamicAllocator.create();
+	this->dynamicAllocator.init();
 }
 
 void MemoryManager::destroy() 
 {
 	this->staticAllocator.deallocate();
 	this->dynamicAllocator.deallocate(); 
-}
-
-bool MemoryManager::isUploadInGPU(UploadId uploadId_)
-{
-	if(uploadId_.allocatorType == STATIC)
-	{
-		return this->staticAllocator.allocated; 
-	}
-	else 
-	{
-		return getUploadEntry(uploadId_).inGPU; 
-	}
 }
 
 void MemoryManager::checkUploadsStatus()

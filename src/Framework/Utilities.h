@@ -23,31 +23,30 @@
 inline const uint32_t UninitializedId = std::numeric_limits<uint32_t>::max(); 
 inline const PoolId UninitializedPoolId = PoolId{UninitializedId, UninitializedId};
 inline void EmptyFunction(){}
+
+enum StorageUnitEnum : uint8_t 
+{ 
+	BYTE = 0,
+	KB = 1,
+	MB = 2,
+	GB = 3
+};
+
+const inline uint32_t StorageUnitToBytes[4]
+{
+	1, 
+	1024,
+	1048576,
+	1073741824
+};
+
+inline VkDeviceSize toBytes(size_t size_, StorageUnitEnum unit_)
+{
+	return size_ << (10 * static_cast<uint8_t>(unit_));
+}
+
 namespace Graphics
 {
-	enum StorageUnitEnum : uint8_t 
-	{ 
-		BYTE = 0,
-		KB = 1,
-		MB = 2,
-		GB = 3
-	};
-
-	inline uint32_t storageUnitToBytes[4]
-	{
-		1, 
-		1024,
-		1048576,
-		1073741824
-	}; 
-
-	
-
-	inline VkDeviceSize toBytes(size_t size_, StorageUnitEnum unit_)
-	{
-		return size_ << (10 * static_cast<uint8_t>(unit_));
-	}
-
 	enum QueueFamilyEnum : uint8_t
 	{
 		GRAPHICS = 0,
@@ -60,6 +59,11 @@ namespace Graphics
 		GPU_ONLY,
 		CPU_SHARED
 	}; 
+
+	const inline std::array<const char*, 2> MemVisabilityTypeToName = {
+		"GPU Local", 
+		"CPU Shared", 
+	};
 
 	const inline uint8_t PresentationQueueId = 3; 
 
@@ -130,7 +134,7 @@ namespace Graphics
         	return memoryBlockId == other.memoryBlockId
         	    && byteId == other.byteId;
     	}
-};
+	};
 
 	struct MemoryIntervalKeyHash
 	{
@@ -142,6 +146,13 @@ namespace Graphics
         	return h1 ^ (h2 << 1);
     	}
 	};
+
+	// Forward decloration 
+	struct Buffer; 
+	struct MemoryBlock;
+	struct UploadEntry;
+	inline void uploadEntryToBuffer(Buffer& rBuffer_, MemoryBlock& rMemoryBlock_, UploadEntry uploadEntry_, PoolId finishedSemaphoreId_);
+	inline void 
 
 	using SyncRetrivalFunc = PoolId(*)();
 	struct DynamicSemaphoreRef

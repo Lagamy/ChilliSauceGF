@@ -67,6 +67,7 @@ namespace Graphics
 		return Globals::renderer.syncManager.getSemaphore(semaphoreId_).get();
 	}
 
+
 	VkFence& getFence(PoolId fenceId_)
 	{
 		return Globals::renderer.syncManager.getFence(fenceId_).get();
@@ -299,14 +300,14 @@ namespace Graphics
 		return Globals::renderer.passesGraph.addTaskToPass(passId_, name_, cmdBufferFunc_);
 	}
 
-	void addWaitSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_)
+	void addWaitSemaphoreToTask(PassId passId_, uint32_t taskId_, PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_)
 	{
-		Globals::renderer.passesGraph.getPass(passsId_).tasks[taskId_].addWaitSemaphore(waitSemaphoreId_, pipelineStage_);
+		Globals::renderer.passesGraph.getPass(passId_).tasks[taskId_].addWaitSemaphore(waitSemaphoreId_, pipelineStage_);
 	} 
 
-	void addSignalSemaphoreToTask(PassId passsId_, uint32_t taskId_, PoolId signalSemaphoreId_)
+	void addSignalSemaphoreToTask(PassId passId_, uint32_t taskId_, PoolId signalSemaphoreId_)
 	{
-		Globals::renderer.passesGraph.getPass(passsId_).tasks[taskId_].addSignalSemaphore(signalSemaphoreId_);
+		Globals::renderer.passesGraph.getPass(passId_).tasks[taskId_].addSignalSemaphore(signalSemaphoreId_);
 	}
 
 	void addDynamicWaitSemaphoreToTask(PassId passId_, uint32_t taskId_, SyncRetrivalFunc semaphoreRetrivalFunc_, VkPipelineStageFlags pipelineStage_)
@@ -324,9 +325,19 @@ namespace Graphics
 		Globals::renderer.passesGraph.enablePass(passId_); 
 	} 
 
-    void disablePass(PassId passId_) // Since oneshot - self disables
+    void disableFramePass(PassId passId_) // Since oneshot - self disables
 	{
 		Globals::renderer.passesGraph.disableFramePass(passId_);
+	}
+
+	void removeFence(PoolId id_)
+	{
+		Globals::renderer.syncManager.fences.remove(id_);
+	}
+
+	void removeSemaphore(PoolId id_)
+	{
+		Globals::renderer.syncManager.semaphores.remove(id_);
 	}
 
 	void beginCMDsRecording(VkCommandBuffer &cmdBuffer_)
@@ -363,8 +374,8 @@ namespace Graphics
 		Mesh& rMesh = getMesh(meshId_); 
 		if(isUploadInGPU(rMesh.vbMemoryUploadId) && isUploadInGPU(rMesh.ibMemoryUploadId))
 		{
-			const UploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
-			const UploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
+			const StaticUploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
+			const StaticUploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
 			VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
 			VkDeviceSize vOffsets[] = { vertexUpload.inBufferFirstByte }; 
 			vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
