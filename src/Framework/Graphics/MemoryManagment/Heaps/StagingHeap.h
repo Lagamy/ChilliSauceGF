@@ -6,15 +6,18 @@ namespace Graphics
 {
 struct StagingHeap {
 	Buffer buffer; 
-
 	MemoryBlock memoryBlock;
-	VkDeviceSize size; 
-	void* pCpuSharedData; // Pointer to GPU buffered that was mapped to the CPU
+	VkDeviceSize size;
+	bool isForStaticInit = false; 
 	bool created;
-	bool isDynamic; 
 	
 	void destroy();
 	void createStatic();
-	void create(VkDeviceSize size_);  
+	void create(VkDeviceSize size_);
+	bool wouldNewUploadFit(uint32_t size_);
+	void uploadData(const void* data_, uint64_t srcOffset_, size_t ); 
+	StagingHeap() = default; 
+	StagingHeap(uint64_t size_); 
+	~StagingHeap(); 
 };
 } 

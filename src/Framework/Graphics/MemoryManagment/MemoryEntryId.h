@@ -3,11 +3,9 @@
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics {
-    struct UploadId 
+    struct MemoryEntryId 
     {
-        AllocatorTypeEnum allocatorType; 
-        MemoryVisabilityEnum memoryVisability; 
-        BufferTypeEnum uploadType; 
+        AllocatorTypeEnum allocatorType;
         PoolId id = UninitializedPoolId; // For static just use first field.  
     };
 }

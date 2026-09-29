@@ -2,7 +2,7 @@
 #include "PoolMap.h"
 #include "Utilities.h"
 #include "Vertex.h"
-#include "UploadId.h"
+#include "MemoryEntryId.h"
 #include "DataContainer.h"
 #include "Layout.h"
 #include <cstdint>
@@ -19,8 +19,8 @@ namespace Graphics
 		PoolId vertexDataContainerId; 
 		std::vector<uint32_t> indices;
 
-		UploadId vbMemoryUploadId; // Handle to mem entry in the GPUMemoryManager
-		UploadId ibMemoryUploadId;
+		MemoryEntryId vbMemoryUploadId; // Handle to mem entry in the GPUMemoryManager
+		MemoryEntryId ibMemoryUploadId;
 
 		template<typename T>
 		void setVerticeMember(PoolId memberId_, uint32_t repeateUnitId_, T data_)

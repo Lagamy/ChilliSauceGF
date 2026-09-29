@@ -4,7 +4,7 @@
 #include "PoolId.h"
 #include "PassId.h"
 #include "Pass.h"
-#include "UploadId.h"
+#include "MemoryEntryId.h"
 #include "Utilities.h"
 #include "Globals.h"
 #include "GLFW/glfw3.h"
@@ -34,16 +34,18 @@ namespace Graphics
 	uint32_t getBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
 	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_); 
 	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_);
-	const UploadEntry& getUploadEntry(UploadId id_); 
-	bool isUploadInGPU(UploadId uploadId_);
+	const MemoryEntry& getUploadEntry(MemoryEntryId id_); 
+	bool isUploadInGPU(MemoryEntryId uploadId_);
 	Mesh& getMesh(PoolId meshId_); 
 	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);
 	uint32_t getGPUBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);
-	uint32_t getUploadStartingByteInGPUHeap(UploadId id_);
+	uint32_t getUploadStartingByteInGPUHeap(MemoryEntryId id_);
 	Pass& getPass(PassId passId_);
 	PoolId getCurrentSwapchainImageUseFinishedSemaphore(); 
 	PoolId getCurrentFrameImageIsAcquiredSemaphore(); 
 	PoolId getCurrentFrameAvailableFence();
+	uint64_t getIndividualUpdateMemBlockSize(); 
+	uint32_t getMaxDormantUpdateStagingHeaps();
 
 
 	uint32_t& getCurrentImageIndex();
@@ -54,12 +56,14 @@ namespace Graphics
 	// For now i only need 1 of each
 	GraphicsPipeline& getGraphicsPipeline(PoolId layoutId_); 
 	RenderPass& getPresentationRenderPass();
-	
 	ReflectionLayout& getVerticeLayout(PoolId layoutId_);
 
 
 	// Set
+	void setEnvironmentSetupFunction(); // happens before renderer setup() triggers. 
 	void setFramesAtFlightCount(uint32_t count_); 
+	void setIndividualUpdateMemBlockSize(uint64_t value_); 
+	void setMaxDormantUpdateStagingHeaps(uint32_t value_);
 
 	void resetFences(std::span<VkFence> fences_);
 	void resetFence(PoolId fenceId_); 
@@ -78,11 +82,11 @@ namespace Graphics
 	PoolId addFence(bool createSignaled_);
 	PoolId addShader(const char* name_, const char* path_); 
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
-	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
+	MemoryEntryId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
 	PoolId addVerticeLayout(const char* name_);
 	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_);
 	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 
-	void addPageToDynamicAlloc(uint32_t upperBoundForEntrySize_);
+	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_);
 	
 	void createAllPipelines();
 	void destroyAllPipelines();

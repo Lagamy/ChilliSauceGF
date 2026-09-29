@@ -23,29 +23,32 @@ void uploadCMDs(VkCommandBuffer& cmdBuffer_)
 
 	
 	void* pCPUSharedMemPoint; // Create an empty typeless pointer.
-	for(uint32_t i = 0; i < rStaticAllocator.uploadEntryGroupPerMemVisability[CPU_SHARED].entriesPerBufferType.size(); i++)
+	for(uint32_t i = 0; i < rStaticAllocator.memoryEntryIdPerBufTypePerMemVisability[CPU_SHARED].size(); i++)
 	{
 
-		std::vector<UploadEntry> entriesForCurrentBufferType = rStaticAllocator.uploadEntryGroupPerMemVisability[GPU_ONLY].entriesPerBufferType[i];  
-		for(auto& rUpload : entriesForCurrentBufferType)
+		std::vector<uint32_t> entryIdsForCurrentBufferType = rStaticAllocator.memoryEntryIdPerBufTypePerMemVisability[CPU_SHARED][i];  
+		for(uint32_t& entryId : entryIdsForCurrentBufferType)
 		{
+			MemoryEntry& rEntry = rStaticAllocator.memoryEntries[entryId]; 
 			// Since GPUHeap is allocated -> i can now find and save each Uploads first byte position in it. 
-			rUpload.inGPUFirstByte = rStaticAllocator.cpuSharedHeap.bufferOffsets[i] + rUpload.inBufferFirstByte; 
-			vkMapMemory(getMainDevice().logicalDevice, rStaticAllocator.cpuSharedHeap.memoryBlock.get(), memoryBlockOffset + rUpload.inBufferFirstByte, rUpload.size, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
-			memcpy(pCPUSharedMemPoint, static_cast<const char*>(rUpload.data), rUpload.size);  // writes to *Staging/Shared memory in Ram* via CPU pointer
+			rEntry.inGPUFirstByte = rStaticAllocator.cpuSharedHeap.bufferOffsets[i] + rEntry.inBufferFirstByte; 
+			vkMapMemory(getMainDevice().logicalDevice, rStaticAllocator.cpuSharedHeap.memoryBlock.get(), memoryBlockOffset + rEntry.inBufferFirstByte, rEntry.size, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
+			memcpy(pCPUSharedMemPoint, static_cast<const char*>(rEntry.data), rEntry.size);  // writes to *Staging/Shared memory in Ram* via CPU pointer
 			vkUnmapMemory(getMainDevice().logicalDevice, rStaticAllocator.stagingHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
 		}
 	}
 
-	for(uint32_t i = 0; i < rStaticAllocator.uploadEntryGroupPerMemVisability[GPU_ONLY].entriesPerBufferType.size(); i++)
+	for(uint32_t i = 0; i < rStaticAllocator.memoryEntryIdPerBufTypePerMemVisability[GPU_ONLY].size(); i++)
 	{
-		std::vector<UploadEntry> entriesForCurrentBufferType = rStaticAllocator.uploadEntryGroupPerMemVisability[GPU_ONLY].entriesPerBufferType[i];  
-		for(auto& rUpload : entriesForCurrentBufferType)
+
+		std::vector<uint32_t> entryIdsForCurrentBufferType = rStaticAllocator.memoryEntryIdPerBufTypePerMemVisability[GPU_ONLY][i];  
+		for(uint32_t& entryId : entryIdsForCurrentBufferType)
 		{
+			MemoryEntry& rEntry = rStaticAllocator.memoryEntries[entryId]; 
 			// Since GPUHeap is allocated -> i can now find and save each Uploads first byte position in it. 
-			rUpload.inGPUFirstByte = rStaticAllocator.gpuHeap.bufferOffsets[i] + rUpload.inBufferFirstByte; 
-			vkMapMemory(getMainDevice().logicalDevice, rStaticAllocator.stagingHeap.memoryBlock.get(), memoryBlockOffset + rUpload.inBufferFirstByte, rUpload.size, 0, &pCPUSharedMemPoint);
-			memcpy(pCPUSharedMemPoint, static_cast<const char*>(rUpload.data), rUpload.size);  // writes to *Staging/Shared memory in Ram* via CPU pointer
+			rEntry.inGPUFirstByte = rStaticAllocator.gpuHeap.bufferFirstByte[i] + rEntry.inBufferFirstByte; 
+			vkMapMemory(getMainDevice().logicalDevice, rStaticAllocator.stagingHeap.memoryBlock.get(), memoryBlockOffset + rEntry.inBufferFirstByte, rEntry.size, 0, &pCPUSharedMemPoint);
+			memcpy(pCPUSharedMemPoint, static_cast<const char*>(rEntry.data), rEntry.size);  // writes to *Staging/Shared memory in Ram* via CPU pointer
 			vkUnmapMemory(getMainDevice().logicalDevice, rStaticAllocator.stagingHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
 		}
 
@@ -66,7 +69,7 @@ void uploadCMDs(VkCommandBuffer& cmdBuffer_)
 }
 
 
-UploadId StaticAllocator::addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_) 
+PoolId StaticAllocator::addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_) 
 {
 	
 	#ifdef ENGINE_DEBUG
@@ -78,36 +81,22 @@ UploadId StaticAllocator::addEntry(const char* name_, const void* data_, VkDevic
 	
 	if(memoryVisability_ == GPU_ONLY)
 	{
-		this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_, this->gpuHeap.bufferSizes[uploadType_]);
+		this->memoryEntries.emplace_back(name_, data_, size_, uploadType_, GPU_ONLY, this->gpuHeap.bufferSizes[uploadType_]); 
+		this->memoryEntryIdPerBufTypePerMemVisability[memoryVisability_][uploadType_].emplace_back(this->memoryEntries.size() - 1); 
 		this->gpuHeap.bufferSizes[uploadType_] += size_; 
 		this->stagingHeap.size += size_; 
-		return {STATIC, memoryVisability_, uploadType_, PoolId(this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1, 0)};
+		return PoolId(this->memoryEntries.size() - 1, 0);
 	}
 	else 
 	{
-		this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].emplace_back(name_, data_, size_, uploadType_, this->cpuSharedHeap.bufferSizes[uploadType_]);
+		this->memoryEntries.emplace_back(name_, data_, size_, uploadType_, CPU_SHARED, this->cpuSharedHeap.bufferSizes[uploadType_]);
+		this->memoryEntryIdPerBufTypePerMemVisability[memoryVisability_][uploadType_].emplace_back(this->memoryEntries.size() - 1); 
 		this->cpuSharedHeap.bufferSizes[uploadType_] += size_; 
 		this->cpuSharedHeap.size += size_; 
-		return {STATIC, memoryVisability_, uploadType_, PoolId(this->uploadEntryGroupPerMemVisability[memoryVisability_][uploadType_].size() - 1, 0)};
+		return PoolId(this->memoryEntries.size() - 1, 0);
 	}
 }
 
-void StaticAllocator::updateEntry(UploadId entryId_, const void* data_, size_t entryOffset_, size_t srcOffset_, size_t byteAmmount_) 
-{
-
-	#ifdef ENGINE_DEBUG
-		if(!allocated)
-		{
-			throw std::runtime_error("Static Allocator: Can't update entry before allocation.");
-		}
-	#endif
-
-}
-
-const UploadEntry& StaticAllocator::getEntry(UploadId id_) 
-{
-	return this->uploadEntryGroupPerMemVisability[id_.memoryVisability][id_.uploadType][id_.id.id]; // [id_.id.id] is UploadId -> PoolId -> id.
-}
 
 MemoryBlock& StaticAllocator::getGPUMemoryBlock()
 {
@@ -155,11 +144,11 @@ void StaticAllocator::submitUploads()
 
 void StaticAllocator::checkUploadsStatus()
 {
-	if(!this->uploadsInGPU)
+	if(!this->staticUploadCompleted)
 	{
 		if(wasFenceSignaled(this->uploadFinishedFenceId))
 		{
-			this->uploadsInGPU = true; 
+			this->staticUploadCompleted = true; 
 		}
 	} 
 }

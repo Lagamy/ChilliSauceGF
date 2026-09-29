@@ -86,7 +86,7 @@ set(GRAPHICS_DIR "${FRAMEWORK_DIR}/Graphics")
 set(MISC_DIR "${FRAMEWORK_DIR}/Misc")
 
 # Core
-# set(ASSETS_DIR "${CORE_DIR}/Assets")
+set(ASSETS_DIR "${CORE_DIR}/Assets")
 set(MANAGERS_DIR "${DEMO_DIR}/Managers")
 
 # Graphics

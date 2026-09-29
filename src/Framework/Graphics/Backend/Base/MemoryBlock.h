@@ -1,5 +1,5 @@
 #pragma once 
-#include "UploadId.h"
+#include "MemoryEntryId.h"
 #include "Utilities.h"
 #include <cstddef>
 #include <vulkan/vulkan.h>

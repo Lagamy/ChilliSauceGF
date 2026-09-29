@@ -7,14 +7,20 @@ namespace Graphics
 	void GPULocalPage::init()
 	{
 		BasePage::init();
-		this->stagingHeap.create(this->memoryBlockSize); 
+		this->stagingHeaps.create(this->memoryBlockSize); 
 	}
 	
 	void GPULocalPage::destroy()
 	{
 		BasePage::destroy(); 
-		this->stagingHeap.destroy(); 
+		this->stagingHeaps.destroy(); 
 	} 
+
+
+	BufferCreationResult addBuffer(VkDeviceSize size_, BufferTypeEnum bufferType_, const char* uploadName_)
+	{
+		this->
+	}
 
 	GPULocalPage::GPULocalPage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_) : BasePage(upperBoundEntrySize_, memoryBlockSize_, GPU_ONLY){}
 };

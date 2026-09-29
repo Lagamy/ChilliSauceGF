@@ -6,7 +6,8 @@ namespace Graphics
 {
 struct GPULocalPage : BasePage 
 {
-	StagingHeap stagingHeap; 
+
+	std::vector<PoolId> freeStagingHeaps; // It creates 
 	
 	void destroy();
 	void init();

@@ -19,14 +19,14 @@ void GPULocalHeap::create()
 	for(uint8_t i = 0; i < BufferTypesCount; i++)
 	{
 		memReqs[i] = this->buffers[i].memoryReqs; 
-		this->bufferOffsets[i] = alignUp(this->size, memReqs[i].alignment);
-		this->size = this->bufferOffsets[i] + memReqs[i].size; 
+		this->bufferFirstByte[i] = alignUp(this->size, memReqs[i].alignment);
+		this->size = this->bufferFirstByte[i] + memReqs[i].size; 
 	}
 	this->memoryBlock.createForStaticOrStaging(this->size, memReqs, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, GPU_ONLY, false); 
 
 	for(uint8_t i = 0; i < BufferTypesCount; i++)
 	{
-		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffers[i].get(), this->memoryBlock.get(), this->bufferOffsets[i]);
+		vkBindBufferMemory(getMainDevice().logicalDevice, this->buffers[i].get(), this->memoryBlock.get(), this->bufferFirstByte[i]);
 	}
 }
 
@@ -38,7 +38,7 @@ void GPULocalHeap::destroy()
 	{
 		this->buffers[i].destroy(); 
 		this->bufferSizes[i] = 0; 
-		this->bufferOffsets[i] = 0; 
+		this->bufferFirstByte[i] = 0; 
 	}
 }
 }

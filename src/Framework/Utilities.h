@@ -22,6 +22,7 @@
 //#include "DescriptorSetLayout.h"
 inline const uint32_t UninitializedId = std::numeric_limits<uint32_t>::max(); 
 inline const PoolId UninitializedPoolId = PoolId{UninitializedId, UninitializedId};
+
 inline void EmptyFunction(){}
 
 enum StorageUnitEnum : uint8_t 
@@ -150,9 +151,7 @@ namespace Graphics
 	// Forward decloration 
 	struct Buffer; 
 	struct MemoryBlock;
-	struct UploadEntry;
-	inline void uploadEntryToBuffer(Buffer& rBuffer_, MemoryBlock& rMemoryBlock_, UploadEntry uploadEntry_, PoolId finishedSemaphoreId_);
-	inline void 
+	struct MemoryEntry;
 
 	using SyncRetrivalFunc = PoolId(*)();
 	struct DynamicSemaphoreRef

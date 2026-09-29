@@ -1,12 +1,11 @@
 #pragma once
-#include "UploadEntry.h"
-#include "StaticUploadEntries.h"
+#include "MemoryEntry.h"
 #include "GPULocalHeap.h"
 #include "CPUSharedHeap.h"
 #include "StagingHeap.h"
 #include "MemoryBlock.h"
 #include "Utilities.h"
-#include "UploadId.h"
+#include "MemoryEntryId.h"
 #include "PassId.h"
 #include <stdexcept>
 
@@ -15,7 +14,9 @@ namespace Graphics
 void uploadCMDs(VkCommandBuffer& cmdBuffer_);
 // Forward decloration 
 struct StaticAllocator { 
-	std::array<StaticUploadEntries<UploadEntry>, 2> uploadEntryGroupPerMemVisability;
+	std::vector<MemoryEntry> memoryEntries;
+	std::array<std::array<std::vector<uint32_t>, BufferTypesCount>, 2> memoryEntryIdPerBufTypePerMemVisability; 
+	
 	CPUSharedHeap cpuSharedHeap;
 	StagingHeap stagingHeap;
 	GPULocalHeap gpuHeap;
@@ -25,7 +26,7 @@ struct StaticAllocator {
 	PassId uploadPassId;
 
 	bool allocated = false;
-	bool uploadsInGPU = false; 
+	bool staticUploadCompleted = false; 
 
 	void create(); 
 	void submitUploads();
@@ -33,10 +34,9 @@ struct StaticAllocator {
 
 	MemoryBlock& getGPUMemoryBlock(); 
 	Buffer& getBuffer(BufferTypeEnum uploadType_);
-	UploadId addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
-	void updateEntry(UploadId entryId_, const void* data_, size_t entryOffset_, size_t srcOffset_, size_t byteAmmount_); 
+	PoolId addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
+	void updateEntry(PoolId entryId_, const void* data_, size_t entryOffset_, size_t srcOffset_, size_t size_); 
 
-	const UploadEntry& getEntry(UploadId id_);	
 	void allocateAndUpload(); // Run only when you added all UploadEntries for that scene/demo 
 	void deallocate();
 };

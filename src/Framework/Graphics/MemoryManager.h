@@ -1,9 +1,11 @@
 // Represents resources that are in GPU currently
 #pragma once 
 #include "DynamicAllocator.h"
+#include "MemoryEntryId.h"
 #include "StaticAllocator.h"
-#include "UploadEntry.h"
+#include "UpdateRequest.h"
 #include "Utilities.h"
+#include "Operation.h"
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics
@@ -11,29 +13,29 @@ namespace Graphics
 
 struct MemoryManager 
 {
-	StaticAllocator uiAllocator;    
 	StaticAllocator staticAllocator;
-	DynamicAllocator dynamicAllocator; 
+	DynamicAllocator dynamicAllocator;
 
-	void submitTransferCmds();
-	void checkUploadsStatus(); 
-	bool isUploadInGPU(UploadId uploadId_);
+	Pool<StagingHeap> uploadStagingHeaps; // Inside of each heap -> there would be several updates that could fit. If
+	std::vector<PoolId> freeUpdateStagingHeaps; // If more than maxDormantUpdateStagingHeaps -> they will be freed. 
+
+	// Only for GPU Local ones. 
+	Pool<UpdateRequest> entriesPendingForUpdate;
+	Pool<MemoryEntryId> entriesPendingForRemoval;
+	std::vector<Operation> pendingOperationsInOrder;
 	
-	UploadEntry addUploadEntry(const char* name_, const void* data_, VkDeviceSize size_, AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
-
-	// Upload Entries
-	void submitUploadsUI();
-	void submitUploadsStatic();
-	void submitUploadsDynamic();
-
-	void addUpdate(UploadEntry uploadEntry_, const void* data_); // full upload
-	void addUpdate(UploadEntry uploadEntry_, const void* data_, size_t byteAmount_, size_t srcStartingbyte_, size_t dstStartingbyte_); // partial upload
-
-	// For device local uploads
-	void submitUpdateCmdsIfNeeded();
+	// Todo: add multithreading and make it a per thread var 
+    PoolId currentEntryToUpload;
+	
+	void resolvePendingOperations(); // Checks every cycle -> isUploadPending for each entry. If true -> operation happens, false -> skip
+	
+	MemoryEntryId addEntry(const char* name_, const void* data_, VkDeviceSize size_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
+	MemoryEntry& getEntry(MemoryEntryId memoryEntryId_);
+	void updateEntry(MemoryEntryId entryId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
+	void removeDynamicEntry(MemoryEntryId entryId_); 
+	void setStagingDataForUpdate(MemoryEntry& rEntry_, UpdateRequest& rUpdateRequest_); // Note: Allocation churn is possible, if updates are all different sizes 
 
 	void setup();
-	void update(); 
 	void destroy();
 };
 }

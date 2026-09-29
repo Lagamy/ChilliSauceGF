@@ -15,6 +15,8 @@ void StagingHeap::createStatic()
 
 	// Bind buffer to memory block 
 	vkBindBufferMemory(getMainDevice().logicalDevice, this->buffer.get(), this->memoryBlock.get(), 0);
+	this->created = true; 
+	this->isForStaticInit = true; 
 };
 
 void StagingHeap::create(VkDeviceSize size_)
@@ -28,11 +30,27 @@ void StagingHeap::create(VkDeviceSize size_)
 
 	// Bind buffer to memory block 
 	vkBindBufferMemory(getMainDevice().logicalDevice, this->buffer.get(), this->memoryBlock.get(), 0);
+	this->created = true; 
 }
 
 void StagingHeap::destroy()
 {
 	this->memoryBlock.destroy(); 
 	this->buffer.destroy();
+	this->created = false; 
 }
+
+StagingHeap::~StagingHeap()
+{
+	if(this->created)
+	{
+		this->destroy(); 
+	}
+}
+
+
+StagingHeap::StagingHeap(uint64_t size_)
+{
+	this->create(size_); 
+} 
 }

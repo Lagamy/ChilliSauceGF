@@ -11,7 +11,7 @@ struct GPULocalHeap
 	MemoryBlock memoryBlock;
 	std::array<Buffer, BufferTypesCount> buffers;
 	std::array<uint32_t, BufferTypesCount> bufferSizes;
-	std::array<uint32_t, BufferTypesCount> bufferOffsets;
+	std::array<uint32_t, BufferTypesCount> bufferFirstByte;
 
 	VkDeviceSize size; 
 	StorageUnitEnum unit;

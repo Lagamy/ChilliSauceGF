@@ -3,8 +3,8 @@
 #include "Layout.h"
 #include "PoolId.h"
 #include "SubmissionBatch.h"
-#include "UploadEntry.h"
-#include "UploadId.h"
+#include "MemoryEntry.h"
+#include "MemoryEntryId.h"
 #include "Utilities.h"
 #include <vulkan/vulkan_core.h>
 
@@ -84,7 +84,7 @@ namespace Graphics
 		return Globals::renderer.shadersManager.shaders[shaderId_]; 
 	}
 
-	const UploadEntry& getUploadEntry(UploadId id_)
+	const MemoryEntry& getUploadEntry(MemoryEntryId id_)
 	{
 		//if(id_allocatorType == STATIC)
 		//{
@@ -93,14 +93,14 @@ namespace Graphics
 
 	}
 
-	bool isUploadInGPU(UploadId uploadId_)
+	bool isUploadInGPU(MemoryEntryId uploadId_)
 	{
 		return Globals::renderer.memoryManager.isUploadInGPU(uploadId_); 
 	}
 
-	uint32_t getUploadStartingByteInGPUHeap(UploadId id_)
+	uint32_t getUploadStartingByteInGPUHeap(MemoryEntryId id_)
 	{
-		const UploadEntry& rEntry = getUploadEntry(id_); 
+		const MemoryEntry& rEntry = getUploadEntry(id_); 
 		return getGPUBufferOffset(STATIC, rEntry.bufferType) + rEntry.inBufferFirstByte; 
 	}
 
@@ -125,6 +125,16 @@ namespace Graphics
 		return getCurrentFrameResources().frameAvailableFenceId;
 	}
 
+	uint64_t getIndividualUpdateMemBlockSize()
+	{
+		return Globals::individualUpdateMemBlockSize;
+	} 
+
+	uint32_t getMaxDormantUpdateStagingHeaps()
+	{
+		return Globals::maxDormantUpdateStagingHeaps;
+	}
+
 	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_)
 	{
 		//if(allocatorType_ == STATIC)
@@ -135,7 +145,7 @@ namespace Graphics
 	
 	uint32_t getGPUBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_)
 	{
-		return  Globals::renderer.memoryManager.staticAllocator.gpuHeap.bufferOffsets[uploadType_]; 
+		return  Globals::renderer.memoryManager.staticAllocator.gpuHeap.bufferFirstByte[uploadType_]; 
 	}
 
 	uint32_t& getCurrentImageIndex()
@@ -190,16 +200,28 @@ namespace Graphics
 		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX - 1][layoutId_]; // - 1 due to INDEX layout not existing  
 	}
 
-
 	Mesh& getMesh(PoolId meshId_)
 	{
 		return Globals::renderer.resourcesManager.meshes[meshId_];
 	} 
+
+	
 	
 	void setFramesAtFlightCount(uint32_t count_)
 	{
 		Globals::renderer.framesAtFlightCount = count_;
 	}
+
+	void setIndividualUpdateMemBlockSize(uint64_t value_)
+	{
+		Globals::individualUpdateMemBlockSize = value_; 
+	}
+
+	void setMaxDormantUpdateStagingHeaps(uint32_t value_)
+	{
+		Globals::maxDormantUpdateStagingHeaps = value_; 
+	}
+
 
 	void resetFences(std::span<VkFence> fences_)
 	{
@@ -240,7 +262,7 @@ namespace Graphics
 
 
 
-	UploadId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
+	MemoryEntryId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
 	{
 		// if(allocatorType_ == STATIC)
 		// {
@@ -258,17 +280,25 @@ namespace Graphics
 		return getVerticeLayout(layoutId_).addMemberBlueprint(name_, dataType_);
 	}
 
-
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_)
 	{
 		return Globals::renderer.resourcesManager.meshes.add(name_, name_, verticeLayoutId_, repeatCount_); 
 	} 
 
-
 	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_)
 	{
 		return Globals::renderer.pipelinesManager.graphicsPipelines.add(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
 	} 
+
+	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_)
+	{
+		getMemoryManager().dynamicAllocator.addPage(memoryVisability_, upperBoundForEntrySize_, upperBoundUnit_, memoryBlockSize_, memoryBlockSizeUnit_);
+	}
+
+	void addUpdateStagingPage(uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_)
+	{
+		getMemoryManager().addUpdateStagingPage(upperBoundForEntrySize_, upperBoundUnit_, memoryBlockSize_, memoryBlockSizeUnit_);
+	}
 
 	void createAllPipelines()
 	{
