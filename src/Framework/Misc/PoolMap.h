@@ -17,7 +17,6 @@ struct PoolMap {
 	std::vector<std::string> names;
 	std::unordered_map<std::string, PoolId> nameToId;
 	std::string name;
-	uint32_t elementCount; 
 
 	PoolMap(const char* name_) : name(name_){};
 	void isPoolIdValid(PoolId pId_)
@@ -61,7 +60,6 @@ struct PoolMap {
 			this->alive[id.id] = true; 
         }
 		nameToId.emplace(name_, id);
-		this->elementCount++;
         return id;
     }
 
@@ -71,15 +69,14 @@ struct PoolMap {
 			this->isPoolIdValid(pId_);
 		#endif
 		this->generation[pId_.id]++; 
-		if constexpr (requires { T::destroy(nullptr); })
-        {
-        	    T::destroy(&objects[pId_.id]);
+		if constexpr (requires (T& obj) { obj.destroy(); })
+		{
+			objects[pId_.id].destroy();
 		}
 		this->freeSlots.emplace_back(pId_.id);
 		this->nameToId.erase(this->names[pId_.id]);
 		this->names[pId_.id] = ""; 
 		this->alive[pId_.id] = false;
-		this->elementCount--;  
 	}
 
 	
@@ -89,7 +86,10 @@ struct PoolMap {
 			this->generation[id_]++; 
 			if constexpr (requires (T& obj) { obj.destroy(); })
 			{
-    			objects[id_].destroy();
+				if(this->alive[id_])
+				{
+    				objects[id_].destroy();
+				}
 			}
 			this->freeSlots.emplace_back(id_);
 			this->nameToId.erase(this->names[id_]);
@@ -104,7 +104,6 @@ struct PoolMap {
 		{
 			this->removeInternal(i); 
 		}
-		this->elementCount = 0; 
 	}
 
 	T& getInternal(uint32_t id_)
@@ -141,13 +140,11 @@ struct PoolMap {
 		uint32_t id = this->allocatedSize() - 1;
 		while(!this->alive[id])
 		{
-			#ifdef ENGINE_DEBUG
-				if(id == 0)
-				{
-					throw std::runtime_error(std::format("{} Pool: Can't use back() on empty Pool.", this->name));
-				}
-				id--;
-			#endif 
+			if(id == 0)
+			{
+				throw std::runtime_error(std::format("{} Pool: Can't use back() on empty Pool.", this->name));
+			}
+			id--;
 		}
 		return this->objects[id]; 
 	}
@@ -177,11 +174,6 @@ struct PoolMap {
 	T* data()
 	{
 		return this->objects.data();
-	}
-
-	const uint32_t size()
-	{
-		return this->elementCount;
 	}
 
 	const size_t allocatedSize()

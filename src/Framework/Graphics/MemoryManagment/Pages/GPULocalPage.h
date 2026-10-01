@@ -1,17 +1,13 @@
 #pragma once 
 #include "StagingHeap.h"
 #include "BasePage.h"
+#include <vulkan/vulkan_core.h>
 
 namespace Graphics
 {
 struct GPULocalPage : BasePage 
 {
-
-	std::vector<PoolId> freeStagingHeaps; // It creates 
-	
-	void destroy();
-	void init();
-
-	GPULocalPage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_);
+	void init(); 	
+	GPULocalPage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_, uint32_t maxDormantStagingHeaps_);
 };
 }

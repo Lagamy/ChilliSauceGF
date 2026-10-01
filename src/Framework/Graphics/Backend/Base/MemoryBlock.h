@@ -17,6 +17,7 @@ struct MemoryBlock {
 	MemoryVisabilityEnum memVisability; 
 	bool isStaging = false; 
 	PoolId memBlockId;
+	PoolId stagingHeapId = UninitializedPoolId;
 
 	
 	VkResult createInternal(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memPropertyIndex_);
@@ -30,6 +31,5 @@ struct MemoryBlock {
 	uint32_t findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, bool isStatic_);
 
 	MemoryBlock() = default;
-	~MemoryBlock();
 };
 }

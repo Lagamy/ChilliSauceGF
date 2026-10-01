@@ -21,6 +21,7 @@ void StagingHeap::createStatic()
 
 void StagingHeap::create(VkDeviceSize size_)
 {
+	this->size = size_; 
 	std::array<VkMemoryRequirements, 1> memRequirement;
 	this->buffer.create(this->size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, "Staging Buffer"); 
 
@@ -39,15 +40,6 @@ void StagingHeap::destroy()
 	this->buffer.destroy();
 	this->created = false; 
 }
-
-StagingHeap::~StagingHeap()
-{
-	if(this->created)
-	{
-		this->destroy(); 
-	}
-}
-
 
 StagingHeap::StagingHeap(uint64_t size_)
 {

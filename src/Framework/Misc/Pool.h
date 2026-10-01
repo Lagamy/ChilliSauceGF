@@ -1,7 +1,7 @@
 #pragma once 
 #include "PoolId.h"
 #include "Utilities.h"
-#include <vector> 
+#include <vector>
 #include <cstdint>
 #include <stdexcept>
 #include <sstream>
@@ -15,7 +15,7 @@ struct Pool {
 	std::vector<uint32_t> generation; 
 	std::vector<uint32_t> freeSlots;	
 	std::string name;
-	uint32_t elementCount; 
+	uint32_t elementCount = 0; 
 
 	Pool(const char* name_) : name(name_){};
 	Pool() {};
@@ -66,9 +66,9 @@ struct Pool {
 			this->isPoolIdValid(pId_);
 		#endif 
 		this->generation[pId_.id]++; 
-		if constexpr (requires { T::destroy(nullptr); })
-        {
-        	    T::destroy(&objects[pId_.id]);
+		if constexpr (requires (T& obj) { obj.destroy(); })
+		{
+			objects[pId_.id].destroy();
 		}
 		this->freeSlots.emplace_back(pId_.id);
 		this->alive[pId_.id] = false; 
@@ -91,13 +91,16 @@ struct Pool {
 	
 	void removeInternal(uint32_t id_) // Used mainly during itteration  
 	{
-		this->generation[id_]++; 
-		if constexpr (requires (T& obj) { obj.destroy(); })
+		if(this->alive[id_])
 		{
-    		objects[id_].destroy();
+			this->generation[id_]++; 
+			if constexpr (requires (T& obj) { obj.destroy(); })
+			{
+    			objects[id_].destroy();
+			}
+			this->freeSlots.emplace_back(id_);
+			this->alive[id_] = false; 
 		}
-		this->freeSlots.emplace_back(id_);
-		this->alive[id_] = false; 
 	}
 
 	void clear() 

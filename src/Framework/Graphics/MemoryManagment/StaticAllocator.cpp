@@ -64,7 +64,6 @@ void uploadCMDs(VkCommandBuffer& cmdBuffer_)
 	}
 	
 
-	rStaticAllocator.allocated = true; 
 	vkEndCommandBuffer(cmdBuffer_);
 }
 
@@ -113,7 +112,8 @@ void StaticAllocator::allocateAndUpload()
 	this->cpuSharedHeap.create(); 
 	this->stagingHeap.createStatic();
 	this->gpuHeap.create();
-	this->submitUploads(); 
+	this->allocated = true;
+	this->submitUploads();
 }
 
 void StaticAllocator::deallocate()

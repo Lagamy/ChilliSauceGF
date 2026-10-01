@@ -14,20 +14,16 @@ namespace Graphics {
 		VkDeviceSize size = 0;
 		BufferTypeEnum bufferType;
 		uint32_t pageId; // Also needed for static, so I can optimize the updates
-		StagingData stagingData; 
-		bool isForDynamic; 
+		StagingData stagingData;
+		bool isForDynamic = false; 
 		
 
 		// For Upload(only for Update when static)
-		PoolId isUploadedFenceId; 
-		PoolId isUploadedSemaphoreId; 
-		PassId uploadPassId;
-		bool isPendingUpload(); 
+		uint64_t uploadBatchId = 0;
+		bool isPendingUpload();
 		bool isPendingUploadStatic();
 		void upload(const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 
-		Semaphore& getIsUploadedSemaphore();
-		
 		/* For Static */
 		const void* data; 
 		size_t inBufferFirstByte = 0; 
@@ -41,7 +37,6 @@ namespace Graphics {
 		MemoryVisabilityEnum memoryVisability;
 		
 		MemoryEntry(const char* name_, VkDeviceSize size_,  BufferTypeEnum bufferType_, MemoryVisabilityEnum memoryVisability_, uint32_t pageId_, PoolId memoryBlockId_, PoolId bufferId_);
-		~MemoryEntry();
 		/*------------*/
 
 	};

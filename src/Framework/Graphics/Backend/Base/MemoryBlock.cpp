@@ -119,9 +119,4 @@ uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReq
 		}
 	}
 }
-
-MemoryBlock::~MemoryBlock()
-{
-	this->destroy(); 
-} 
 }

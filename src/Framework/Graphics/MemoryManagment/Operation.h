@@ -3,6 +3,7 @@
 
 enum MemoryOperationTypeEnum 
 {
+    UPLOAD, // For Dynamic Allocator only. 
     UPDATE, 
     REMOVE 
 }; 

@@ -86,11 +86,7 @@ namespace Graphics
 
 	const MemoryEntry& getUploadEntry(MemoryEntryId id_)
 	{
-		//if(id_allocatorType == STATIC)
-		//{
-			return Globals::renderer.memoryManager.staticAllocator.getEntry(id_);
-		//}
-
+		return Globals::renderer.memoryManager.getEntry(id_);
 	}
 
 	bool isUploadInGPU(MemoryEntryId uploadId_)
@@ -264,10 +260,12 @@ namespace Graphics
 
 	MemoryEntryId addUpload(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
 	{
-		// if(allocatorType_ == STATIC)
-		// {
-		return Globals::renderer.memoryManager.staticAllocator.addEntry(name_, data_, size_, memoryVisability_, uploadType_);
-		// }
+		return Globals::renderer.memoryManager.addEntry(name_, data_, size_, allocatorType_, memoryVisability_, uploadType_);
+	}
+
+	void updateUpload(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)
+	{
+		Globals::renderer.memoryManager.updateEntry(uploadId_, data_, inSrcOffset_, inEntryOffset_, size_);
 	}
 
 	PoolId addVerticeLayout(const char* name_)
@@ -290,14 +288,9 @@ namespace Graphics
 		return Globals::renderer.pipelinesManager.graphicsPipelines.add(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
 	} 
 
-	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_)
+	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_, uint32_t maxDormantStagingHeaps_)
 	{
-		getMemoryManager().dynamicAllocator.addPage(memoryVisability_, upperBoundForEntrySize_, upperBoundUnit_, memoryBlockSize_, memoryBlockSizeUnit_);
-	}
-
-	void addUpdateStagingPage(uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_)
-	{
-		getMemoryManager().addUpdateStagingPage(upperBoundForEntrySize_, upperBoundUnit_, memoryBlockSize_, memoryBlockSizeUnit_);
+		getMemoryManager().dynamicAllocator.addPage(memoryVisability_, upperBoundForEntrySize_, upperBoundUnit_, memoryBlockSize_, memoryBlockSizeUnit_, maxDormantStagingHeaps_);
 	}
 
 	void createAllPipelines()
@@ -370,6 +363,11 @@ namespace Graphics
 		Globals::renderer.syncManager.semaphores.remove(id_);
 	}
 
+	void removeUpload(MemoryEntryId uploadId_)
+	{
+		Globals::renderer.memoryManager.removeDynamicEntry(uploadId_);
+	}
+
 	void beginCMDsRecording(VkCommandBuffer &cmdBuffer_)
 	{
 		VkCommandBufferBeginInfo beginInfo = {}; 
@@ -404,8 +402,8 @@ namespace Graphics
 		Mesh& rMesh = getMesh(meshId_); 
 		if(isUploadInGPU(rMesh.vbMemoryUploadId) && isUploadInGPU(rMesh.ibMemoryUploadId))
 		{
-			const StaticUploadEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
-			const StaticUploadEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
+			const MemoryEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
+			const MemoryEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
 			VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
 			VkDeviceSize vOffsets[] = { vertexUpload.inBufferFirstByte }; 
 			vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 

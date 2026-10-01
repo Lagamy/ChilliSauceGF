@@ -12,96 +12,25 @@
 
 namespace Graphics 
 {
-    void updateStaticGPULocalEntryCMDs(VkCommandBuffer& cmdBuffer_) 
-    {
-		MemoryManager& rMemoryManager = getMemoryManager(); 
-		MemoryEntry& rMemoryEntry = rMemoryManager.staticAllocator.memoryEntries[rMemoryManager.currentEntryToUpload.id];
-		StagingHeap& rStagingHeap = rMemoryManager.uploadStagingHeaps[rMemoryEntry.stagingData.heapId];
-
-
-		// Info to begin the command buffer record 
-		VkCommandBufferBeginInfo beginInfo = {};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // We are only using this command buffer once. So setup for 1 time submit. 	
-		vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
-
-		// Region of data to copy from and to 
-		VkBufferCopy bufferCopyRegion = {};
-		bufferCopyRegion.srcOffset = rMemoryEntry.stagingData.stagingOffset;
-		bufferCopyRegion.dstOffset = rMemoryEntry.inGPUFirstByte + rMemoryEntry.inBufferFirstByte + rMemoryEntry.stagingData.inEntryOffset; // its buffer local offset 
-		bufferCopyRegion.size = rMemoryEntry.stagingData.size;
-		Buffer& rDstBuffer = rMemoryManager.staticAllocator.getBuffer(rMemoryEntry.bufferType); 
-
-		// Command to copy from srcBuffer to dstBuffer
-		vkCmdCopyBuffer(cmdBuffer_, rStagingHeap.buffer.get(), rDstBuffer.get(), 1, &bufferCopyRegion);
-	    vkEndCommandBuffer(cmdBuffer_);
-    }
-
-    void uploadDynamicGPULocalEntryCMDs(VkCommandBuffer& cmdBuffer_)
-    {
-		MemoryManager& rMemoryManager = getMemoryManager(); 
-		MemoryEntry& rMemoryEntry = rMemoryManager.dynamicAllocator.memoryEntries[rMemoryManager.currentEntryToUpload];
-		StagingHeap& rStagingHeap = rMemoryManager.uploadStagingHeaps[rMemoryEntry.stagingData.heapId]; 
-
-		
-		// Info to begin the command buffer record 
-		VkCommandBufferBeginInfo beginInfo = {};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // We are only using this command buffer once. So setup for 1 time submit. 	
-		vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
-
-		// Region of data to copy from and to 
-		VkBufferCopy bufferCopyRegion = {};
-		bufferCopyRegion.srcOffset = rMemoryEntry.stagingData.stagingOffset;
-		bufferCopyRegion.dstOffset = rMemoryEntry.inGPUFirstByte + rMemoryEntry.inBufferFirstByte + rMemoryEntry.stagingData.inEntryOffset; // its buffer local offset 
-		bufferCopyRegion.size = rMemoryEntry.stagingData.size;
-		Buffer& rDstBuffer = rMemoryManager.dynamicAllocator.gpuLocalPages[rMemoryEntry.pageId].buffers[rMemoryEntry.bufferId];
-
-		// Command to copy from srcBuffer to dstBuffer
-		vkCmdCopyBuffer(cmdBuffer_, rStagingHeap.buffer.get(), rDstBuffer.get(), 1, &bufferCopyRegion);
-	    vkEndCommandBuffer(cmdBuffer_);
-    }
-
 	MemoryEntry::MemoryEntry(const char* name_, const void* data_, VkDeviceSize size_, BufferTypeEnum bufferType_, MemoryVisabilityEnum memoryVisability_, VkDeviceSize currentBuffSize_) : name(name_), data(data_), size(size_), bufferType(bufferType_), inBufferFirstByte(currentBuffSize_) 
 	{
         this->memoryVisability = memoryVisability_; 
-		
-		if(memoryVisability_ == GPU_ONLY)
-		{
-			this->isUploadedFenceId = addFence(true); 
-    	    this->isUploadedSemaphoreId = addSemaphore();
-	    	this->uploadPassId = addPass("Entry Upload", ONESHOT,TRANSFER,this->isUploadedFenceId);
-			uint32_t taskId = addTaskToPass(this->uploadPassId, std::format("{} Upload", this->name).c_str(), updateStaticGPULocalEntryCMDs); 
-			addWaitSemaphoreToTask(this->uploadPassId, taskId, this->isUploadedSemaphoreId, VK_PIPELINE_STAGE_NONE); 
-			addSignalSemaphoreToTask(this->uploadPassId, taskId, this->isUploadedSemaphoreId);
-		}
 	}; 
 
     MemoryEntry::MemoryEntry(const char* name_, VkDeviceSize size_,  BufferTypeEnum bufferType_, MemoryVisabilityEnum memoryVisability_, uint32_t pageId_, PoolId memoryBlockId_, PoolId bufferId_) : name(name_), size(size_), bufferType(bufferType_), pageId(pageId_), memoryBlockId(memoryBlockId_), bufferId(bufferId_) 
     { 
         this->isForDynamic = true; 
         this->memoryVisability = memoryVisability_; 
-		
-		if(memoryVisability_ == GPU_ONLY)
-		{
-			this->isUploadedFenceId = addFence(true); 
-        	this->isUploadedSemaphoreId = addSemaphore();
-	    	this->uploadPassId = addPass("Entry Upload", ONESHOT,TRANSFER,this->isUploadedFenceId);
-			uint32_t taskId = addTaskToPass(this->uploadPassId, std::format("{} Upload", this->name).c_str(), uploadDynamicGPULocalEntryCMDs); 
-			addWaitSemaphoreToTask(this->uploadPassId, taskId, this->isUploadedSemaphoreId, VK_PIPELINE_STAGE_NONE); 
-			addSignalSemaphoreToTask(this->uploadPassId, taskId, this->isUploadedSemaphoreId);				
-		}
 	};
 
 
     bool MemoryEntry::isPendingUpload()
     {
-		if(!isForDynamic && getMemoryManager().staticAllocator.uploadsInGPU)
+		if(!isForDynamic && !getMemoryManager().staticAllocator.staticUploadCompleted)
 		{
 			return true; 
 		}	
-        VkResult result = vkGetFenceStatus(getMainDevice().logicalDevice, getFence(this->isUploadedFenceId));
-        return result == VK_SUCCESS ? false : true;
+        return this->uploadBatchId > getMemoryManager().completedUploadBatchId;
     }
 
 	void MemoryEntry::upload(const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)
@@ -114,7 +43,7 @@ namespace Graphics
 			if(this->isForDynamic)
 			{
 				CPUSharedPage& page = getMemoryManager().dynamicAllocator.cpuSharedPages[this->pageId]; 
-				vkMapMemory(getMainDevice().logicalDevice, page.memoryBlocks[this->memoryBlockId].get(), page.buffersFirstByteOffset[this->memoryBlockId] + inEntryOffset_, size_, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
+				vkMapMemory(getMainDevice().logicalDevice, page.memoryBlocks[this->memoryBlockId].get(), page.buffersFirstByteOffset[this->bufferId] + inEntryOffset_, size_, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
 				memcpy(pCPUSharedMemPoint, static_cast<const char*>(data_) + inSrcOffset_, size_);  
 				vkUnmapMemory(getMainDevice().logicalDevice, page.memoryBlocks[memoryBlockId].get()); 
 			}
@@ -127,11 +56,42 @@ namespace Graphics
 		}
         else
         {
+			#ifdef ENGINE_DEBUG
+				if(inEntryOffset_ + size_ > this->size)
+				{
+					throw std::runtime_error(std::format("Memory Entry {}: upload of {} bytes at offset {} doesn't fit into the entry.", this->name, size_, inEntryOffset_));
+				}
+			#endif
+
+			/* 
+				The staging heap mirrors the memory block. stagingOffset is where the entry's buffer starts in the block, so byte N of the entry is staged at stagingOffset + N. 
+				The copy reads from the same position, which keeps staged bytes of different parts of one entry from overwriting each other. 
+			*/
+			uint64_t stagingPosition = this->stagingData.stagingOffset + inEntryOffset_; 
 			StagingHeap& rStagingHeap = getMemoryManager().uploadStagingHeaps[this->stagingData.heapId]; 
-			vkMapMemory(getMainDevice().logicalDevice, rStagingHeap.memoryBlock.get(), this->stagingData.stagingOffset, size_, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
+			vkMapMemory(getMainDevice().logicalDevice, rStagingHeap.memoryBlock.get(), stagingPosition, size_, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
 			memcpy(pCPUSharedMemPoint, static_cast<const char*>(data_) + inSrcOffset_, size_);  // writes to *Staging/Shared memory in Ram* via CPU pointer
 			vkUnmapMemory(getMainDevice().logicalDevice, rStagingHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
-			enablePass(this->uploadPassId); 
+
+			/*
+				Staging memory is written, the copy into the GPU Local buffer is only queued here. MemoryManager records and submits all queued copies as one batch.
+				Static entries live inside one big buffer per type, so their offset in that buffer is added. Dynamic entries own their whole buffer.
+			*/
+			PendingCopy pendingCopy = {};
+			pendingCopy.srcBuffer = rStagingHeap.buffer.get();
+			pendingCopy.srcOffset = stagingPosition;
+			pendingCopy.size = size_;
+			if(this->isForDynamic)
+			{
+				pendingCopy.dstBuffer = getMemoryManager().dynamicAllocator.gpuLocalPages[this->pageId].buffers[this->bufferId].get();
+				pendingCopy.dstOffset = inEntryOffset_;
+			}
+			else
+			{
+				pendingCopy.dstBuffer = getMemoryManager().staticAllocator.getBuffer(this->bufferType).get();
+				pendingCopy.dstOffset = this->inBufferFirstByte + inEntryOffset_;
+			}
+			this->uploadBatchId = getMemoryManager().queueCopy(pendingCopy);
  	   }
 	}
 }

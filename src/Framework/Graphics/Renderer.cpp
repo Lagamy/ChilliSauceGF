@@ -63,11 +63,12 @@ void Renderer::draw()
 {
 	if(!Globals::resizing)
 	{
+		this->memoryManager.resolveInProgressOperations();
+		this->memoryManager.resolvePendingOperations();
 		this->gpuSceneManager.updateLayouts(); 
 		this->gpuSceneManager.updateResources(); 
 		this->gpuSceneManager.updatePasses(); 
-		
-		this->memoryManager.checkUploadsStatus(); 
+
 		VkFence* pCurrentFrameAvailable = &getFence(this->framesResources[this->currentFrame].frameAvailableFenceId);
 		vkWaitForFences(this->mainDevice.logicalDevice, 1, pCurrentFrameAvailable, VK_TRUE, std::numeric_limits<uint64_t>::max()); // wait for frame available fence signal
 		vkResetFences(this->mainDevice.logicalDevice, 1, pCurrentFrameAvailable); // unsignal fence
