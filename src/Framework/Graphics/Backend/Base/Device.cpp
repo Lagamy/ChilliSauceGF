@@ -79,9 +79,9 @@ void Device::createLogicalDevice()
     deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
 
     deviceCreateInfo.enabledExtensionCount =
-        static_cast<uint32_t>(requiredDeviceExtensions.size());
+        static_cast<uint32_t>(Globals::requiredDeviceExtensions.size());
     deviceCreateInfo.ppEnabledExtensionNames =
-        requiredDeviceExtensions.data();
+        Globals::requiredDeviceExtensions.data();
 
     VkPhysicalDeviceFeatures deviceFeatures{};
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
@@ -159,7 +159,7 @@ bool Device::checkDeviceExtensionsSupport(VkPhysicalDevice _device) {
 
 	std::vector<VkExtensionProperties> allSupportedExtensions(extensionCount);
 	vkEnumerateDeviceExtensionProperties(_device, nullptr, &extensionCount, allSupportedExtensions.data());
-	for (const auto& requiredExtension : requiredDeviceExtensions)
+	for (const auto& requiredExtension : Globals::requiredDeviceExtensions)
 	{
 		bool hasExtension = false;
 		for (const auto& extension : allSupportedExtensions)

@@ -15,7 +15,7 @@ struct GPULocalHeap
 
 	VkDeviceSize size; 
 	StorageUnitEnum unit;
-	bool created;
+	bool created = false;
 	
 	void destroy();
 	void create();

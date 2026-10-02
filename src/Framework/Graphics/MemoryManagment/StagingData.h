@@ -7,8 +7,8 @@
 struct StagingData
 {
     PoolId heapId = UninitializedPoolId;
-    uint64_t inEntryOffset;
-    uint64_t size;
+    uint64_t inEntryOffset = 0;
+    uint64_t size = 0;
 
     // Those one needed mainly for dynamic upload.
     uint64_t stagingOffset = 0;

@@ -1,6 +1,8 @@
 #include "Triangle.h"
 #include "Api.h"
 #include "Utilities.h"
+#include <glm/ext/vector_float4.hpp>
+#include <limits>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics
@@ -9,8 +11,16 @@ namespace Graphics
 	{		
 		void setGPUSceneToTriangle()
 		{
-			GPUScene& rGPUSceneManager = getGPUSceneManager(); 
-			rGPUSceneManager.changeGPUScene(defineLayouts, defineResources, definePasses, EmptyFunction, EmptyFunction, EmptyFunction, EmptyFunction);
+			GPUSceneManager& rGPUSceneManager = getGPUSceneManager();
+			setEnvironmentSetupFunction(setupEnvironment); 
+			rGPUSceneManager.changeGPUScene(defineLayouts, defineResources, definePasses, EmptyFunction, updateResources, EmptyFunction, EmptyFunction);
+		}
+
+		void setupEnvironment()
+		{
+			setMaxDormantUpdateStagingHeaps(5); 
+			addPageForDynamicMemoryEntries(CPU_SHARED, 10, MB, 10, MB, 5); 
+			addPageForDynamicMemoryEntries(GPU_LOCAL, 10, MB, 10, MB, 5); 
 		}
 
 		void defineLayouts()
@@ -45,8 +55,8 @@ namespace Graphics
 			};
 		
 			/* Upload Mesh */
-			rMesh.queueStaticGPUUpload(); 
-		} 
+			rMesh.queueUpload(DYNAMIC, GPU_LOCAL); 
+		}
 
 		void definePasses()
 		{
@@ -56,6 +66,29 @@ namespace Graphics
 			addDynamicWaitSemaphoreToTask(passId, taskId, getCurrentFrameImageIsAcquiredSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 			addDynamicSignalSemaphoreToTask(passId, taskId, getCurrentSwapchainImageUseFinishedSemaphore);
 			enablePass(passId); 
+		}
+
+		void updateResources()
+		{
+			counter++; 
+			if(counter == 7000)
+			{
+				Mesh& rMesh = getMesh(meshId);
+				rMesh.updateVerticeMember(vertexMemberIds.colorId, 0, glm::vec4(0.0, 0.5, 0.5, 1.0)); 			
+				rMesh.updateVerticeMember(vertexMemberIds.colorId, 1, glm::vec4(0.5, 0.0, 0.5, 1.0)); 			
+				rMesh.updateVerticeMember(vertexMemberIds.colorId, 2, glm::vec4(0.5, 0.5, 0.0, 1.0)); 			
+				rMesh.queueUpdate(); 
+			}
+			
+			if (counter > 14000)
+			{
+				counter = 0; 
+				Mesh& rMesh = getMesh(meshId);
+				rMesh.updateVerticeMember(vertexMemberIds.colorId, 0, glm::vec4(1.0, 0.0, 0.0, 1.0)); 
+				rMesh.updateVerticeMember(vertexMemberIds.colorId, 1, glm::vec4(0.0, 1.0, 0.0, 1.0));
+				rMesh.updateVerticeMember(vertexMemberIds.colorId, 2, glm::vec4(0.0, 0.0, 1.0, 1.0));
+				rMesh.queueUpdate();
+			}
 		}
 
 		void recordCMDs(VkCommandBuffer& cmdBuffer_)

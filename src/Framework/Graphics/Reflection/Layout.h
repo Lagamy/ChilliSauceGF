@@ -40,6 +40,27 @@ struct ReflectionLayout
         std::memcpy(&rDataContainer.data[repeatUnitOffset + rMemberBlueprint.firstByteId], &data_, rMemberBlueprint.size);
     }; 
 
+    template<typename T>
+    const T getMemberInDataContainer(PoolId memberBlueprintId_, PoolId dataContainerId_, uint32_t repeatUnitId_)
+    {
+        MemberBlueprint& rMemberBlueprint = this->memberBlueprints[memberBlueprintId_];
+        if(GPUTypeMap<T>::value != rMemberBlueprint.dataType)
+        {
+			throw std::runtime_error(std::format("{} Data Container: Can't get Member {} with type {} as {} type.",
+            this->dataContainers.getName(dataContainerId_), this->memberBlueprints.getName(memberBlueprintId_),
+            dataTypeToName[rMemberBlueprint.dataType], dataTypeToName[GPUTypeMap<T>::value]));
+        }
+        DataContainer& rDataContainer = this->dataContainers[dataContainerId_];
+        if(repeatUnitId_ >= rDataContainer.repeatCount)
+        {
+			throw std::runtime_error(std::format("{} Data Container: Repeat Unit {} is out of bounds.", this->dataContainers.getName(dataContainerId_), repeatUnitId_));
+        }
+        size_t repeatUnitOffset = repeatUnitId_ * this->size;
+        T data;
+        std::memcpy(&data, &rDataContainer.data[repeatUnitOffset + rMemberBlueprint.firstByteId], rMemberBlueprint.size);
+        return data;
+    };
+
     void setDataContainer(PoolId derivedDataContainerId_, void* data_, size_t offset_, size_t size_); // Be carefull, it doesn't gurantee anything. 
 };
 }

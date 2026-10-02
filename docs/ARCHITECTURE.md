@@ -67,15 +67,16 @@ src/Framework/
 ## Startup, frame loop, shutdown
 
 1. `main` calls `Triangle::setGPUSceneToTriangle()`, which registers function
-   pointers on `GPUScene` (`defineLayouts`, `defineResources`, `definePasses`,
-   and per-frame `update*`).
+   pointers on `GPUSceneManager` (`defineLayouts`, `defineResources`,
+   `definePasses`, and per-frame `update*`).
 2. `Core::setup` creates the GLFW window, then `Renderer::setup`: instance →
    surface → device → swapchain (sets `framesAtFlightCount` = swapchain image
    count) → `FrameResources` → `MemoryManager::setup` → presentation render pass →
-   framebuffers → GPUScene `define*` → static allocator upload → pipelines →
+   framebuffers → GPUSceneManager `define*` (then `changed` is reset) → static allocator upload → pipelines →
    command pools (allocated from tasks registered by `define*`).
 3. `Renderer::draw` per frame (skipped while `Globals::resizing`):
-   resolve pending memory ops → GPUScene `update*` → wait + reset the frame's
+   if `GPUSceneManager::changed`, run `define*` again and reset it → resolve
+   pending memory ops → GPUSceneManager `update*` → wait + reset the frame's
    `frameAvailableFence` → `vkAcquireNextImageKHR` (signals the frame's
    `imageAcquiredSemaphore`) → re-record enabled command buffers →
    `passesGraph.compileIfDirty()` → `resolveSync_SubmitToGPU()` →
@@ -173,7 +174,9 @@ pool per queue family (3).
   (`MemoryBlock::stagingHeapId`, taken from `freeStagingHeaps` or newly added),
   stages the entry at the same offset its buffer has in the block
   (`stagingData.stagingOffset`; `MemoryEntry::upload` stages byte N of the entry
-  at `stagingOffset + N` and copies from the same position), and counts it in the
+  at `stagingOffset + N` and copies from the same position; update heaps from
+  `setStagingDataForUpdate` cover only the updated range, so they have
+  `stagingOffset` 0 and the range starts at heap position 0), and counts it in the
   heap's `pendingUploadsCount`.
   `MemoryManager::resolveInProgressOperations()` (called before
   `resolvePendingOperations()`) decrements that count once the entry's upload
@@ -181,10 +184,17 @@ pool per queue family (3).
   `BasePage::releaseStagingHeap` unlinks the heap from the block and either
   keeps it in `freeStagingHeaps` or destroys it if `maxDormantStagingHeaps` free
   heaps already exist.
-- `Api.h` routes `addUpload`, `updateUpload`, `removeUpload`, `getUploadEntry`
-  and `isUploadInGPU` to `MemoryManager::addEntry`, `updateEntry`,
-  `removeDynamicEntry`, `getEntry` and `isUploadInGPU`.
+- `Api.h` routes `addAndUploadMemoryEntry`, `updateMemoryEntry`, `removeUpload`,
+  `getMemoryEntry` and `isUploadInGPU` to `MemoryManager::addEntry`,
+  `updateEntry`, `removeDynamicEntry`, `getEntry` and `isUploadInGPU`.
 - `MemoryEntry` holds both static and dynamic fields.
+- `MemoryManager::getBuffer(entry)` returns the `Buffer` an entry lives in: the
+  page buffer for dynamic entries (whole buffer), or the static heap buffer for
+  the entry's type and visibility (`StaticAllocator::getBuffer`; add
+  `inBufferFirstByte`). `drawMeshIndexed` and `MemoryEntry::upload` use it.
+- `MemoryManager::updateEntry` defers every `GPU_LOCAL` update (static or
+  dynamic) as an `UPDATE` operation, applied once the entry has no upload in
+  flight; `CPU_SHARED` entries are written immediately.
 - `GPU_ONLY` entry updates are batched by `MemoryManager`. `MemoryEntry::upload`
   writes the staging heap and calls `MemoryManager::queueCopy`, which stores a
   `PendingCopy` and returns a batch id kept in `MemoryEntry::uploadBatchId`.
@@ -205,6 +215,23 @@ pool per queue family (3).
 `setMemberInDataContainer<T>` checks `T` against the member's type through
 `GPUTypeMap<T>` and throws on mismatch or out-of-range repeat index. `Mesh` stores
 its vertex data in a data container of its vertex layout.
+
+### Mesh updates
+
+- `Mesh::queueUpload(allocatorType, visibility)` creates the vertex and index
+  memory entries (`vbMemoryUploadId`, `ibMemoryUploadId`).
+- `updateMesh<T>(meshId, memberId, verticeId, data)` (`Api.h`) writes the member
+  into the mesh's data container (`Mesh::setVertice`) and calls
+  `Mesh::markVerticeDirty`. Nothing reaches the GPU yet.
+- `Mesh::markVerticeDirty` records the changed bytes in `Mesh::dirtyInMeshes`
+  (`DirtyInMesh`: first/last vertice id, `inSrcOffset`, `inEntryOffset`, `size`).
+  The container and the vertex entry share one layout, so both offsets are equal.
+  A change joins an existing `DirtyInMesh` only if its vertice is inside that
+  vertice range or directly next to it; otherwise it starts a new one, so bytes
+  between distant vertices are not re-uploaded.
+- `Mesh::queueUpdate()` calls `updateMemoryEntry` on the vertex entry for each
+  `DirtyInMesh`, then clears the list. It is called explicitly (not every frame)
+  and throws under `ENGINE_DEBUG` if the mesh was never uploaded.
 
 ## Error handling
 

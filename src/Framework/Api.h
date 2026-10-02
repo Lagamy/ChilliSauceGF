@@ -5,6 +5,7 @@
 #include "PassId.h"
 #include "Pass.h"
 #include "MemoryEntryId.h"
+#include "ProjectManager.h"
 #include "Utilities.h"
 #include "Globals.h"
 #include "GLFW/glfw3.h"
@@ -22,7 +23,7 @@ namespace Graphics
 	Device& getMainDevice(); 
 	Surface& getSurface();
 	Swapchain& getSwapchain();
-	GPUScene& getGPUSceneManager();
+	GPUSceneManager& getGPUSceneManager();
 	MemoryManager& getMemoryManager(); 
 	PassesGraph& getPassesManager(); 
 	
@@ -34,12 +35,11 @@ namespace Graphics
 	uint32_t getBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum bufferType_); 
 	VkCommandBuffer& getCommandBuffer(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_, uint32_t id_); 
 	const VkCommandPool& getCommandPool(QueueFamilyEnum queueFamily_, CmdLifetimeEnum poolType_);
-	const MemoryEntry& getUploadEntry(MemoryEntryId id_); 
+	const MemoryEntry& getMemoryEntry(MemoryEntryId id_); 
 	bool isUploadInGPU(MemoryEntryId uploadId_);
 	Mesh& getMesh(PoolId meshId_); 
 	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);
 	uint32_t getGPUBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_);
-	uint32_t getUploadStartingByteInGPUHeap(MemoryEntryId id_);
 	Pass& getPass(PassId passId_);
 	PoolId getCurrentSwapchainImageUseFinishedSemaphore(); 
 	PoolId getCurrentFrameImageIsAcquiredSemaphore(); 
@@ -60,7 +60,7 @@ namespace Graphics
 
 
 	// Set
-	void setEnvironmentSetupFunction(); // happens before renderer setup() triggers. 
+	void setEnvironmentSetupFunction(ProjectFunc setupEnvironmetFunc_);
 	void setFramesAtFlightCount(uint32_t count_); 
 	void setIndividualUpdateMemBlockSize(uint64_t value_); 
 	void setMaxDormantUpdateStagingHeaps(uint32_t value_);
@@ -78,12 +78,14 @@ namespace Graphics
 	void resetCurrentFrameCmdPools();
 	
 	// Add
+	void addDeviceExtension(const char* name_); 
 	PoolId addSemaphore();
 	PoolId addFence(bool createSignaled_);
 	PoolId addShader(const char* name_, const char* path_); 
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
-	void updateUpload(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
+	void updateMemoryEntry(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
+
 	PoolId addVerticeLayout(const char* name_);
 	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_);
 	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 

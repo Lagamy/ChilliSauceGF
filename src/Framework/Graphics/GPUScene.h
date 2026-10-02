@@ -10,12 +10,10 @@
 namespace Graphics
 {
 
-// TODO: Make it dynamically editable. () 
-
 using gpuSceneFunc = void(*)();
-struct GPUScene 
+struct GPUSceneManager 
 {
-	void changeGPUScene(gpuSceneFunc defineLayouts_, gpuSceneFunc defineResources_, gpuSceneFunc definePasses_, gpuSceneFunc syncLayouts_, gpuSceneFunc syncResources_, gpuSceneFunc syncPasses_, gpuSceneFunc destroy_); // If you are making an engine -> this one will be usefull 
+	void changeGPUScene(gpuSceneFunc defineLayouts_, gpuSceneFunc defineResources_, gpuSceneFunc definePasses_, gpuSceneFunc updateLayouts_, gpuSceneFunc updateResources_, gpuSceneFunc updatePasses_, gpuSceneFunc destroy_); // If you are making an engine -> this one will be usefull 
 	void initGPUScene(); 
 	gpuSceneFunc defineLayouts; // Vertex, DS, etc layouts 
 	gpuSceneFunc defineResources; // Mesh/Textures

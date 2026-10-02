@@ -24,7 +24,7 @@ namespace Graphics
 		}
 	}
 	
-	GPULocalPage::GPULocalPage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_, uint32_t maxDormantStagingHeaps_) : BasePage(upperBoundEntrySize_, memoryBlockSize_, GPU_ONLY, maxDormantStagingHeaps_){}
+	GPULocalPage::GPULocalPage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_, uint32_t maxDormantStagingHeaps_) : BasePage(upperBoundEntrySize_, memoryBlockSize_, GPU_LOCAL, maxDormantStagingHeaps_){}
 };
 
 

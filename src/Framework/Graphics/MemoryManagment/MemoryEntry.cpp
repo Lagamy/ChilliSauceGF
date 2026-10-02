@@ -51,7 +51,7 @@ namespace Graphics
 			{
 				vkMapMemory(getMainDevice().logicalDevice, getMemoryManager().staticAllocator.cpuSharedHeap.memoryBlock.get(), this->inGPUFirstByte + inEntryOffset_, size_, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
 				memcpy(pCPUSharedMemPoint, static_cast<const char*>(data_) + inSrcOffset_, size_);  // writes to *Staging/Shared memory in Ram* via CPU pointer
-				vkUnmapMemory(getMainDevice().logicalDevice, getMemoryManager().staticAllocator.stagingHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
+				vkUnmapMemory(getMainDevice().logicalDevice, getMemoryManager().staticAllocator.cpuSharedHeap.memoryBlock.get()); // Unmap vertexBufferMemory from data
 			}
 		}
         else
@@ -64,10 +64,11 @@ namespace Graphics
 			#endif
 
 			/* 
-				The staging heap mirrors the memory block. stagingOffset is where the entry's buffer starts in the block, so byte N of the entry is staged at stagingOffset + N. 
+				A dynamic upload heap mirrors the memory block. stagingOffset is where the entry's buffer starts in the block, so byte N of the entry is staged at stagingOffset + N. 
 				The copy reads from the same position, which keeps staged bytes of different parts of one entry from overwriting each other. 
+				An update heap covers only the updated range (stagingData.inEntryOffset, stagingOffset 0), so the range's first byte is staged at position 0.
 			*/
-			uint64_t stagingPosition = this->stagingData.stagingOffset + inEntryOffset_; 
+			uint64_t stagingPosition = this->stagingData.stagingOffset + inEntryOffset_ - this->stagingData.inEntryOffset; 
 			StagingHeap& rStagingHeap = getMemoryManager().uploadStagingHeaps[this->stagingData.heapId]; 
 			vkMapMemory(getMainDevice().logicalDevice, rStagingHeap.memoryBlock.get(), stagingPosition, size_, 0, &pCPUSharedMemPoint);  // Now void* data points to where vertex Buffer is on GPU/Shared Memory in RAM. So we could upload our vertex data to it. This is called Mapping.
 			memcpy(pCPUSharedMemPoint, static_cast<const char*>(data_) + inSrcOffset_, size_);  // writes to *Staging/Shared memory in Ram* via CPU pointer
@@ -81,14 +82,13 @@ namespace Graphics
 			pendingCopy.srcBuffer = rStagingHeap.buffer.get();
 			pendingCopy.srcOffset = stagingPosition;
 			pendingCopy.size = size_;
+			pendingCopy.dstBuffer = getMemoryManager().getBuffer(*this).get();
 			if(this->isForDynamic)
 			{
-				pendingCopy.dstBuffer = getMemoryManager().dynamicAllocator.gpuLocalPages[this->pageId].buffers[this->bufferId].get();
 				pendingCopy.dstOffset = inEntryOffset_;
 			}
 			else
 			{
-				pendingCopy.dstBuffer = getMemoryManager().staticAllocator.getBuffer(this->bufferType).get();
 				pendingCopy.dstOffset = this->inBufferFirstByte + inEntryOffset_;
 			}
 			this->uploadBatchId = getMemoryManager().queueCopy(pendingCopy);

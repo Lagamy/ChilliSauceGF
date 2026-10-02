@@ -9,6 +9,7 @@ namespace Graphics
 
 void Renderer::setup() 
 {
+	this->projectManager.setupEnvironment(); 
 	// Vulkan setup 
 	this->instance.setup();
 	//	createDebugMessenger();
@@ -41,12 +42,11 @@ void Renderer::setup()
 	this->swapchain.createFramebuffers(this->presentationRenderPass);
 
 	// GPU Scene Description setup 
-	if(this->gpuSceneManager.changed)
-	{
-		this->gpuSceneManager.defineLayouts();
-		this->gpuSceneManager.defineResources(); 
-		this->gpuSceneManager.definePasses();
-	} 
+	this->gpuSceneManager.defineLayouts();
+	this->gpuSceneManager.defineResources(); 
+	this->gpuSceneManager.definePasses();
+	this->gpuSceneManager.changed = false;
+
 	// Send static uploads to the GPU
 	this->memoryManager.staticAllocator.allocateAndUpload();
 
@@ -63,10 +63,19 @@ void Renderer::draw()
 {
 	if(!Globals::resizing)
 	{
+		// GPU Scene Description setup 
+		if(this->gpuSceneManager.changed)
+		{
+			this->gpuSceneManager.defineLayouts();
+			this->gpuSceneManager.defineResources(); 
+			this->gpuSceneManager.definePasses();
+			this->gpuSceneManager.changed = false;
+		}
+
 		this->memoryManager.resolveInProgressOperations();
 		this->memoryManager.resolvePendingOperations();
 		this->gpuSceneManager.updateLayouts(); 
-		this->gpuSceneManager.updateResources(); 
+		this->gpuSceneManager.updateResources();
 		this->gpuSceneManager.updatePasses(); 
 
 		VkFence* pCurrentFrameAvailable = &getFence(this->framesResources[this->currentFrame].frameAvailableFenceId);

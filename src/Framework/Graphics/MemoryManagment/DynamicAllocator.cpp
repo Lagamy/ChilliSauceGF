@@ -45,12 +45,12 @@ void DynamicAllocator::init()
 
     for(PageInfo info : this->cpuSharedPageInfos)
     {
-        this->cpuSharedPages.emplace_back(info.upperBoundEntrySize, info.memoryBlockSize, info.maxDormantStagingHeaps); 
-    } 
+        this->cpuSharedPages.emplace_back(info.upperBoundEntrySize, info.memoryBlockSize, info.maxDormantStagingHeaps).init();
+    }
     
     for(PageInfo info : this->gpuLocalPageInfos)
     {
-        this->gpuLocalPages.emplace_back(info.upperBoundEntrySize, info.memoryBlockSize, info.maxDormantStagingHeaps); 
+        this->gpuLocalPages.emplace_back(info.upperBoundEntrySize, info.memoryBlockSize, info.maxDormantStagingHeaps).init();
     }
 
     this->initialized = true; 
@@ -73,8 +73,7 @@ PoolId DynamicAllocator::addAndUploadEntry(const char* name_, const void* data_,
             PageInfo& rPageInfo = this->cpuSharedPageInfos[i]; 
             if(size_ < rPageInfo.upperBoundEntrySize)
             {
-                BufferCreationResult bufferCreationResult = this->cpuSharedPages[i].addBuffer(size_, uploadType_, name_); 
-                Buffer& rBuffer = this->cpuSharedPages[i].buffers[bufferCreationResult.bufferId]; 
+                BufferCreationResult bufferCreationResult = this->cpuSharedPages[i].addBuffer(size_, uploadType_, name_);
    
                 PoolId id = this->memoryEntries.add(name_, size_, uploadType_, memoryVisability_,i, bufferCreationResult.memoryBlockId, bufferCreationResult.bufferId);
                 MemoryEntry& rUploadEntry = this->memoryEntries[id]; 
@@ -100,7 +99,6 @@ PoolId DynamicAllocator::addAndUploadEntry(const char* name_, const void* data_,
             {
 
                 BufferCreationResult bufferCreationResult = this->gpuLocalPages[i].addBuffer(size_, uploadType_, name_);
-                Buffer& rBuffer = this->gpuLocalPages[i].buffers[bufferCreationResult.bufferId];
 
                 PoolId id = this->memoryEntries.add(name_, size_, uploadType_, memoryVisability_,i, bufferCreationResult.memoryBlockId, bufferCreationResult.bufferId);
                 MemoryEntry& rUploadEntry = this->memoryEntries[id];
@@ -113,6 +111,7 @@ PoolId DynamicAllocator::addAndUploadEntry(const char* name_, const void* data_,
             } 
         }
 	}
+    throw std::runtime_error("How did you get there?");
 };
 
 

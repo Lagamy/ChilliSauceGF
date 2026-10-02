@@ -20,6 +20,9 @@ namespace Globals {
     inline uint32_t maxDormantUpdateStagingHeaps; 
     inline uint32_t minDormantUpdateStagingHeaps; 
     inline uint32_t maxAttemptsToUseExistingStagingHeaps; // before trying empty or creating new once. Here i can do that instead of paging. Cause after upload/update all heaps are empty anyway. “How much CPU you willing to spend avoiding another staging heap?”
+	inline std::vector<const char*> requiredDeviceExtensions = { // If you choose Ray tracing to be enabled -> this would be the thing to change
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME	
+	};
 
     // - System Global components: 
     inline GLFWwindow* appWindow;

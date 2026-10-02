@@ -10,7 +10,8 @@ namespace Graphics
 {
 	struct Buffer {
 		VkBuffer vkHandle = VK_NULL_HANDLE;
-		VkMemoryRequirements memoryReqs;
+		/* Neutral requirements for a buffer that was never created (size 0): no space, no alignment constraint, any memory type. */
+		VkMemoryRequirements memoryReqs = { 0, 1, ~0u };
 		// PoolId memoryBlockId; 
 		uint64_t size; 
 

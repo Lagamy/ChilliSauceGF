@@ -57,7 +57,7 @@ namespace Graphics
 
 	enum MemoryVisabilityEnum : bool 
 	{
-		GPU_ONLY,
+		GPU_LOCAL,
 		CPU_SHARED
 	}; 
 
@@ -219,9 +219,6 @@ namespace Graphics
 	void writeBufferDescriptorSet(VkDescriptorSet& rSet, VkBuffer& rBuffer, VkDeviceSize _dataSize, uint32_t _binding, VkDescriptorType _descriptorType, uint32_t _arrayElement);
 	VkDeviceSize alignUp(VkDeviceSize value, VkDeviceSize alignment); // Adds missing bytes starting bytes, and end bytes
 
-	inline std::vector<const char*> requiredDeviceExtensions = { // If you choose Ray tracing to be enabled -> this would change
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME	
-	};
 
 
 	inline uint64_t assetDelayBeforeUnload; // Can change between scenes.(Flexability). Used for assets with STREAMING lifetimeType

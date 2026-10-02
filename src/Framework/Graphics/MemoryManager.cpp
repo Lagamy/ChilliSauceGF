@@ -175,7 +175,25 @@ MemoryEntry& MemoryManager::getEntry(MemoryEntryId entryId_)
 		return this->dynamicAllocator.memoryEntries[entryId_.id]; 
 	}
 		
-	return this->staticAllocator.memoryEntries[entryId_.id.id];  
+	return this->staticAllocator.memoryEntries[entryId_.id.id];
+}
+
+/*
+	Dynamic entries own their whole buffer inside a page. Static entries share one buffer per buffer type and memory visability,
+	so the caller still has to add inBufferFirstByte for them.
+*/
+Buffer& MemoryManager::getBuffer(const MemoryEntry& rEntry_)
+{
+	if(rEntry_.isForDynamic)
+	{
+		if(rEntry_.memoryVisability == CPU_SHARED)
+		{
+			return this->dynamicAllocator.cpuSharedPages[rEntry_.pageId].buffers[rEntry_.bufferId];
+		}
+		return this->dynamicAllocator.gpuLocalPages[rEntry_.pageId].buffers[rEntry_.bufferId];
+	}
+
+	return this->staticAllocator.getBuffer(rEntry_.bufferType, rEntry_.memoryVisability);
 }
 
 void MemoryManager::updateEntry(MemoryEntryId entryId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)
@@ -184,7 +202,11 @@ void MemoryManager::updateEntry(MemoryEntryId entryId_, const void* data_, uint6
 	// Create Staging buffers or use existing one and remove it from free list, add id of them to Update var 
 	MemoryEntry& rEntry = this->getEntry(entryId_); 
 
-	if(rEntry.isForDynamic)
+	/*
+		Every GPU_LOCAL update goes through a staging heap, so it is deferred until the entry has no upload in flight (for static entries that includes the initial upload).
+		CPU_SHARED entries, static or dynamic, are written directly.
+	*/
+	if(rEntry.memoryVisability == GPU_LOCAL)
 	{
 		PoolId opId = this->entriesPendingForUpdate.add(entryId_, data_, inSrcOffset_, inEntryOffset_, size_);
 		this->pendingOperationsInOrder.emplace_back(UPDATE, opId); 
@@ -215,13 +237,13 @@ void MemoryManager::setStagingDataForUpdate(MemoryEntry& rEntry_, UpdateRequest&
 	}
 	
 	uint32_t attemptsToFindSuitable = 0; 
-	for(uint32_t i = 1; i < this->freeUpdateStagingHeaps.size(); i++)
+	for(uint32_t i = 0; i < this->freeUpdateStagingHeaps.size(); i++)
 	{
 		if(attemptsToFindSuitable >= Globals::maxAttemptsToUseExistingStagingHeaps)
 			break; 
 
 		StagingHeap& rHeap = this->uploadStagingHeaps[this->freeUpdateStagingHeaps[i]]; 
-		if(rHeap.size <= rUpdateRequest_.size)
+		if(rHeap.size >= rUpdateRequest_.size)
 		{
 			rEntry_.stagingData = {this->freeUpdateStagingHeaps[i], rUpdateRequest_.inEntryOffset, rUpdateRequest_.size}; 				
 			this->freeUpdateStagingHeaps.erase(this->freeUpdateStagingHeaps.begin() + i); 
@@ -248,7 +270,8 @@ void MemoryManager::removeDynamicEntry(MemoryEntryId entryId_)
 
 	MemoryEntry& rMemoryEntry = this->dynamicAllocator.memoryEntries[entryId_.id]; 
 
-	if(rMemoryEntry.isForDynamic)
+	/* Only GPU_LOCAL entries have uploads in flight that must finish before the buffer is destroyed. CPU_SHARED entries are removed immediately. */
+	if(rMemoryEntry.memoryVisability == GPU_LOCAL)
 	{
 		PoolId id = this->entriesPendingForRemoval.add(entryId_);
 		this->pendingOperationsInOrder.emplace_back(REMOVE, id); 

@@ -49,6 +49,7 @@ struct MemoryManager
 
 	MemoryEntryId addEntry(const char* name_, const void* data_, VkDeviceSize size_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
 	MemoryEntry& getEntry(MemoryEntryId memoryEntryId_);
+	Buffer& getBuffer(const MemoryEntry& rEntry_);
 	bool isUploadInGPU(MemoryEntryId memoryEntryId_);
 	void updateEntry(MemoryEntryId entryId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 	void removeDynamicEntry(MemoryEntryId entryId_); 

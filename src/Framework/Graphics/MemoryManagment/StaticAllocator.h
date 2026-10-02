@@ -33,7 +33,7 @@ struct StaticAllocator {
 	void checkUploadsStatus();
 
 	MemoryBlock& getGPUMemoryBlock(); 
-	Buffer& getBuffer(BufferTypeEnum uploadType_);
+	Buffer& getBuffer(BufferTypeEnum uploadType_, MemoryVisabilityEnum memoryVisability_);
 	PoolId addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
 	void updateEntry(PoolId entryId_, const void* data_, size_t entryOffset_, size_t srcOffset_, size_t size_); 
 

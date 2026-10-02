@@ -61,7 +61,6 @@ add_executable(ChilliSauceGF
 	"src/Framework/Graphics/FrameResources.cpp" "src/Framework/Graphics/MemoryManager.cpp" "src/Framework/Graphics/Backend/ValidationLayers/DebugMessenger.cpp" 
 	"src/Framework/Graphics/ShadersManager.cpp" "src/Framework/Graphics/Resources/Mesh.cpp" "src/Framework/Graphics/Pass/Task.cpp" "src/Framework/Graphics/Pass/Pass.cpp"
 	"src/Framework/Graphics/PassesGraph.cpp" "src/Framework/Graphics/PipelinesManager.cpp" "src/Framework/Graphics/Pass/SubmissionBatch.cpp"
-
 	# Demos
 	"src/Demo/Triangle.cpp"
 
@@ -73,6 +72,7 @@ add_executable(ChilliSauceGF
 
 	#Memory Managment 
 	"src/Framework/Graphics/MemoryManagment/DynamicAllocator.cpp" "src/Framework/Graphics/MemoryManagment/StaticAllocator.cpp"
+	"src/Framework/Graphics/MemoryManagment/MemoryEntry.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/GPULocalPage.cpp" "src/Framework/Graphics/MemoryManagment/Pages/CPUSharedPage.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/BasePage.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/StagingHeap.cpp"
  	"src/Framework/Graphics/MemoryManagment/Heaps/GPULocalHeap.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/CPUSharedHeap.cpp"

@@ -2,6 +2,7 @@
 #include "Globals.h"
 #include "Layout.h"
 #include "PoolId.h"
+#include "ProjectManager.h"
 #include "SubmissionBatch.h"
 #include "MemoryEntry.h"
 #include "MemoryEntryId.h"
@@ -36,7 +37,7 @@ namespace Graphics
 		return Globals::renderer.swapchain; 
 	}
 	
-	GPUScene& getGPUSceneManager()
+	GPUSceneManager& getGPUSceneManager()
 	{
 		return Globals::renderer.gpuSceneManager;
 	}
@@ -84,7 +85,7 @@ namespace Graphics
 		return Globals::renderer.shadersManager.shaders[shaderId_]; 
 	}
 
-	const MemoryEntry& getUploadEntry(MemoryEntryId id_)
+	const MemoryEntry& getMemoryEntry(MemoryEntryId id_)
 	{
 		return Globals::renderer.memoryManager.getEntry(id_);
 	}
@@ -94,11 +95,7 @@ namespace Graphics
 		return Globals::renderer.memoryManager.isUploadInGPU(uploadId_); 
 	}
 
-	uint32_t getUploadStartingByteInGPUHeap(MemoryEntryId id_)
-	{
-		const MemoryEntry& rEntry = getUploadEntry(id_); 
-		return getGPUBufferOffset(STATIC, rEntry.bufferType) + rEntry.inBufferFirstByte; 
-	}
+	
 
 
 	Pass& getPass(PassId passId_)
@@ -135,7 +132,7 @@ namespace Graphics
 	{
 		//if(allocatorType_ == STATIC)
 		//{
-			return Globals::renderer.memoryManager.staticAllocator.getBuffer(uploadType_);
+			return Globals::renderer.memoryManager.staticAllocator.getBuffer(uploadType_, GPU_LOCAL);
 		//}
 	}
 	
@@ -202,7 +199,11 @@ namespace Graphics
 	} 
 
 	
-	
+	void setEnvironmentSetupFunction(ProjectFunc setupEnvironmetFunc_)
+	{
+		Globals::renderer.projectManager.setupEnvironment = setupEnvironmetFunc_;
+	}
+
 	void setFramesAtFlightCount(uint32_t count_)
 	{
 		Globals::renderer.framesAtFlightCount = count_;
@@ -236,6 +237,13 @@ namespace Graphics
 	}
 
 	// Add
+	
+	void addDeviceExtension(const char* name_)
+	{
+		Globals::requiredDeviceExtensions.emplace_back(name_); 
+	} 
+
+	
 	PoolId addSemaphore()
 	{
 		return Globals::renderer.syncManager.addSemaphore();
@@ -263,7 +271,7 @@ namespace Graphics
 		return Globals::renderer.memoryManager.addEntry(name_, data_, size_, allocatorType_, memoryVisability_, uploadType_);
 	}
 
-	void updateUpload(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)
+	void updateMemoryEntry(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)
 	{
 		Globals::renderer.memoryManager.updateEntry(uploadId_, data_, inSrcOffset_, inEntryOffset_, size_);
 	}
@@ -402,14 +410,16 @@ namespace Graphics
 		Mesh& rMesh = getMesh(meshId_); 
 		if(isUploadInGPU(rMesh.vbMemoryUploadId) && isUploadInGPU(rMesh.ibMemoryUploadId))
 		{
-			const MemoryEntry& indexUpload = getUploadEntry(rMesh.ibMemoryUploadId); 
-			const MemoryEntry& vertexUpload = getUploadEntry(rMesh.vbMemoryUploadId);
-			VkBuffer vertexBuffers[] = { getGPUBuffer(STATIC, VERTEX).get() };
-			VkDeviceSize vOffsets[] = { vertexUpload.inBufferFirstByte }; 
-			vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets); 
+			const MemoryEntry& indexUpload = getMemoryEntry(rMesh.ibMemoryUploadId); 
+			const MemoryEntry& vertexUpload = getMemoryEntry(rMesh.vbMemoryUploadId);
+			MemoryManager& rMemoryManager = Globals::renderer.memoryManager;
 
-			// Bind index buffer 
-			vkCmdBindIndexBuffer(cmdBuffer_, getGPUBuffer(STATIC, INDEX).get(), indexUpload.inBufferFirstByte, VK_INDEX_TYPE_UINT32);
+			VkBuffer vertexBuffers[] = { rMemoryManager.getBuffer(vertexUpload).get() };
+			VkDeviceSize vOffsets[] = { vertexUpload.inBufferFirstByte };
+			vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets);
+
+			// Bind index buffer
+			vkCmdBindIndexBuffer(cmdBuffer_, rMemoryManager.getBuffer(indexUpload).get(), indexUpload.inBufferFirstByte, VK_INDEX_TYPE_UINT32);
 		
 			// Draw indexed 
 			vkCmdDrawIndexed(cmdBuffer_, getMesh(meshId_).indices.size(), instanceCount_, 0, 0, 0); 

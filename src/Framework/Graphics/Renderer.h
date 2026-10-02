@@ -15,6 +15,7 @@
 #include "GraphicsPipeline.h"
 #include "Utilities.h"
 #include "SyncManager.h"
+#include "ProjectManager.h"
 #include "ShadersManager.h"
 #include "ReflectionSystem.h"
 #include "ImagesManager.h"
@@ -44,7 +45,8 @@ struct Renderer {
 	RenderPass presentationRenderPass;
 	PoolMap<RenderPass> renderPasses = ("RenderPasses"); 
 
-	GPUScene gpuSceneManager;
+	GPUSceneManager gpuSceneManager;
+	ProjectManager projectManager; 
 	std::vector<FrameResources> framesResources; // Initialized by defined RenderFlows 
 	CmdPoolsPack<OneShotCommandPool> oneShotCommandPools; 
 
