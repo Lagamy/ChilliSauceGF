@@ -7,6 +7,7 @@
 #include "Layout.h"
 #include <cstdint>
 #include <vector> 
+#include <unordered_map>
 #include <glm/glm.hpp>
 
 namespace Graphics
@@ -28,7 +29,8 @@ namespace Graphics
 		PoolId verticeLayoutId;
 		PoolId vertexDataContainerId;
 		std::vector<uint32_t> indices;
-		std::vector<DirtyInMesh> dirtyInMeshes;
+		std::vector<DirtyInMesh> dirtyInMesh;
+		std::unordered_map<uint32_t, uint32_t> verticeToDirtyId; // Vertice id -> index in dirtyInMesh of the run containing it
 
 		MemoryEntryId vbMemoryUploadId; // Handle to mem entry in the GPUMemoryManager
 		MemoryEntryId ibMemoryUploadId;

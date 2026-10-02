@@ -226,6 +226,8 @@ its vertex data in a data container of its vertex layout.
 - `Mesh::markVerticeDirty` records the changed bytes in `Mesh::dirtyInMeshes`
   (`DirtyInMesh`: first/last vertice id, `inSrcOffset`, `inEntryOffset`, `size`).
   The container and the vertex entry share one layout, so both offsets are equal.
+  `Mesh::verticeToDirtyId` maps each dirty vertice to its `DirtyInMesh`, so the
+  lookup is a hash lookup of the vertice and its two neighbours, not a scan.
   A change joins an existing `DirtyInMesh` only if its vertice is inside that
   vertice range or directly next to it; otherwise it starts a new one, so bytes
   between distant vertices are not re-uploaded.
@@ -259,7 +261,7 @@ its vertex data in a data container of its vertex layout.
 - Ids: `xxxId` (`PoolId meshId`, `PassId uploadPassId`, `uint32_t taskId`).
   Invalid id sentinels: `UninitializedId`, `UninitializedPoolId`.
 - Enums are unscoped, named `XxxEnum`, values `UPPER_CASE` (`GRAPHICS`, `FRAME`,
-  `GPU_ONLY`, `VERTEX`). Lookup tables named `xToY` (`BufferTypeToUsage`,
+  `GPU_LOCAL`, `VERTEX`). Lookup tables named `xToY` (`BufferTypeToUsage`,
   `dataTypeToName`); counts `XxxCount` (`BufferTypesCount`).
 - Vulkan create-info structs zero-initialized with `= {}` and filled field by
   field.

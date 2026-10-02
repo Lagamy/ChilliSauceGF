@@ -44,23 +44,35 @@ void Mesh::markVerticeDirty(PoolId memberId_, uint32_t verticeId_)
 
     /*
         The vertex data container and the vertex memory entry have the same layout, so a byte has the same offset in both.
+        verticeToDirtyId maps every vertice inside a DirtyInMesh to that run, so we look up the vertice itself and its two neighbours instead of scanning all runs.
         Changes join a DirtyInMesh only when their vertice is inside it or right next to it. Distant vertices get their own DirtyInMesh, so the bytes between them are not re-uploaded.
     */
-    for(DirtyInMesh& rDirty : this->dirtyInMeshes)
+    auto found = this->verticeToDirtyId.find(verticeId_);
+    if(found == this->verticeToDirtyId.end() && verticeId_ > 0)
     {
-        if(verticeId_ + 1 >= rDirty.firstVerticeId && verticeId_ <= rDirty.lastVerticeId + 1)
-        {
-            uint64_t newFirstByte = std::min(rDirty.inSrcOffset, firstByte);
-            uint64_t newEndByte = std::max(rDirty.inSrcOffset + rDirty.size, endByte);
-            rDirty.firstVerticeId = std::min(rDirty.firstVerticeId, verticeId_);
-            rDirty.lastVerticeId = std::max(rDirty.lastVerticeId, verticeId_);
-            rDirty.inSrcOffset = newFirstByte;
-            rDirty.inEntryOffset = newFirstByte;
-            rDirty.size = newEndByte - newFirstByte;
-            return;
-        }
+        found = this->verticeToDirtyId.find(verticeId_ - 1);
     }
-    this->dirtyInMeshes.push_back({verticeId_, verticeId_, firstByte, firstByte, rMember.size});
+    if(found == this->verticeToDirtyId.end())
+    {
+        found = this->verticeToDirtyId.find(verticeId_ + 1);
+    }
+
+    if(found == this->verticeToDirtyId.end())
+    {
+        this->verticeToDirtyId[verticeId_] = static_cast<uint32_t>(this->dirtyInMesh.size());
+        this->dirtyInMesh.push_back({verticeId_, verticeId_, firstByte, firstByte, rMember.size});
+        return;
+    }
+
+    DirtyInMesh& rDirty = this->dirtyInMesh[found->second];
+    uint64_t newFirstByte = std::min(rDirty.inSrcOffset, firstByte);
+    uint64_t newEndByte = std::max(rDirty.inSrcOffset + rDirty.size, endByte);
+    rDirty.firstVerticeId = std::min(rDirty.firstVerticeId, verticeId_);
+    rDirty.lastVerticeId = std::max(rDirty.lastVerticeId, verticeId_);
+    rDirty.inSrcOffset = newFirstByte;
+    rDirty.inEntryOffset = newFirstByte;
+    rDirty.size = newEndByte - newFirstByte;
+    this->verticeToDirtyId[verticeId_] = found->second;
 }
 
 void Mesh::queueUpdate()
@@ -71,10 +83,11 @@ void Mesh::queueUpdate()
             throw std::runtime_error(std::format("Mesh {}: Can't queue an update before the mesh was uploaded with queueUpload.", this->name));
         }
     #endif
-    for(DirtyInMesh& rDirty : this->dirtyInMeshes)
+    for(DirtyInMesh& rDirty : this->dirtyInMesh)
     {
         updateMemoryEntry(this->vbMemoryUploadId, this->getData(), rDirty.inSrcOffset, rDirty.inEntryOffset, rDirty.size);
     }
-    this->dirtyInMeshes.clear();
+    this->dirtyInMesh.clear();
+    this->verticeToDirtyId.clear();
 }
 }
