@@ -17,12 +17,16 @@ namespace Graphics {
 		StagingData stagingData;
 		bool isForDynamic = false; 
 		
+		// For Uniform / Storage 
+		PoolId descriptorSet;
 
 		// For Upload(only for Update when static)
 		uint64_t uploadBatchId = 0;
 		bool isPendingUpload();
-		bool isPendingUploadStatic();
+		bool awaitingCommit = false; // Reserved with MemoryManager::reserveEntry, copy not queued yet. stagingData is the whole-entry range.
 		void upload(const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
+		void queueStagedCopy(const StagingData& rStagingData_, uint64_t inEntryOffset_, uint64_t size_);
+		uint64_t queueReadbackCopy(const StagingData& rStagingData_, uint64_t inEntryOffset_, uint64_t size_);
 
 		/* For Static */
 		const void* data; 

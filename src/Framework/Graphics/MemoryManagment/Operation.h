@@ -3,9 +3,9 @@
 
 enum MemoryOperationTypeEnum 
 {
-    UPLOAD, // For Dynamic Allocator only. 
     UPDATE, 
-    REMOVE 
+    REMOVE,
+    READBACK_COPY
 }; 
 
 struct Operation 

@@ -3,11 +3,14 @@
 #include "DynamicAllocator.h"
 #include "MemoryEntryId.h"
 #include "StaticAllocator.h"
+#include "StagingAllocator.h"
 #include "UpdateRequest.h"
 #include "PendingCopy.h"
+#include "ReadbackRequest.h"
 #include "PassId.h"
 #include "Utilities.h"
 #include "Operation.h"
+#include "GPUDataContainer.h"
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -20,16 +23,14 @@ struct MemoryManager
 	StaticAllocator staticAllocator;
 	DynamicAllocator dynamicAllocator;
 
-	Pool<StagingHeap> uploadStagingHeaps; // Inside of each heap -> there would be several updates that could fit. If
-	std::vector<PoolId> freeUpdateStagingHeaps; // If more than maxDormantUpdateStagingHeaps -> they will be freed. 
+	StagingAllocator stagingAllocator; // Staging ranges for initial uploads and updates. 
 
 	// Only for GPU Local ones. 
 	Pool<UpdateRequest> entriesPendingForUpdate;
 	Pool<MemoryEntryId> entriesPendingForRemoval;
-	Pool<MemoryEntry> dynamicEntriesPendingForInitUpload; 
+	Pool<ReadbackRequest> readbackRequests; // Alive from requestReadback until releaseReadback.
 
 	std::vector<Operation> pendingOperationsInOrder;
-	std::vector<Operation> inProgressOperations; // For dynamic page related staging heap check/decrement of pendingUploadsCount / adding it to pages free staging heaps list if pendingUploadsCount == 0. 
 	
 	/*
 		GPU Local uploads are batched. Entries only queue a copy, and one ONESHOT TRANSFER pass records every queued copy into a single command buffer.
@@ -45,7 +46,6 @@ struct MemoryManager
 	bool uploadBatchInFlight = false;
 
 	void resolvePendingOperations(); // Checks every cycle -> isUploadPending for each entry. If true -> operation happens, false -> skip
-	void resolveInProgressOperations(); 
 
 	MemoryEntryId addEntry(const char* name_, const void* data_, VkDeviceSize size_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_);
 	MemoryEntry& getEntry(MemoryEntryId memoryEntryId_);
@@ -53,7 +53,22 @@ struct MemoryManager
 	bool isUploadInGPU(MemoryEntryId memoryEntryId_);
 	void updateEntry(MemoryEntryId entryId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 	void removeDynamicEntry(MemoryEntryId entryId_); 
-	void setStagingDataForUpdate(MemoryEntry& rEntry_, UpdateRequest& rUpdateRequest_); // Note: Allocation churn is possible, if updates are all different sizes
+	MemoryEntryId reserveEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_);
+	void commitEntry(MemoryEntryId entryId_);
+	StagingDataContainer getStagingContainer(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_);
+	SharedDataContainer getSharedContainer(MemoryEntryId entryId_);
+	ReadbackId requestReadback(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_);
+	bool isReadbackReady(ReadbackId readbackId_);
+	ReadbackDataContainer getReadbackContainer(ReadbackId readbackId_);
+	void releaseReadback(ReadbackId readbackId_);
+	StagingHeap& getStagingHeap(const StagingData& rStagingData_);
+
+	/* The only place that copies bytes in or out of host-visible memory. Offsets are entry byte offsets. */
+	void writeStaging(const StagingData& rStagingData_, uint64_t inEntryOffset_, const void* pSrc_, uint64_t size_);
+	void readStaging(const StagingData& rStagingData_, uint64_t inEntryOffset_, void* pDst_, uint64_t size_);
+	void writeShared(const MemoryEntry& rEntry_, uint64_t inEntryOffset_, const void* pSrc_, uint64_t size_);
+	void readShared(const MemoryEntry& rEntry_, uint64_t inEntryOffset_, void* pDst_, uint64_t size_);
+	char* getSharedPointer(const MemoryEntry& rEntry_, uint64_t inEntryOffset_);
 	uint64_t queueCopy(const PendingCopy& rCopy_);
 	void updateUploadBatches();
 

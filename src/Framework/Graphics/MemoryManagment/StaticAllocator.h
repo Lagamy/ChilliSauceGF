@@ -1,36 +1,27 @@
 #pragma once
+#include "CPUSharedHeap.h"
+#include "GPULocalHeap.h"
 #include "MemoryEntry.h"
 #include "GPULocalHeap.h"
 #include "CPUSharedHeap.h"
-#include "StagingHeap.h"
 #include "MemoryBlock.h"
 #include "Utilities.h"
 #include "MemoryEntryId.h"
-#include "PassId.h"
+#include <cstdint>
 #include <stdexcept>
+#include <vector>
 
 namespace Graphics
 {
-void uploadCMDs(VkCommandBuffer& cmdBuffer_);
 // Forward decloration 
 struct StaticAllocator { 
 	std::vector<MemoryEntry> memoryEntries;
-	std::array<std::array<std::vector<uint32_t>, BufferTypesCount>, 2> memoryEntryIdPerBufTypePerMemVisability; 
-	
-	CPUSharedHeap cpuSharedHeap;
-	StagingHeap stagingHeap;
-	GPULocalHeap gpuHeap;
+	std::array<std::array<std::vector<uint32_t>, BufferTypesCount>, 2> memoryEntryIdPerBuffTypePerMemVisability;
 
-	PoolId uploadFinishedSemaphoreId; 
-	PoolId uploadFinishedFenceId;
-	PassId uploadPassId;
+	CPUSharedHeap cpuSharedHeap;
+	GPULocalHeap gpuLocalHeap;
 
 	bool allocated = false;
-	bool staticUploadCompleted = false; 
-
-	void create(); 
-	void submitUploads();
-	void checkUploadsStatus();
 
 	MemoryBlock& getGPUMemoryBlock(); 
 	Buffer& getBuffer(BufferTypeEnum uploadType_, MemoryVisabilityEnum memoryVisability_);

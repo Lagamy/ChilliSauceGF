@@ -17,13 +17,10 @@ struct BufferCreationResult
 
 struct BasePage 
 {
-	std::vector<PoolId> freeStagingHeaps; 
-    
 	uint32_t upperBoundEntrySize;
 	uint32_t memoryBlockSize;
     uint32_t memoryProperties;  
     MemoryVisabilityEnum memoryVisability; 
-	uint32_t maxDormantStagingHeaps;
 	
 	Pool<MemoryBlock> memoryBlocks;
 	Pool<FreeSpace> freeSpacePerBlock;  
@@ -38,8 +35,6 @@ struct BasePage
 	bool created;
 	
 	void destroy();
-	void setStagingDataForUpload(MemoryEntry& rEntry_); 
-	void releaseStagingHeap(PoolId stagingHeapId_, PoolId memoryBlockId_);
 	
 	void addBufferInternal(PoolId memoryId_, PoolId bufferId_, VkDeviceSize bufferFirstByteOffset_);
 	void removeBufferInternal(PoolId bufferId_);
@@ -47,6 +42,6 @@ struct BasePage
 	void removeBuffer(PoolId bufferId_, PoolId memoryBlockId_); // Adds free Mem Intervals
 	void removeMemoryBlock(PoolId memoryBlockId_); 
 
-	BasePage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_, MemoryVisabilityEnum memoryVisability_, uint32_t maxDormantStagingHeaps_);    
+	BasePage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_, MemoryVisabilityEnum memoryVisability_);    
 };
 }

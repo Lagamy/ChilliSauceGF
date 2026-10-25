@@ -17,8 +17,23 @@ VkResult MemoryBlock::createInternal(size_t size_, std::span<VkMemoryRequirement
 	memAllocInfo.memoryTypeIndex = findMemoryTypeIndex(memReqsSpan_, memPropertyIndex_, false); // Index of memory type on Physical Device that has required bit flags for this buffer
 	this->size = size_; 
 
+	/* Records the flags of the type that was really picked, which can have more bits than requested (a cached request may land on a coherent type). */
+	VkPhysicalDeviceMemoryProperties memoryProperties;
+	vkGetPhysicalDeviceMemoryProperties(getMainDevice().physicalDevice, &memoryProperties);
+	this->isCoherent = (memoryProperties.memoryTypes[memAllocInfo.memoryTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+
 	// Allocate memory to VkDeviceMemory 
-	return vkAllocateMemory(getMainDevice().logicalDevice, &memAllocInfo, nullptr, &this->vkHandle);
+	VkResult result = vkAllocateMemory(getMainDevice().logicalDevice, &memAllocInfo, nullptr, &this->vkHandle);
+
+	/*
+		Host-visible blocks stay mapped for their whole life. vkMapMemory is invalid on memory that is already mapped, so MemoryManager is the only place that reaches the bytes (pMapped + offset),
+		and writes and reads are a memcpy without a map/unmap pair each.
+	*/
+	if(result == VK_SUCCESS && this->memVisability == CPU_SHARED)
+	{
+		vkMapMemory(getMainDevice().logicalDevice, this->vkHandle, 0, VK_WHOLE_SIZE, 0, reinterpret_cast<void**>(&this->pMapped));
+	}
+	return result;
 }
 
 void MemoryBlock::createForStaticOrStaging(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memPropertyIndex_, MemoryVisabilityEnum memVisability_, bool isStaging_)
@@ -62,7 +77,9 @@ void MemoryBlock::destroy()
 {
 	if (this->vkHandle != VK_NULL_HANDLE)
 	{
+		/* Freeing memory that is still mapped unmaps it implicitly. */
 		vkFreeMemory(getMainDevice().logicalDevice, this->vkHandle, nullptr);
+		this->pMapped = nullptr;
 		this->vkHandle = VK_NULL_HANDLE;
 	}
 }
@@ -73,7 +90,7 @@ VkDeviceMemory MemoryBlock::get() const
 	return this->vkHandle;
 }
 
-uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_,  bool isStatic)
+int32_t MemoryBlock::tryFindMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_)
 {
 	// Note: _allowedTypes - filter by hardware compatibility, so its GPU's driver responsability to give you that. DO NOT pass anything outside of VkMemoryRequirements.memoryTypeBits in it.  
 
@@ -99,8 +116,19 @@ uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReq
 			&& (memoryProperties.memoryTypes[i].propertyFlags & properties_) == properties_) // filter out memoryTypes.propertyFlags to include only flags from properties_ if they exist in memoryTypes.propertyFlags, and check if all _property flags are there.  
 		{
 			// This memory type is valid, so retun its index 
-			return i;
+			return static_cast<int32_t>(i);
 		}
+	}
+
+	return -1;
+}
+
+uint32_t MemoryBlock::findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_,  bool isStatic)
+{
+	int32_t index = this->tryFindMemoryTypeIndex(memReqsSpan_, properties_);
+	if(index >= 0)
+	{
+		return static_cast<uint32_t>(index);
 	}
 
 	if(isStatic)

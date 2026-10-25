@@ -2,15 +2,16 @@
 #pragma once 
 #include <vulkan/vulkan.h>
 #include <format>
+#include "DescriptorSetLayout.h"
 
 namespace Graphics
 {
 struct PipelineLayout {
-private:
 	VkPipelineLayout vkHandle = VK_NULL_HANDLE;
-public:
+	std::vector<DescriptorSetLayout> dsLayouts; 
 	void create(); // Temporary hardcoded
 	void destroy();
+	
 	VkPipelineLayout get() const;
 };
 }

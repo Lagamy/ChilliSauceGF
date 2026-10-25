@@ -69,12 +69,15 @@ add_executable(ChilliSauceGF
 
 	# Reflection 
 	"src/Framework/Graphics/Reflection/Layout.cpp" "src/Framework/Graphics/Reflection/MemberBlueprint.cpp"
+	"src/Framework/Graphics/Reflection/GPUDataContainer.cpp"
 
 	#Memory Managment 
 	"src/Framework/Graphics/MemoryManagment/DynamicAllocator.cpp" "src/Framework/Graphics/MemoryManagment/StaticAllocator.cpp"
 	"src/Framework/Graphics/MemoryManagment/MemoryEntry.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/GPULocalPage.cpp" "src/Framework/Graphics/MemoryManagment/Pages/CPUSharedPage.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/BasePage.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/StagingHeap.cpp"
+ 	"src/Framework/Graphics/MemoryManagment/StagingAllocator.cpp" "src/Framework/Graphics/MemoryManagment/Pages/StagingPage.cpp"
+ 	"src/Framework/Graphics/MemoryManagment/Pages/FreeSpace.cpp"
  	"src/Framework/Graphics/MemoryManagment/Heaps/GPULocalHeap.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/CPUSharedHeap.cpp"
 )
 
@@ -98,7 +101,7 @@ set(BASE_DIR "${BACKEND_DIR}/Base")
 set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
 set(SUBMISSION_DIR "${BACKEND_DIR}/Submission") 
 
-# set(DESCRIPTORSET_DIR "${BACKEND_DIR}/DescriptorSet")
+set(DESCRIPTOR_DIR "${BACKEND_DIR}/Descriptor")
 set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
 set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
 set(MEMORY_MANAGMENT_DIR "${GRAPHICS_DIR}/MemoryManagment")
@@ -126,7 +129,7 @@ target_include_directories(ChilliSauceGF PRIVATE
 
 	# Graphics
 	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} ${RESOURCES_DIR} ${PASS_DIR}
-	# ${DESCRIPTORSET_DIR} 
+	${DESCRIPTOR_DIR} 
 	${SYNCHRONISATION_DIR} ${VALIDATION_DIR} ${MEMORY_MANAGMENT_DIR} ${SUBMISSION_DIR}
 
 	# Demos

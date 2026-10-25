@@ -55,6 +55,14 @@ namespace Graphics
 		COMPUTE = 2,
 	};
 
+	enum StagingDirectionEnum : uint8_t
+	{
+		UPLOAD = 0,
+		READBACK = 1
+	};
+
+	const inline uint8_t StagingDirectionsCount = 2;
+
 	enum MemoryVisabilityEnum : bool 
 	{
 		GPU_LOCAL,
@@ -99,11 +107,29 @@ namespace Graphics
 
 	enum BufferTypeEnum : uint8_t 
 	{
-		INDEX = 0, 
-		VERTEX = 1,  
-		UNIFORM = 2,
-		STORAGE = 3,
-		// TEXTURE = 4
+		INDEX_BUFFER = 0, 
+		VERTEX_BUFFER = 1,  
+		UNIFORM_BUFFER = 2,
+		STORAGE_BUFFER = 3,
+		TEXTURE_BUFFER = 4,
+		SAMPLER_BUFFER = 5
+	};
+
+	
+	enum DescriptorTypeEnum : uint8_t 
+	{
+		UNIFORM_DESCRIPTOR = 0,
+		STORAGE_DESCRIPTOR = 1,
+		TEXTURE_DESCRIPTOR = 2,
+		SAMPLER_DESCRIPTOR = 3
+	};
+
+	inline VkDescriptorType descriptorTypes[4] 
+	{
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+    	VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+		VK_DESCRIPTOR_TYPE_SAMPLER 
 	};
 
 	inline VkBufferUsageFlagBits BufferTypeToUsage[4]
@@ -114,7 +140,7 @@ namespace Graphics
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 	};
 
-	inline const uint8_t BufferTypesCount = 4; 
+	inline const uint8_t BufferTypesCount = 4; // INDEX, VERTEX, UNIFORM, STORAGE, TEXTURE and SAMPLER
 
 	struct MemoryInterval  
 	{

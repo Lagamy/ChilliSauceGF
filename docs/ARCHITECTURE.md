@@ -46,7 +46,8 @@ src/Framework/
     Backend/Image/            Image (+ views), Sampler
     Backend/ValidationLayers/ DebugMessenger, layer/extension lists
     Pass/                     Pass, Task, PassId, SubmissionBatch, SubmissionMetadata
-    Reflection/               ReflectionLayout, MemberBlueprint, DataContainer
+    Reflection/               ReflectionLayout, MemberBlueprint, CPUDataContainer,
+                              GPUDataContainer, DataContainerConcepts
     Resources/                Mesh, Vertex, Texture
     MemoryManagment/          Static/Dynamic allocators, Heaps/, Pages/ (WIP)
 ```
@@ -149,14 +150,17 @@ pool per queue family (3).
 ## Memory management (WIP)
 
 - `MemoryManager` owns a `StaticAllocator` and a `DynamicAllocator`, plus
-  update staging heaps and a queue of pending `UPDATE`/`REMOVE` operations that
+  a `StagingAllocator` (update staging) and a queue of pending `UPDATE`/`REMOVE` operations that
   `resolvePendingOperations()` applies each frame once the entry's upload fence
   is signaled.
 - `StaticAllocator`: entries are added before allocation (throws if already
   allocated). `allocateAndUpload()` creates one `GPULocalHeap` (one memory block,
-  one `VkBuffer` per `BufferTypeEnum`, bound at aligned offsets), one
-  `CPUSharedHeap`, and one `StagingHeap`, then enables a `ONESHOT` `TRANSFER`
-  pass that copies staging → GPU. `checkUploadsStatus()` polls its fence.
+  one `VkBuffer` per `BufferTypeEnum`, bound at aligned offsets) and one
+  `CPUSharedHeap`, then uploads every entry through `MemoryEntry::upload`:
+  `CPU_SHARED` entries are written into the mapped heap, `GPU_LOCAL` entries get
+  their own `StagingAllocator` range and a queued copy in the normal upload batch
+  (no dedicated pass, fence or semaphore). An entry bigger than the biggest
+  staging page throws.
 - `DynamicAllocator`: pages configured via `addPage` before `init()`, sorted by
   upper-bound entry size. Each page (`BasePage` → `GPULocalPage` /
   `CPUSharedPage`) owns a `Pool<MemoryBlock>`, per-block `FreeSpace` interval
@@ -167,34 +171,66 @@ pool per queue family (3).
   and `MemoryBlock::freeSpace` is the total of free bytes in the block.
   `removeBuffer` frees the same extent, merges it with touching intervals,
   destroys the buffer, and removes the block when it is completely free.
-- Each dynamic page has its own `maxDormantStagingHeaps` (given in `addPage`,
-  carried by `PageInfo`). A page's staging heaps are
-  all `memoryBlockSize` big and live in `MemoryManager::uploadStagingHeaps`.
-  `BasePage::setStagingDataForUpload` links the entry's `MemoryBlock` to a heap
-  (`MemoryBlock::stagingHeapId`, taken from `freeStagingHeaps` or newly added),
-  stages the entry at the same offset its buffer has in the block
-  (`stagingData.stagingOffset`; `MemoryEntry::upload` stages byte N of the entry
-  at `stagingOffset + N` and copies from the same position; update heaps from
-  `setStagingDataForUpdate` cover only the updated range, so they have
-  `stagingOffset` 0 and the range starts at heap position 0), and counts it in the
-  heap's `pendingUploadsCount`.
-  `MemoryManager::resolveInProgressOperations()` (called before
-  `resolvePendingOperations()`) decrements that count once the entry's upload
-  batch is complete. When `pendingUploadsCount == 0`,
-  `BasePage::releaseStagingHeap` unlinks the heap from the block and either
-  keeps it in `freeStagingHeaps` or destroys it if `maxDormantStagingHeaps` free
-  heaps already exist.
+- Initial uploads of `GPU_LOCAL` dynamic entries (`DynamicAllocator::reserveEntry`, used
+  by `addAndUploadEntry`) take an open `StagingAllocator` range sized to the entry
+  (`stagingData.inEntryOffset` is 0), then `MemoryEntry::upload` writes it and queues the copy.
+- `StagingAllocator` serves every staging range: static init, dynamic init,
+  updates and readbacks. It has one list of pages per `StagingDirectionEnum`
+  (`UPLOAD`, `READBACK`). Pages are configured via `addPageForStagingUploads` /
+  `addPageForStagingReadbacks` before `init()` (`StagingPageInfo`), sorted by the
+  upper bound of the range size. The first page with `size <= upperBound` serves a
+  range, otherwise it throws. A `StagingPage` owns `StagingHeap`s with one
+  `FreeSpace` per heap; a range is placed first-fit in an alive heap or in a new
+  heap (`StagingData::stagingPageId` identifies the page). A new range is open
+  (`OpenBatchId`) and is never freed; `MemoryEntry::queueStagedCopy` tags it with the
+  batch id `queueCopy` returns (`StagingAllocator::tagBatch`). `updateUploadBatches()` calls
+  `releaseCompleted(completedUploadBatchId)`, which frees finished ranges (all live
+  ranges are checked, since batch ids are stamped later and are not sorted)
+  (merging intervals) and destroys dormant heaps above the page's
+  `maxDormantHeaps`, oldest first.
+- Readbacks (`READBACK` direction): `READBACK` heaps are `TRANSFER_DST` buffers in
+  `HOST_VISIBLE | HOST_CACHED` memory; `StagingHeap::create` prefers a type that is also
+  `HOST_COHERENT` and falls back to plain cached (`MemoryBlock::isCoherent` records which one
+  was picked). Range sizes are always rounded up to `nonCoherentAtomSize`. `MemoryManager::requestReadback` returns a `ReadbackId` (a
+  `Pool<ReadbackRequest>` handle). For `GPU_LOCAL` entries it allocates a readback range and
+  queues a `READBACK_COPY` operation, so the copy is ordered after earlier `UPDATE`s and waits
+  while the entry has an upload in flight; `resolvePendingOperations` then queues a
+  `PendingCopy` with `isReadback` (entry buffer -> readback range) into the same batched
+  `ONESHOT` `TRANSFER` pass. `CPU_SHARED` entries need no copy and are ready immediately.
+  `isReadbackReady` is `batchId <= completedUploadBatchId`. `getReadbackContainer` returns a
+  readable `ReadbackDataContainer` (`GPUDataContainer<true>` over the readback range; `MemoryManager::readStaging`
+  invalidates the range first when the heap is not coherent; for `CPU_SHARED` it is the entry's
+  `SharedDataContainer`). `releaseReadback` frees the range (only when ready); readback ranges
+  are never freed by `releaseCompleted`. `uploadQueuedCopiesCMDs` records a `TRANSFER ->
+  TRANSFER` barrier where the copy kind switches (a readback read before an update write in one
+  batch) and a final `TRANSFER_WRITE -> HOST_READ` barrier when the batch has readbacks.
+  GPU_LOCAL buffers have `TRANSFER_SRC`.
 - `Api.h` routes `addAndUploadMemoryEntry`, `updateMemoryEntry`, `removeUpload`,
   `getMemoryEntry` and `isUploadInGPU` to `MemoryManager::addEntry`,
-  `updateEntry`, `removeDynamicEntry`, `getEntry` and `isUploadInGPU`.
+  `updateEntry`, `removeDynamicEntry`, `getEntry` and `isUploadInGPU`;
+  `requestMemoryEntryReadback`, `isReadbackReady`, `mapReadback` and `releaseReadback` to the
+  readback functions above.
+- Host-visible memory (`CPU_SHARED` blocks and all staging heaps) is mapped once when the `MemoryBlock` is created
+  (`MemoryBlock::pMapped`) and stays mapped until `destroy()`. Nothing else calls `vkMapMemory` (it is invalid on
+  already-mapped memory). `MemoryManager` is the only place that copies bytes in or out: `writeStaging` / `readStaging`
+  (a `StagingData` range) and `writeShared` / `readShared` (a `CPU_SHARED` entry, via `getSharedPointer`). Offsets are
+  entry byte offsets. `MemoryEntry::upload` and `GPUDataContainer` both go through them.
 - `MemoryEntry` holds both static and dynamic fields.
 - `MemoryManager::getBuffer(entry)` returns the `Buffer` an entry lives in: the
   page buffer for dynamic entries (whole buffer), or the static heap buffer for
   the entry's type and visibility (`StaticAllocator::getBuffer`; add
   `inBufferFirstByte`). `drawMeshIndexed` and `MemoryEntry::upload` use it.
-- `MemoryManager::updateEntry` defers every `GPU_LOCAL` update (static or
-  dynamic) as an `UPDATE` operation, applied once the entry has no upload in
-  flight; `CPU_SHARED` entries are written immediately.
+- `MemoryManager::updateEntry` writes every `GPU_LOCAL` update (static or dynamic)
+  into a fresh open staging range immediately and queues an `UPDATE` operation
+  (`UpdateRequest` = entry id + `StagingData`); `resolvePendingOperations` queues the
+  copy once the entry has no upload in flight. `CPU_SHARED` entries are written
+  immediately.
+- Write-through API (`MemoryManager`): `getStagingContainer(entryId, inEntryOffset,
+  size)` returns a per-update `StagingDataContainer` over a new range (or the
+  whole-entry range of a reserved, uncommitted entry); `getSharedContainer(entryId)`
+  returns the persistent `SharedDataContainer` of a `CPU_SHARED` entry. Both map
+  entry byte offsets. `reserveEntry` creates a dynamic entry without data (pending
+  until `commitEntry` queues its copy). Static entries can't be reserved.
 - `GPU_ONLY` entry updates are batched by `MemoryManager`. `MemoryEntry::upload`
   writes the staging heap and calls `MemoryManager::queueCopy`, which stores a
   `PendingCopy` and returns a batch id kept in `MemoryEntry::uploadBatchId`.
@@ -210,30 +246,44 @@ pool per queue family (3).
 ## Reflection
 
 `ReflectionSystem::layoutsPerBufferType[bufferType - 1]` (no INDEX layout) holds
-`ReflectionLayout`s. A layout has `MemberBlueprint`s (type, offset, size) and
-`DataContainer`s (byte vector × `repeatCount`, e.g. vertices).
-`setMemberInDataContainer<T>` checks `T` against the member's type through
-`GPUTypeMap<T>` and throws on mismatch or out-of-range repeat index. `Mesh` stores
-its vertex data in a data container of its vertex layout.
+`ReflectionLayout`s. A layout is a pure blueprint: `MemberBlueprint`s (type, offset,
+size) and the total `size`; it holds no data. A `CPUDataContainer` (byte vector ×
+`repeatCount`, e.g. vertices) is owned by the instance that uses it.
+`ReflectionLayout::setMember<T>` / `getMember<T>` take the container, a member id and
+a repeat unit id, check `T` against the member's type through `GPUTypeMap<T>`, and
+throw on mismatch or out-of-range repeat index. They are templated on the container
+type, constrained by `WritableDataContainer` / `ReadableDataContainer`
+(`DataContainerConcepts.h`): `repeatCount` plus `write`/`read(offset, ptr, size)`.
+`GPUDataContainer<Readable>` owns no bytes and touches no Vulkan memory: it holds ids (a `StagingData` range, or a
+`MemoryEntryId` when `isShared`) and forwards each write/read to `MemoryManager`
+(`StagingDataContainer`, write-only, is a per-update handle; `SharedDataContainer` is for `CPU_SHARED` entries). Under
+`ENGINE_DEBUG` a write/read outside `validFirstOffset`/`validSize` throws. `Mesh`
+keeps no copy of its vertex bytes; it writes through these containers.
 
 ### Mesh updates
 
-- `Mesh::queueUpload(allocatorType, visibility)` creates the vertex and index
-  memory entries (`vbMemoryUploadId`, `ibMemoryUploadId`).
-- `updateMesh<T>(meshId, memberId, verticeId, data)` (`Api.h`) writes the member
-  into the mesh's data container (`Mesh::setVertice`) and calls
-  `Mesh::markVerticeDirty`. Nothing reaches the GPU yet.
-- `Mesh::markVerticeDirty` records the changed bytes in `Mesh::dirtyInMeshes`
-  (`DirtyInMesh`: first/last vertice id, `inSrcOffset`, `inEntryOffset`, `size`).
-  The container and the vertex entry share one layout, so both offsets are equal.
-  `Mesh::verticeToDirtyId` maps each dirty vertice to its `DirtyInMesh`, so the
-  lookup is a hash lookup of the vertice and its two neighbours, not a scan.
-  A change joins an existing `DirtyInMesh` only if its vertice is inside that
-  vertice range or directly next to it; otherwise it starts a new one, so bytes
-  between distant vertices are not re-uploaded.
-- `Mesh::queueUpdate()` calls `updateMemoryEntry` on the vertex entry for each
-  `DirtyInMesh`, then clears the list. It is called explicitly (not every frame)
-  and throws under `ENGINE_DEBUG` if the mesh was never uploaded.
+- `Mesh::queueUpload(allocatorType, visibility)` reserves the vertex entry
+  (`MemoryManager::reserveEntry`, no data yet) and uploads the index entry
+  (`vbMemoryUploadId`, `ibMemoryUploadId`).
+- `Mesh::setVerticeMember<T>(memberId, verticeId, data)` computes
+  `verticeId * layout.size + member.firstByteId`, gets a container for that range
+  and writes through `ReflectionLayout::setMember`. For `GPU_LOCAL` the container is a
+  `StagingDataContainer` from `MemoryManager::getStagingContainer`; for `CPU_SHARED`
+  it is the entry's `SharedDataContainer`. It throws under `ENGINE_DEBUG` if the mesh
+  was never uploaded.
+- Before `Mesh::commitUpload()` the `GPU_LOCAL` writes fill the entry's whole-entry
+  upload staging range, so the initial data goes straight to staging.
+  `commitUpload()` calls `MemoryManager::commitEntry`, which queues the copy. After it,
+  every `setVerticeMember` is an update: a fresh staging range sized to the member, and
+  an `UPDATE` operation.
+- There is no dirty tracking (`DirtyInMesh`, `verticeToDirtyId`, `markVerticeDirty`,
+  `queueUpdate` were removed): each write has its own range, so there is nothing to merge.
+- Reading: `Mesh::requestVerticeMemberReadback(memberId, verticeId)` calls
+  `requestMemoryEntryReadback` for the member's byte range and returns a `ReadbackId`. Once
+  `isReadbackReady` is true, `Mesh::getVerticeMember<T>(readbackId, memberId, verticeId)` maps it
+  (`mapReadback`) and reads through `ReflectionLayout::getMember`. `GPU_LOCAL` meshes copy into a
+  readback range, `CPU_SHARED` meshes are ready immediately and read the mapped memory. The caller
+  calls `releaseReadback` afterwards. There is no synchronous `getVertice`.
 
 ## Error handling
 

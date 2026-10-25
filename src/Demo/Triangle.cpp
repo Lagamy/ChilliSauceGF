@@ -18,9 +18,10 @@ namespace Graphics
 
 		void setupEnvironment()
 		{
-			setMaxDormantUpdateStagingHeaps(5); 
-			addPageForDynamicMemoryEntries(CPU_SHARED, 10, MB, 10, MB, 5); 
-			addPageForDynamicMemoryEntries(GPU_LOCAL, 10, MB, 10, MB, 5); 
+			addPageForStagingUploads(64, KB, 1, MB, 2); 
+			addPageForStagingUploads(10, MB, 10, MB, 2); 
+			addPageForDynamicMemoryEntries(CPU_SHARED, 10, MB, 10, MB); 
+			addPageForDynamicMemoryEntries(GPU_LOCAL, 10, MB, 10, MB); 
 		}
 
 		void defineLayouts()
@@ -42,6 +43,13 @@ namespace Graphics
 			/* You could do that, if you are willing to let user change materials or vertex data from Scripting with lua for example(In which case - you can't save PoolId from layout creation) */
 			// PoolId positionMemberId = getVerticeLayout(this->vertexLayoutIds.layoutId).getMemberIdFromName("Position"); 
 			// PoolId colorMemberId = getVerticeLayout(this->vertexLayoutIds.layoutId).getMemberIdFromName("Color"); 
+			rMesh.indices = { 
+		 		0, 1, 2
+			};
+		
+			/* Upload Mesh. The vertex data is written straight into the upload staging range, commitUpload queues the copy. */
+			rMesh.queueUpload(DYNAMIC, GPU_LOCAL); 
+
 			rMesh.setVerticeMember(vertexMemberIds.positionId, 0, glm::vec3(0.0,-0.5, 0.0));
 			rMesh.setVerticeMember(vertexMemberIds.positionId, 1, glm::vec3(0.5, 0.5, 0.0));
 			rMesh.setVerticeMember(vertexMemberIds.positionId, 2, glm::vec3(-0.5, 0.5, 0.0));
@@ -50,12 +58,7 @@ namespace Graphics
 			rMesh.setVerticeMember(vertexMemberIds.colorId, 1, glm::vec4(0.0, 1.0, 0.0, 1.0));
 			rMesh.setVerticeMember(vertexMemberIds.colorId, 2, glm::vec4(0.0, 0.0, 1.0, 1.0));
 		
-			rMesh.indices = { 
-		 		0, 1, 2
-			};
-		
-			/* Upload Mesh */
-			rMesh.queueUpload(DYNAMIC, GPU_LOCAL); 
+			rMesh.commitUpload();
 		}
 
 		void definePasses()
@@ -74,20 +77,18 @@ namespace Graphics
 			if(counter == 7000)
 			{
 				Mesh& rMesh = getMesh(meshId);
-				rMesh.updateVerticeMember(vertexMemberIds.colorId, 0, glm::vec4(0.0, 0.5, 0.5, 1.0)); 			
-				rMesh.updateVerticeMember(vertexMemberIds.colorId, 1, glm::vec4(0.5, 0.0, 0.5, 1.0)); 			
-				rMesh.updateVerticeMember(vertexMemberIds.colorId, 2, glm::vec4(0.5, 0.5, 0.0, 1.0)); 			
-				rMesh.queueUpdate(); 
+				rMesh.setVerticeMember(vertexMemberIds.colorId, 0, glm::vec4(0.0, 0.5, 0.5, 1.0)); 			
+				rMesh.setVerticeMember(vertexMemberIds.colorId, 1, glm::vec4(0.5, 0.0, 0.5, 1.0)); 			
+				rMesh.setVerticeMember(vertexMemberIds.colorId, 2, glm::vec4(0.5, 0.5, 0.0, 1.0)); 			
 			}
 			
 			if (counter > 14000)
 			{
 				counter = 0; 
 				Mesh& rMesh = getMesh(meshId);
-				rMesh.updateVerticeMember(vertexMemberIds.colorId, 0, glm::vec4(1.0, 0.0, 0.0, 1.0)); 
-				rMesh.updateVerticeMember(vertexMemberIds.colorId, 1, glm::vec4(0.0, 1.0, 0.0, 1.0));
-				rMesh.updateVerticeMember(vertexMemberIds.colorId, 2, glm::vec4(0.0, 0.0, 1.0, 1.0));
-				rMesh.queueUpdate();
+				rMesh.setVerticeMember(vertexMemberIds.colorId, 0, glm::vec4(1.0, 0.0, 0.0, 1.0)); 
+				rMesh.setVerticeMember(vertexMemberIds.colorId, 1, glm::vec4(0.0, 1.0, 0.0, 1.0));
+				rMesh.setVerticeMember(vertexMemberIds.colorId, 2, glm::vec4(0.0, 0.0, 1.0, 1.0));
 			}
 		}
 

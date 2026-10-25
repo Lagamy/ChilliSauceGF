@@ -8,6 +8,6 @@ namespace Graphics
 struct GPULocalPage : BasePage 
 {
 	void init(); 	
-	GPULocalPage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_, uint32_t maxDormantStagingHeaps_);
+	GPULocalPage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_);
 };
 }

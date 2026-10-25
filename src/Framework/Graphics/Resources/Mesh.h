@@ -3,65 +3,83 @@
 #include "Utilities.h"
 #include "Vertex.h"
 #include "MemoryEntryId.h"
-#include "DataContainer.h"
+#include "GPUDataContainer.h"
+#include "ReadbackRequest.h"
 #include "Layout.h"
 #include <cstdint>
-#include <vector> 
-#include <unordered_map>
+#include <vector>
 #include <glm/glm.hpp>
 
 namespace Graphics
 {
 	ReflectionLayout& getVerticeLayout(PoolId layoutId); // Forward declaration of function. Implementation is in API
+	ReadbackId requestMemoryEntryReadback(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_); // Implementation is in API
+	ReadbackDataContainer mapReadback(ReadbackId readbackId_); // Implementation is in API
 
-	/* A run of neighbouring vertices with changed members. The byte range spans only the changed members inside it. */
-	struct DirtyInMesh
-	{
-		uint32_t firstVerticeId;
-		uint32_t lastVerticeId;
-		uint64_t inSrcOffset;
-		uint64_t inEntryOffset;
-		uint64_t size;
-	};
-
+	/* The mesh keeps no copy of its vertex bytes. Every set writes straight into the memory the entry lives in (a staging range or the CPU_SHARED block), see MemoryManager::getStagingContainer. */
 	struct Mesh {
 		std::string name;
 		PoolId verticeLayoutId;
-		PoolId vertexDataContainerId;
+		uint32_t verticesCount;
+		MemoryVisabilityEnum memoryVisability;
 		std::vector<uint32_t> indices;
-		std::vector<DirtyInMesh> dirtyInMesh;
-		std::unordered_map<uint32_t, uint32_t> verticeToDirtyId; // Vertice id -> index in dirtyInMesh of the run containing it
 
 		MemoryEntryId vbMemoryUploadId; // Handle to mem entry in the GPUMemoryManager
 		MemoryEntryId ibMemoryUploadId;
 
+		/* Writes one member of one vertice. Only valid after queueUpload. Before commitUpload it fills the initial data, after it it's an update. */
 		template<typename T>
 		void setVerticeMember(PoolId memberId_, uint32_t verticeId_, T data_)
 		{
-			getVerticeLayout(this->verticeLayoutId).setMemberInDataContainer(memberId_, data_, this->vertexDataContainerId, verticeId_);
-			
+			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
+			const MemberBlueprint& rMember = rLayout.memberBlueprints[memberId_];
+			uint64_t inEntryOffset = verticeId_ * rLayout.size + rMember.firstByteId;
+
+			if(this->memoryVisability == GPU_LOCAL)
+			{
+				StagingDataContainer container = this->getStagingContainer(inEntryOffset, rMember.size);
+				container.repeatCount = this->verticesCount;
+				rLayout.setMember(container, memberId_, verticeId_, data_);
+			}
+			else
+			{
+				SharedDataContainer container = this->getSharedContainer();
+				container.repeatCount = this->verticesCount;
+				container.validFirstOffset = inEntryOffset;
+				container.validSize = rMember.size;
+				rLayout.setMember(container, memberId_, verticeId_, data_);
+			}
 		}
 
-		template<typename T>
-		const T getVerticeMember(PoolId memberId_, uint32_t verticeId_)
+		/*
+			Reading is asynchronous for GPU_LOCAL meshes: the request queues a copy into a readback range, and the member can be read once isReadbackReady(readbackId) is true.
+			For CPU_SHARED meshes the request is ready immediately and reads the mapped memory. The caller releases the request with releaseReadback after reading.
+		*/
+		ReadbackId requestVerticeMemberReadback(PoolId memberId_, uint32_t verticeId_)
 		{
-			return getVerticeLayout(this->verticeLayoutId).getMemberInDataContainer<T>(memberId_, this->vertexDataContainerId, verticeId_);
+			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
+			const MemberBlueprint& rMember = rLayout.memberBlueprints[memberId_];
+			uint64_t inEntryOffset = verticeId_ * rLayout.size + rMember.firstByteId;
+			return requestMemoryEntryReadback(this->vbMemoryUploadId, inEntryOffset, rMember.size);
 		}
 
+		/* Reads the member a request made with requestVerticeMemberReadback covers. Only valid once the readback is ready. */
 		template<typename T>
-		void updateVerticeMember(PoolId memberId_, uint32_t verticeId_, T data_)
+		T getVerticeMember(ReadbackId readbackId_, PoolId memberId_, uint32_t verticeId_)
 		{
-			this->setVerticeMember(memberId_, verticeId_, data_);
-			this->markVerticeDirty(memberId_, verticeId_);
+			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
+			ReadbackDataContainer container = mapReadback(readbackId_);
+			container.repeatCount = this->verticesCount;
+			return rLayout.getMember<T>(container, memberId_, verticeId_);
 		}
 
-		void setVerticeDataContainer(void* data_, size_t offset_, size_t size_);
-		void* getData();
-		size_t getSize();
 		void queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_);
-		void markVerticeDirty(PoolId memberId_, uint32_t verticeId_);
-		void queueUpdate();
+		void commitUpload();
 
-		Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
+		Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_);
+
+	private:
+		StagingDataContainer getStagingContainer(uint64_t inEntryOffset_, uint64_t size_);
+		SharedDataContainer getSharedContainer();
 	};
-} 
+}

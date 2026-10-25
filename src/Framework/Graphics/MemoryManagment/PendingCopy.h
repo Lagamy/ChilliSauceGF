@@ -10,5 +10,6 @@ struct PendingCopy
 	VkDeviceSize srcOffset = 0;
 	VkDeviceSize dstOffset = 0;
 	VkDeviceSize size = 0;
+	bool isReadback = false; // The copy reads a GPU Local entry buffer into a readback range, instead of writing it.
 };
 }

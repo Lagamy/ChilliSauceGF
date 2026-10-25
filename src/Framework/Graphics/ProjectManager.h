@@ -4,5 +4,5 @@
 using ProjectFunc = void(*)();
 struct ProjectManager 
 {
-    ProjectFunc setupEnvironment;  // set MemoryAllocator paging, maxDormantUpdateHeaps,  
+    ProjectFunc setupEnvironment;  // set MemoryAllocator paging, staging pages,  
 }; 

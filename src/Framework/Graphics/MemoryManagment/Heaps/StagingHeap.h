@@ -2,6 +2,7 @@
 #include "MemoryBlock.h"
 #include "Buffer.h" 
 #include "Pool.h"
+#include "Utilities.h"
 
 namespace Graphics
 {
@@ -9,16 +10,13 @@ struct StagingHeap {
 	Buffer buffer; 
 	MemoryBlock memoryBlock;
 	VkDeviceSize size;
-	uint64_t pendingUploadsCount = 0; // For initial uploads of Dynamic allocators. If pendingUploadsCount == 0 -> add to pages free list. Check it
-	bool isForStaticInit = false; 
+	uint64_t pendingUploadsCount = 0; // Live ranges in this heap. 0 -> the heap is dormant.
 	bool created;
 	
 	void destroy();
-	void createStatic();
-	void create(VkDeviceSize size_);
-	bool wouldNewUploadFit(uint32_t size_);
+	void create(VkDeviceSize size_, StagingDirectionEnum direction_);
 	void uploadData(const void* data_, uint64_t srcOffset_, size_t ); 
 	StagingHeap() = default; 
-	StagingHeap(uint64_t size_);
+	StagingHeap(uint64_t size_, StagingDirectionEnum direction_);
 };
 } 

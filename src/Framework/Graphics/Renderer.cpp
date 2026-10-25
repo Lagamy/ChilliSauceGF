@@ -72,7 +72,6 @@ void Renderer::draw()
 			this->gpuSceneManager.changed = false;
 		}
 
-		this->memoryManager.resolveInProgressOperations();
 		this->memoryManager.resolvePendingOperations();
 		this->gpuSceneManager.updateLayouts(); 
 		this->gpuSceneManager.updateResources();

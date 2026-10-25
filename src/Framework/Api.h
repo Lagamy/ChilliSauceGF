@@ -45,7 +45,6 @@ namespace Graphics
 	PoolId getCurrentFrameImageIsAcquiredSemaphore(); 
 	PoolId getCurrentFrameAvailableFence();
 	uint64_t getIndividualUpdateMemBlockSize(); 
-	uint32_t getMaxDormantUpdateStagingHeaps();
 
 
 	uint32_t& getCurrentImageIndex();
@@ -63,7 +62,6 @@ namespace Graphics
 	void setEnvironmentSetupFunction(ProjectFunc setupEnvironmetFunc_);
 	void setFramesAtFlightCount(uint32_t count_); 
 	void setIndividualUpdateMemBlockSize(uint64_t value_); 
-	void setMaxDormantUpdateStagingHeaps(uint32_t value_);
 
 	void resetFences(std::span<VkFence> fences_);
 	void resetFence(PoolId fenceId_); 
@@ -85,11 +83,17 @@ namespace Graphics
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
 	void updateMemoryEntry(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
+	ReadbackId requestMemoryEntryReadback(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_);
+	bool isReadbackReady(ReadbackId readbackId_);
+	ReadbackDataContainer mapReadback(ReadbackId readbackId_);
+	void releaseReadback(ReadbackId readbackId_);
 
 	PoolId addVerticeLayout(const char* name_);
 	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_);
 	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 
-	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_, uint32_t maxDormantStagingHeaps_);
+	void addPageForStagingReadbacks(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_);
+	void addPageForStagingUploads(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_);
+	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_);
 
 	void createAllPipelines();
 	void destroyAllPipelines();

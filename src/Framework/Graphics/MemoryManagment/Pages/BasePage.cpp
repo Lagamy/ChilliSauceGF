@@ -7,53 +7,19 @@
 
 namespace Graphics 
 {
-	void BasePage::setStagingDataForUpload(MemoryEntry& rEntry_)
-	{
-		MemoryManager& rMemoryManager = getMemoryManager();
-		MemoryBlock& rMemoryBlock = this->memoryBlocks[rEntry_.memoryBlockId];
-
-		/* 
-			Every staging heap of a page is as big as one memory block. A block borrows a heap while it has pending uploads, and the heap mirrors the block: 
-			an entry's data is staged at the same offset where its buffer sits inside the block. 
-		*/
-		if(rMemoryBlock.stagingHeapId == UninitializedPoolId)
-		{
-			if(this->freeStagingHeaps.empty())
-			{
-				rMemoryBlock.stagingHeapId = rMemoryManager.uploadStagingHeaps.add(this->memoryBlockSize);
-			}
-			else
-			{
-				rMemoryBlock.stagingHeapId = this->freeStagingHeaps.back();
-				this->freeStagingHeaps.pop_back();
-			}
-		}
-
-		StagingHeap& rHeap = rMemoryManager.uploadStagingHeaps[rMemoryBlock.stagingHeapId];
-		rEntry_.stagingData = { rMemoryBlock.stagingHeapId, 0, rEntry_.size, this->buffersFirstByteOffset[rEntry_.bufferId] };
-		rHeap.pendingUploadsCount++;
-	}
-
-	void BasePage::releaseStagingHeap(PoolId stagingHeapId_, PoolId memoryBlockId_)
-	{
-		this->memoryBlocks[memoryBlockId_].stagingHeapId = UninitializedPoolId;
-		this->freeStagingHeaps.emplace_back(stagingHeapId_);
-
-		/* Free heaps have no pending uploads, so nothing reads them and they can be destroyed. The oldest ones go first, since heaps are reused from the back. */
-		while(this->freeStagingHeaps.size() > this->maxDormantStagingHeaps)
-		{
-			getMemoryManager().uploadStagingHeaps.remove(this->freeStagingHeaps.front());
-			this->freeStagingHeaps.erase(this->freeStagingHeaps.begin());
-		}
-	}
-
 	BufferCreationResult BasePage::addBuffer(VkDeviceSize size_, BufferTypeEnum bufferType_, const char* uploadName_)
 	{
 		/* 
 			The real buffer is created first. Its memory requirements (size and alignment) can differ from the requested size and from the ghost buffers, 
 			and vkBindBufferMemory needs the memory after the offset to hold memoryRequirements.size (VUID-vkBindBufferMemory-size-01037). 
 		*/
-		PoolId bufferId = this->buffers.add(size_, BufferTypeToUsage[bufferType_] | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, uploadName_); 
+		/* GPU_LOCAL buffers can also be the source of a readback copy, which needs TRANSFER_SRC (VUID-vkCmdCopyBuffer-srcBuffer-00118). */
+		VkBufferUsageFlags usage = BufferTypeToUsage[bufferType_] | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		if(this->memoryVisability == GPU_LOCAL)
+		{
+			usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		}
+		PoolId bufferId = this->buffers.add(size_, usage, VK_SHARING_MODE_EXCLUSIVE, uploadName_); 
 		VkMemoryRequirements bufferReqs = this->buffers[bufferId].memoryReqs;
 		if(bufferReqs.size > this->memoryBlockSize)
 		{
@@ -271,7 +237,7 @@ namespace Graphics
 	}
 
 	
-	BasePage::BasePage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_, MemoryVisabilityEnum memoryVisability_, uint32_t maxDormantStagingHeaps_) : upperBoundEntrySize(upperBoundEntrySize_), memoryBlockSize(memoryBlockSize_), memoryVisability(memoryVisability_), maxDormantStagingHeaps(maxDormantStagingHeaps_), memoryProperties(memoryVisability_ == CPU_SHARED ? VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {}
+	BasePage::BasePage(uint32_t upperBoundEntrySize_, uint32_t memoryBlockSize_, MemoryVisabilityEnum memoryVisability_) : upperBoundEntrySize(upperBoundEntrySize_), memoryBlockSize(memoryBlockSize_), memoryVisability(memoryVisability_), memoryProperties(memoryVisability_ == CPU_SHARED ? VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {}
 };
 
 

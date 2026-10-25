@@ -123,11 +123,6 @@ namespace Graphics
 		return Globals::individualUpdateMemBlockSize;
 	} 
 
-	uint32_t getMaxDormantUpdateStagingHeaps()
-	{
-		return Globals::maxDormantUpdateStagingHeaps;
-	}
-
 	Buffer& getGPUBuffer(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_)
 	{
 		//if(allocatorType_ == STATIC)
@@ -138,7 +133,7 @@ namespace Graphics
 	
 	uint32_t getGPUBufferOffset(AllocatorTypeEnum allocatorType_, BufferTypeEnum uploadType_)
 	{
-		return  Globals::renderer.memoryManager.staticAllocator.gpuHeap.bufferFirstByte[uploadType_]; 
+		return  Globals::renderer.memoryManager.staticAllocator.gpuLocalHeap.bufferFirstByte[uploadType_]; 
 	}
 
 	uint32_t& getCurrentImageIndex()
@@ -190,7 +185,7 @@ namespace Graphics
 
 	ReflectionLayout& getVerticeLayout(PoolId layoutId_)
 	{
-		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX - 1][layoutId_]; // - 1 due to INDEX layout not existing  
+		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX_BUFFER - 1][layoutId_]; // - 1 due to INDEX layout not existing  
 	}
 
 	Mesh& getMesh(PoolId meshId_)
@@ -212,11 +207,6 @@ namespace Graphics
 	void setIndividualUpdateMemBlockSize(uint64_t value_)
 	{
 		Globals::individualUpdateMemBlockSize = value_; 
-	}
-
-	void setMaxDormantUpdateStagingHeaps(uint32_t value_)
-	{
-		Globals::maxDormantUpdateStagingHeaps = value_; 
 	}
 
 
@@ -276,9 +266,29 @@ namespace Graphics
 		Globals::renderer.memoryManager.updateEntry(uploadId_, data_, inSrcOffset_, inEntryOffset_, size_);
 	}
 
+	ReadbackId requestMemoryEntryReadback(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_)
+	{
+		return Globals::renderer.memoryManager.requestReadback(entryId_, inEntryOffset_, size_);
+	}
+
+	bool isReadbackReady(ReadbackId readbackId_)
+	{
+		return Globals::renderer.memoryManager.isReadbackReady(readbackId_);
+	}
+
+	ReadbackDataContainer mapReadback(ReadbackId readbackId_)
+	{
+		return Globals::renderer.memoryManager.getReadbackContainer(readbackId_);
+	}
+
+	void releaseReadback(ReadbackId readbackId_)
+	{
+		Globals::renderer.memoryManager.releaseReadback(readbackId_);
+	}
+
 	PoolId addVerticeLayout(const char* name_)
 	{
-		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX - 1].add(name_); 
+		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX_BUFFER - 1].add(name_); 
 	}
 
 	PoolId addMemberToVerticeLayout(PoolId layoutId_, const char* name_, DataTypeEnum dataType_)
@@ -296,9 +306,19 @@ namespace Graphics
 		return Globals::renderer.pipelinesManager.graphicsPipelines.add(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
 	} 
 
-	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_, uint32_t maxDormantStagingHeaps_)
+	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_)
 	{
-		getMemoryManager().dynamicAllocator.addPage(memoryVisability_, upperBoundForEntrySize_, upperBoundUnit_, memoryBlockSize_, memoryBlockSizeUnit_, maxDormantStagingHeaps_);
+		getMemoryManager().dynamicAllocator.addPage(memoryVisability_, upperBoundForEntrySize_, upperBoundUnit_, memoryBlockSize_, memoryBlockSizeUnit_);
+	}
+
+	void addPageForStagingUploads(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_)
+	{
+		getMemoryManager().stagingAllocator.addPage(UPLOAD, upperBoundForRangeSize_, upperBoundUnit_, heapSize_, heapSizeUnit_, maxDormantHeaps_);
+	}
+
+	void addPageForStagingReadbacks(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_)
+	{
+		getMemoryManager().stagingAllocator.addPage(READBACK, upperBoundForRangeSize_, upperBoundUnit_, heapSize_, heapSizeUnit_, maxDormantHeaps_);
 	}
 
 	void createAllPipelines()

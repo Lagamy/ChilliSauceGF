@@ -16,8 +16,9 @@ struct MemoryBlock {
 	uint32_t pageUpperBound;
 	MemoryVisabilityEnum memVisability; 
 	bool isStaging = false; 
+	bool isCoherent = true;
+	char* pMapped = nullptr; // Set for CPU_SHARED blocks (also staging), mapped from creation until destroy.
 	PoolId memBlockId;
-	PoolId stagingHeapId = UninitializedPoolId;
 
 	
 	VkResult createInternal(size_t size_, std::span<VkMemoryRequirements> memReqsSpan_, uint32_t memPropertyIndex_);
@@ -29,6 +30,7 @@ struct MemoryBlock {
 
 	VkDeviceMemory get() const;
 	uint32_t findMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_, bool isStatic_);
+	int32_t tryFindMemoryTypeIndex(std::span<VkMemoryRequirements> memReqsSpan_, VkMemoryPropertyFlags properties_);
 
 	MemoryBlock() = default;
 };
