@@ -26,7 +26,12 @@ namespace Graphics
 
     bool MemoryEntry::isPendingUpload()
     {
-        return this->uploadBatchId > getMemoryManager().completedUploadBatchId;
+        return !getMemoryManager().isBatchCompleted(this->uploadBatchId);
+    }
+
+    bool MemoryEntry::isPendingReadback()
+    {
+        return !getMemoryManager().isBatchCompleted(this->readbackBatchId);
     }
 
 	void MemoryEntry::upload(const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)
@@ -79,6 +84,7 @@ namespace Graphics
 	/*
 		Mirror of queueStagedCopy: the copy runs from the entry's buffer into the readback range, which holds exactly the requested bytes (so its offset is stagingOffset).
 		The range is not tagged with the batch. It stays allocated until MemoryManager::releaseReadback, and the returned batch id only tells when the CPU may read it.
+		The entry also remembers the batch (readbackBatchId): the copy reads the entry's buffer, so the buffer must not be destroyed before that batch completed.
 	*/
 	uint64_t MemoryEntry::queueReadbackCopy(const StagingData& rStagingData_, uint64_t inEntryOffset_, uint64_t size_)
 	{
@@ -98,6 +104,7 @@ namespace Graphics
 		pendingCopy.dstBuffer = rStagingHeap.buffer.get();
 		pendingCopy.dstOffset = rStagingData_.stagingOffset;
 		pendingCopy.size = size_;
-		return getMemoryManager().queueCopy(pendingCopy);
+		this->readbackBatchId = getMemoryManager().queueCopy(pendingCopy);
+		return this->readbackBatchId;
 	}
 }

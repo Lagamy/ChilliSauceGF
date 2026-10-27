@@ -9,5 +9,7 @@ namespace Graphics
     {
         ReflectionLayout layout;
         std::vector<PoolId> derivedDescriptors;
+        
+        void addMember(); // Note: use in editor
     };
 }

@@ -5,17 +5,25 @@ namespace Graphics
 {
 void PipelineLayout::create()
 {
+	std::vector<VkDescriptorSetLayout> descriptorLayouts; 
+	descriptorLayouts.reserve(this->descriptorSetLayoutIds.size());
+	for(const PoolId& layoutId : this->descriptorSetLayoutIds)
+	{
+		descriptorLayouts.emplace_back(getDescriptorsManager().layouts[layoutId].get()); 
+	}
+
+
 	VkPipelineLayoutCreateInfo layoutCreateInfo = {};
 	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layoutCreateInfo.setLayoutCount = 0;
-	layoutCreateInfo.pSetLayouts = nullptr;
+	layoutCreateInfo.setLayoutCount = descriptorLayouts.size();
+	layoutCreateInfo.pSetLayouts = descriptorLayouts.data();
 	layoutCreateInfo.pushConstantRangeCount = 0;
 	layoutCreateInfo.pPushConstantRanges = nullptr;
 
 	VkResult result = vkCreatePipelineLayout(getMainDevice().logicalDevice, &layoutCreateInfo, nullptr, &vkHandle);
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create Loyaut for Graphics Pipeline for {}!");
+		throw std::runtime_error("Failed to create Layout {}!");
 	}
 }
 

@@ -47,7 +47,7 @@ struct StagingPage
 
 	StagingRange allocate(uint64_t size_);
 	void tagBatch(PoolId heapId_, uint64_t firstByte_, uint64_t batchId_);
-	void releaseCompleted(uint64_t completedBatchId_);
+	void releaseBatch(uint64_t batchId_);
 	void release(PoolId heapId_, uint64_t firstByte_);
 	void destroyExcessDormantHeaps();
 	void destroy();

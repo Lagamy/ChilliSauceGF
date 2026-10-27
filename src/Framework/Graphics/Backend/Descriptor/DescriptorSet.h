@@ -2,6 +2,7 @@
 #pragma once 
 #include "MemoryEntryId.h"
 #include "DescriptorBinding.h"
+#include "Descriptor.h"
 #include "DescriptorPool.h"
 #include "Pool.h"
 #include <cstdint>
@@ -10,17 +11,16 @@
 namespace Graphics 
 {
 struct DescriptorSet
-{ 
-	DescriptorPool pool; // its 1 to 1 due to dynamic buffers. 
+{
+	PoolId setLayout; 
+	DescriptorPool pool; // its 1 to 1 due to dynamic buffers. That way the logic is much simpler. 
 	VkDescriptorSet vkHandle = VK_NULL_HANDLE;
 	Pool<DescriptorBinding> bindings;
-
-	void init(); 
-	void destroy(); 
-
-	void create(); 
-
+	Pool<Descriptor> descriptors; // per binding
 	VkDescriptorSet get() const;
 
+	DescriptorSet(PoolId setLayout_) : setLayout(setLayout_){}; 
+	void create(); 
+	void destroy();
 };
 } 

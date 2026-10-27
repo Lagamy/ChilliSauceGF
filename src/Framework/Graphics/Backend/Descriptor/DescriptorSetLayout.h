@@ -17,16 +17,20 @@ struct DescriptorSetLayout
 	bool isBindless; 
 	uint32_t startingEntityAmount; // For Bindless
 	Pool<DescriptorBlueprint> descriptorBlueprints;
-	Pool<PoolId> usedByPipelineLayoutIds; //  
+	Pool<PoolId> usedByPipelineLayoutIds; 
 
 	VkDescriptorSetLayout get() const; 
 	DescriptorSetLayout(DescriptorTypeEnum descriptorType_, VkShaderStageFlags shaderStages_); 
 	
-	// Note: those functions involve Vulkan Pipelines recreation(Which are expensive). Only trigger them in your engines Editor context. Not runtime. 
-	void addDescriptorBlueprint(); 
-	void removeDescriptorBlueprint(); 
 
-	void create(); // only call after vector was completlly setup 
+	DescriptorBlueprint& getDescriptorBlueprint(PoolId id_); 
+	
+	// Note: those functions involve Vulkan Pipelines recreation(Which are expensive). Only trigger them in your engines Editor context. Not runtime. 
+	PoolId addDescriptorBlueprint(const char* name_); // name for debug porpuses
+	
+	void removeDescriptorBlueprint(PoolId id_); 
+	PoolId deriveDescriptorSet(); 
+	void create(); // only call after descriptor blueprints are setted up 
 	void destroy();
 };
 }

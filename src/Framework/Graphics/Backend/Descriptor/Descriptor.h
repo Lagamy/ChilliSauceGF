@@ -10,5 +10,7 @@ struct Descriptor
 	PoolId setId; 
 	PoolId BlueprintId; 
 	MemoryEntryId memoryEntryId; 
+
+	bool created = false; 
 };
 }

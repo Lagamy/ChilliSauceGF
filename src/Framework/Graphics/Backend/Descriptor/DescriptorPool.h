@@ -1,5 +1,6 @@
 #pragma once 
 #include "Utilities.h"
+#include "DescriptorSet.h"
 #include <cstdint>
 #include <vulkan/vulkan_core.h>
 

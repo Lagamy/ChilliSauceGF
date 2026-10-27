@@ -58,7 +58,7 @@ namespace Graphics
 		throw std::runtime_error("Staging Page: Can't tag a range that is not live.");
 	}
 
-	void StagingPage::releaseCompleted(uint64_t completedBatchId_)
+	void StagingPage::releaseBatch(uint64_t batchId_)
 	{
 		/* READBACK ranges are not freed here. The CPU still has to read them after their batch completes, so only StagingPage::release frees them. */
 		if(this->direction == READBACK)
@@ -66,13 +66,13 @@ namespace Graphics
 			return;
 		}
 
-		/* The batch fence is signaled, so the copies stopped reading these ranges. Open ranges have OpenBatchId and are never completed. Ranges are not sorted by batch id, so every one is checked. */
+		/* The batch fence is signaled, so its copies stopped reading the ranges tagged with its id. Open ranges have OpenBatchId and never match. Ranges are not sorted by batch id, so every one is checked. */
 		uint32_t keptCount = 0;
 		bool freedAny = false;
 		for(uint32_t i = 0; i < this->liveRanges.size(); i++)
 		{
 			StagingRange& rRange = this->liveRanges[i];
-			if(rRange.batchId <= completedBatchId_)
+			if(rRange.batchId == batchId_)
 			{
 				this->freeSpacePerHeap[rRange.heapId].free(rRange.firstByte, rRange.lastByte);
 				this->heaps[rRange.heapId].pendingUploadsCount--;

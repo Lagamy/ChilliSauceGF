@@ -6,8 +6,8 @@
 #include "StagingAllocator.h"
 #include "UpdateRequest.h"
 #include "PendingCopy.h"
+#include "UploadBatch.h"
 #include "ReadbackRequest.h"
-#include "PassId.h"
 #include "Utilities.h"
 #include "Operation.h"
 #include "GPUDataContainer.h"
@@ -17,6 +17,8 @@
 namespace Graphics
 {
 void uploadQueuedCopiesCMDs(VkCommandBuffer& cmdBuffer_);
+
+inline const uint32_t DefaultUploadSlotId = 0;
 
 struct MemoryManager 
 {
@@ -33,17 +35,12 @@ struct MemoryManager
 	std::vector<Operation> pendingOperationsInOrder;
 	
 	/*
-		GPU Local uploads are batched. Entries only queue a copy, and one ONESHOT TRANSFER pass records every queued copy into a single command buffer.
-		Batch ids only grow. An entry is pending while its uploadBatchId is bigger than completedUploadBatchId.
+		GPU Local uploads are batched. Entries only queue a copy, and a ONESHOT TRANSFER pass records every copy queued in a slot into its command buffer.
+		There is one slot, DefaultUploadSlotId, and queueCopy appends to it.
+		Batch ids only grow. An entry is pending until isBatchCompleted(uploadBatchId).
 	*/
-	PoolId uploadFenceId;
-	PassId uploadPassId;
-	std::vector<PendingCopy> queuedCopies;
-	std::vector<PendingCopy> recordedCopies;
-	uint64_t queuedUploadBatchId = 1;
-	uint64_t inFlightUploadBatchId = 0;
-	uint64_t completedUploadBatchId = 0;
-	bool uploadBatchInFlight = false;
+	std::vector<UploadBatch> uploadBatches;
+	uint64_t nextUploadBatchId = 1;
 
 	void resolvePendingOperations(); // Checks every cycle -> isUploadPending for each entry. If true -> operation happens, false -> skip
 
@@ -53,6 +50,7 @@ struct MemoryManager
 	bool isUploadInGPU(MemoryEntryId memoryEntryId_);
 	void updateEntry(MemoryEntryId entryId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 	void removeDynamicEntry(MemoryEntryId entryId_); 
+	MemoryEntryId allocateEntry(const char* name_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_);
 	MemoryEntryId reserveEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_);
 	void commitEntry(MemoryEntryId entryId_);
 	StagingDataContainer getStagingContainer(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_);
@@ -71,6 +69,9 @@ struct MemoryManager
 	char* getSharedPointer(const MemoryEntry& rEntry_, uint64_t inEntryOffset_);
 	uint64_t queueCopy(const PendingCopy& rCopy_);
 	void updateUploadBatches();
+	void startUploadBatch(uint32_t slotId_);
+	void completeUploadBatch(uint32_t slotId_);
+	bool isBatchCompleted(uint64_t batchId_);
 
 	void setup();
 	void destroy();

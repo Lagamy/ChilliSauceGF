@@ -1,4 +1,5 @@
 #pragma once 
+#include "DescriptorsManager.h"
 #include "MemoryManager.h"
 #include "GPUScene.h"
 #include "PipelinesManager.h"
@@ -38,6 +39,7 @@ struct Renderer {
 	ImagesManager imagesManager; 
 	ResourceManager resourcesManager; 
 	PipelinesManager pipelinesManager;
+	DescriptorsManager descriptorsManager; 
 	ReflectionSystem reflectionSystem;
 	PassesGraph passesGraph; 
 

@@ -13,7 +13,6 @@ struct Pass
     PoolId signalFenceId = UninitializedPoolId;
     SyncRetrivalFunc dynamicSignalFenceFunc;
     bool dynamicSignalFence = false;  
-    uint32_t submissionBatchId;
     bool enabled = false;
 
 

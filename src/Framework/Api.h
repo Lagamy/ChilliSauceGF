@@ -1,6 +1,8 @@
 #pragma once 
+#include "DescriptorsManager.h"
 #include "Layout.h"
 #include "PassesGraph.h"
+#include "PipelinesManager.h"
 #include "PoolId.h"
 #include "PassId.h"
 #include "Pass.h"
@@ -26,6 +28,8 @@ namespace Graphics
 	GPUSceneManager& getGPUSceneManager();
 	MemoryManager& getMemoryManager(); 
 	PassesGraph& getPassesManager(); 
+	PipelinesManager& getPipelinesManager(); 
+	DescriptorsManager& getDescriptorsManager(); 
 	
 	VkSemaphore& getSemaphore(PoolId semaphoreId_);
 	VkFence& getFence(PoolId fenceId_);
@@ -82,6 +86,8 @@ namespace Graphics
 	PoolId addShader(const char* name_, const char* path_); 
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_);
+	MemoryEntryId allocateMemoryEntry(const char* name_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, PoolId layoutId_, uint32_t repeatCount_);
+	MemoryEntryId allocateMemoryEntryRaw(const char* name_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_);
 	void updateMemoryEntry(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 	ReadbackId requestMemoryEntryReadback(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_);
 	bool isReadbackReady(ReadbackId readbackId_);

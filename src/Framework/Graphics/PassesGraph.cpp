@@ -88,16 +88,11 @@ void PassesGraph::enablePass(PassId passId_)
     Pass& rPass = this->getPass(passId_);
     if(!rPass.enabled)
     {
-        rPass.submissionBatchId = this->submissionBatches.size(); 
-        this->submissionBatches.emplace_back(rPass.name, passId_.cmdLifetime, passId_.queueFamily, rPass.signalFenceId); 
-        SubmissionBatch& rSubmissionBatch = this->submissionBatches.back();
-
         for(const auto& rTask : rPass.tasks)
         {
-                        // Enable Cmds. 
+                        // Enable Cmds.
             if(passId_.cmdLifetime == ONESHOT)
             {
-                rSubmissionBatch.cmdBuffersToDisable.emplace_back(rTask.cmdIds[0]);
                 CmdBuffers& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
                 rCommandBuffers.buffersToEnabled[rTask.cmdIds[0]] = rCommandBuffers.enabled.size();
                 rCommandBuffers.enabled.emplace_back(rTask.cmdIds[0]);
@@ -130,26 +125,24 @@ void PassesGraph::disableFramePass(PassId passId_)
         {
             for(const auto& rTask : rPass.tasks)
             {
-                if(passId_.cmdLifetime == ONESHOT)
+                std::vector<FrameResources>& rFrameResources = Globals::renderer.framesResources;
+                for(uint32_t frameId = 0; frameId < rFrameResources.size(); frameId++)
                 {
-                    CmdBuffers& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
-                    rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rTask.cmdIds[0]]); 
-                    rCommandBuffers.buffersToEnabled[rTask.cmdIds[0]] = UninitializedId; 
-                }
-                else
-                {
-                    std::vector<FrameResources>& rFrameResources = Globals::renderer.framesResources;
-                    for(uint32_t frameId = 0; frameId < rFrameResources.size(); frameId++)
+                    CmdBuffers& rCommandBuffers = rFrameResources[frameId].frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers;
+                    uint32_t enabledId = rCommandBuffers.buffersToEnabled[rTask.cmdIds[frameId]];
+                    rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + enabledId);
+                    rCommandBuffers.buffersToEnabled[rTask.cmdIds[frameId]] = UninitializedId;
+
+                    /* erase shifted every later entry down by one, so its stored position must follow */
+                    for(uint32_t i = enabledId; i < rCommandBuffers.enabled.size(); i++)
                     {
-                                        
-                        CmdBuffers& rCommandBuffers = rFrameResources[frameId].frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
-                        rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rTask.cmdIds[frameId]]); 
-                        rCommandBuffers.buffersToEnabled[rTask.cmdIds[frameId]] = UninitializedId;  
+                        rCommandBuffers.buffersToEnabled[rCommandBuffers.enabled[i]] = i;
                     }
                 }
             }
-            this->enabledPassesCount++;
-            this->orderDirty = true; 
+            rPass.enabled = false;
+            this->enabledPassesCount--;
+            this->orderDirty = true;
         }
     }
 }
@@ -211,7 +204,7 @@ void PassesGraph::compileIfDirty()
                     rMetadata.dynamicWaitSemRefs = rTask.dynamicWaitSemaphoreRefs; 
                     rMetadata.dynamicSignalSemRefs = rTask.dynamicSignalSemaphoreRefs; 
                     
-                    if(!rMetadata.dynamicSignalSemRefs.empty() || rMetadata.dynamicSignalSemRefs.empty())
+                    if(!rMetadata.dynamicSignalSemRefs.empty() || !rMetadata.dynamicWaitSemRefs.empty())
                     {
                         rBatch.submissionsWithDynamicSync.emplace_back(rBatch.perSubmissionMetadata.size() - 1);
                     }
@@ -263,13 +256,17 @@ void PassesGraph::resolveSync_SubmitToGPU()
 		    signalFence = getFence(rBatch.signalFenceId); 
 	    }
 
+        for(const auto& rSubmissionId : rBatch.submissionsWithDynamicSync)
+        {
+            this->resolveDynamicSync(rBatch, rBatch.perSubmissionMetadata[rSubmissionId]);
+        }
+
         for(uint32_t submissionId = 0; submissionId < rBatch.submitInfos.size(); submissionId++)
         {
-            VkSubmitInfo& rSubmitInfo = rBatch.submitInfos[submissionId]; 
-            SubmissionMetadata& rMetadata = rBatch.perSubmissionMetadata[submissionId]; 
-            this->resolveDynamicSync(rBatch, rMetadata); 
+            VkSubmitInfo& rSubmitInfo = rBatch.submitInfos[submissionId];
+            SubmissionMetadata& rMetadata = rBatch.perSubmissionMetadata[submissionId];
 
-            rSubmitInfo = {}; 
+            rSubmitInfo = {};
             rSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
             rSubmitInfo.pWaitSemaphores = rMetadata.waitSemaphores.data(); 
             rSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(rMetadata.waitSemaphores.size()); 
@@ -288,14 +285,8 @@ void PassesGraph::resolveSync_SubmitToGPU()
         }
         
 	    vkQueueSubmit(getQueue(rBatch.queueFamily), rBatch.submitInfos.size(), rBatch.submitInfos.data(), signalFence); 
-        if(rBatch.lifetime == ONESHOT) // disable cmdBuffers, and remove this submissionBatch from list 
+        if(rBatch.lifetime == ONESHOT) // cmdBuffers were already disabled when recorded, remove this submissionBatch from list
 	    {
-		    for(const auto& rCmdBufferToDisable : this->submissionBatches[batchId].cmdBuffersToDisable)
-		    { 
-			    CmdBuffers& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(rBatch.queueFamily).commandBuffers; 
-                rCommandBuffers.enabled.erase(rCommandBuffers.enabled.begin() + rCommandBuffers.buffersToEnabled[rCmdBufferToDisable]); 
-                rCommandBuffers.buffersToEnabled[rCmdBufferToDisable] = UninitializedId; 
-		    }
 		    this->submissionBatches.erase(this->submissionBatches.begin() + batchId); 
 	    }
         else 

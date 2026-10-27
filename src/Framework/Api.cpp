@@ -52,6 +52,17 @@ namespace Graphics
 		return  Globals::renderer.passesGraph;
 	}
 
+	PipelinesManager& getPipelinesManager()
+	{
+		return Globals::renderer.pipelinesManager;
+	}
+
+	DescriptorsManager& getDescriptorsManager()
+	{
+		return Globals::renderer.descriptorsManager;
+	} 
+	
+
 	// For now i only need 1 of each
 	GraphicsPipeline& getGraphicsPipeline(PoolId layoutId_)
 	{
@@ -259,6 +270,25 @@ namespace Graphics
 	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
 	{
 		return Globals::renderer.memoryManager.addEntry(name_, data_, size_, allocatorType_, memoryVisability_, uploadType_);
+	}
+
+	/* The layout is looked up in the bufferType_ list. The INDEX layout doesn't exist, and the TEXTURE and SAMPLER lists aren't there yet. */
+	MemoryEntryId allocateMemoryEntry(const char* name_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, PoolId layoutId_, uint32_t repeatCount_)
+	{
+		#ifdef ENGINE_DEBUG
+			if(bufferType_ < VERTEX_BUFFER || bufferType_ > STORAGE_BUFFER)
+			{
+				throw std::runtime_error(std::format("Api: Can't allocate {} from a layout, buffer type {} has no layouts. Use allocateMemoryEntryRaw.", name_, static_cast<uint32_t>(bufferType_)));
+			}
+		#endif
+
+		VkDeviceSize size = Globals::renderer.reflectionSystem.layoutsPerBufferType[bufferType_ - 1][layoutId_].size * repeatCount_; // - 1 due to INDEX layout not existing
+		return Globals::renderer.memoryManager.allocateEntry(name_, memoryVisability_, bufferType_, size);
+	}
+
+	MemoryEntryId allocateMemoryEntryRaw(const char* name_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_)
+	{
+		return Globals::renderer.memoryManager.allocateEntry(name_, memoryVisability_, bufferType_, size_);
 	}
 
 	void updateMemoryEntry(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)

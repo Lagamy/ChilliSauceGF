@@ -184,8 +184,8 @@ pool per queue family (3).
   heap (`StagingData::stagingPageId` identifies the page). A new range is open
   (`OpenBatchId`) and is never freed; `MemoryEntry::queueStagedCopy` tags it with the
   batch id `queueCopy` returns (`StagingAllocator::tagBatch`). `updateUploadBatches()` calls
-  `releaseCompleted(completedUploadBatchId)`, which frees finished ranges (all live
-  ranges are checked, since batch ids are stamped later and are not sorted)
+  `releaseBatch(batchId)` for each slot whose fence was observed signaled, which frees the ranges tagged with that
+  id (all live ranges are checked, since batch ids are stamped later and are not sorted)
   (merging intervals) and destroys dormant heaps above the page's
   `maxDormantHeaps`, oldest first.
 - Readbacks (`READBACK` direction): `READBACK` heaps are `TRANSFER_DST` buffers in
@@ -196,18 +196,22 @@ pool per queue family (3).
   queues a `READBACK_COPY` operation, so the copy is ordered after earlier `UPDATE`s and waits
   while the entry has an upload in flight; `resolvePendingOperations` then queues a
   `PendingCopy` with `isReadback` (entry buffer -> readback range) into the same batched
-  `ONESHOT` `TRANSFER` pass. `CPU_SHARED` entries need no copy and are ready immediately.
-  `isReadbackReady` is `batchId <= completedUploadBatchId`. `getReadbackContainer` returns a
+  `ONESHOT` `TRANSFER` pass. `CPU_SHARED` entries need no copy and are ready immediately; their readback is a live view of the mapped memory (no snapshot), so it shows whatever was written when it is read.
+  `isReadbackReady` is `isBatchCompleted(batchId)`. `getReadbackContainer` returns a
   readable `ReadbackDataContainer` (`GPUDataContainer<true>` over the readback range; `MemoryManager::readStaging`
   invalidates the range first when the heap is not coherent; for `CPU_SHARED` it is the entry's
   `SharedDataContainer`). `releaseReadback` frees the range (only when ready); readback ranges
-  are never freed by `releaseCompleted`. `uploadQueuedCopiesCMDs` records a `TRANSFER ->
-  TRANSFER` barrier where the copy kind switches (a readback read before an update write in one
+  are never freed by `releaseBatch`. A queued readback copy reads the entry's buffer, so `queueReadbackCopy`
+  stores its batch in `MemoryEntry::readbackBatchId` and a pending `UPDATE` or `REMOVE` also waits for `isPendingReadback()`
+  (a readback requested before an update sees the bytes from before it; the order is decided on the CPU, the barriers below are a second guard). `uploadQueuedCopiesCMDs` records a `TRANSFER ->
+  TRANSFER` barrier at the start of every batch (orders it after earlier batches; with one batch in flight the CPU already guarantees that) and where the copy kind switches (a readback read before an update write in one
   batch) and a final `TRANSFER_WRITE -> HOST_READ` barrier when the batch has readbacks.
   GPU_LOCAL buffers have `TRANSFER_SRC`.
 - `Api.h` routes `addAndUploadMemoryEntry`, `updateMemoryEntry`, `removeUpload`,
   `getMemoryEntry` and `isUploadInGPU` to `MemoryManager::addEntry`,
   `updateEntry`, `removeDynamicEntry`, `getEntry` and `isUploadInGPU`;
+  `allocateMemoryEntry` (size = layout size × repeat count, layout looked up in the `bufferType_` list of `ReflectionSystem`)
+  and `allocateMemoryEntryRaw` (byte size, e.g. index buffers) to `MemoryManager::allocateEntry`;
   `requestMemoryEntryReadback`, `isReadbackReady`, `mapReadback` and `releaseReadback` to the
   readback functions above.
 - Host-visible memory (`CPU_SHARED` blocks and all staging heaps) is mapped once when the `MemoryBlock` is created
@@ -231,15 +235,21 @@ pool per queue family (3).
   returns the persistent `SharedDataContainer` of a `CPU_SHARED` entry. Both map
   entry byte offsets. `reserveEntry` creates a dynamic entry without data (pending
   until `commitEntry` queues its copy). Static entries can't be reserved.
+  `allocateEntry` also creates a dynamic entry without data, but takes no staging range and needs no commit:
+  nothing is pending, so the buffer can be bound right away and later writes are normal updates
+  (`GPU_LOCAL` bytes are undefined until the first update was copied).
 - `GPU_ONLY` entry updates are batched by `MemoryManager`. `MemoryEntry::upload`
   writes the staging heap and calls `MemoryManager::queueCopy`, which stores a
-  `PendingCopy` and returns a batch id kept in `MemoryEntry::uploadBatchId`.
-  `updateUploadBatches()` (called at the start and end of
-  `resolvePendingOperations()`) starts a batch when the previous one's fence is
-  signaled: it moves `queuedCopies` to `recordedCopies`, resets the fence and
-  enables one `ONESHOT` `TRANSFER` pass (`uploadQueuedCopiesCMDs`) that records
-  one `vkCmdCopyBuffer` per copy. An entry is pending while
-  `uploadBatchId > completedUploadBatchId`. No semaphore is used.
+  `PendingCopy` in the default upload slot and returns a batch id kept in `MemoryEntry::uploadBatchId`.
+  A slot (`UploadBatch`) owns a fence, a `ONESHOT` `TRANSFER` pass, its command buffer and a
+  queued/recorded copy list. `MemoryManager::setup` creates one slot (`DefaultUploadSlotId`), which takes every
+  queued copy (initial uploads, `commitEntry`, deferred `UPDATE`/`READBACK_COPY`). A slot is free once its fence
+  was observed signaled, so only one batch is in flight at a time and copies queue up behind it. `updateUploadBatches()` (called at the start and end of
+  `resolvePendingOperations()`) marks a slot done when its fence is signaled, then starts the default slot when it is
+  not in flight and has queued copies: it moves `queuedCopies` to `recordedCopies`, resets the fence and
+  enables the pass. `uploadQueuedCopiesCMDs` finds its slot by command buffer handle and records
+  one `vkCmdCopyBuffer` per copy. An entry is pending until `isBatchCompleted(uploadBatchId)`: no slot
+  still carries that id (completion is per batch, not a watermark). No semaphore is used.
 - `MemoryVisabilityEnum`: `GPU_ONLY` (device-local, uploaded through staging)
   and `CPU_SHARED` (host-visible|coherent, written with map/memcpy/unmap).
 

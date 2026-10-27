@@ -58,9 +58,9 @@ void DynamicAllocator::init()
 
 
 /*
-	Creates the buffer and the entry but writes no data. A GPU_LOCAL entry also gets a whole-entry staging range, which stays open until the entry's copy is queued (MemoryEntry::queueStagedCopy tags it with the batch).
+	Creates the buffer and the entry. No data is written and no staging range is taken, so the entry has nothing pending and is usable right away.
 */
-PoolId DynamicAllocator::reserveEntry(const char* name_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)
+PoolId DynamicAllocator::allocateEntry(const char* name_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)
 {
     if(memoryVisability_ == CPU_SHARED)
 	{
@@ -93,13 +93,24 @@ PoolId DynamicAllocator::reserveEntry(const char* name_, VkDeviceSize size_, Mem
             {
                 BufferCreationResult bufferCreationResult = this->gpuLocalPages[i].addBuffer(size_, uploadType_, name_);
 
-                PoolId id = this->memoryEntries.add(name_, size_, uploadType_, memoryVisability_,i, bufferCreationResult.memoryBlockId, bufferCreationResult.bufferId);
-                this->memoryEntries[id].stagingData = getMemoryManager().stagingAllocator.allocate(UPLOAD, size_);
-                return id;
+                return this->memoryEntries.add(name_, size_, uploadType_, memoryVisability_,i, bufferCreationResult.memoryBlockId, bufferCreationResult.bufferId);
             } 
         }
 	}
     throw std::runtime_error("How did you get there?");
+}
+
+/*
+	allocateEntry plus, for a GPU_LOCAL entry, a whole-entry staging range, which stays open until the entry's copy is queued (MemoryEntry::queueStagedCopy tags it with the batch).
+*/
+PoolId DynamicAllocator::reserveEntry(const char* name_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)
+{
+    PoolId id = this->allocateEntry(name_, size_, memoryVisability_, uploadType_);
+    if(memoryVisability_ == GPU_LOCAL)
+    {
+        this->memoryEntries[id].stagingData = getMemoryManager().stagingAllocator.allocate(UPLOAD, size_);
+    }
+    return id;
 }
 
 PoolId DynamicAllocator::addAndUploadEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)

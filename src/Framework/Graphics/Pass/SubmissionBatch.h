@@ -22,7 +22,6 @@ struct SubmissionBatch
     std::vector<SubmissionMetadata> perSubmissionMetadata; 
     std::vector<VkSubmitInfo> submitInfos; 
     
-    std::vector<uint32_t> cmdBuffersToDisable; 
     SyncRetrivalFunc dynamicSignalFenceFunc; 
     PoolId signalFenceId = UninitializedPoolId; 
 

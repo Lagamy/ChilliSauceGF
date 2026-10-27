@@ -23,6 +23,8 @@ namespace Graphics {
 		// For Upload(only for Update when static)
 		uint64_t uploadBatchId = 0;
 		bool isPendingUpload();
+		uint64_t readbackBatchId = 0; // Batch of the latest readback copy reading this entry's buffer. Update and removal wait on it.
+		bool isPendingReadback();
 		bool awaitingCommit = false; // Reserved with MemoryManager::reserveEntry, copy not queued yet. stagingData is the whole-entry range.
 		void upload(const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 		void queueStagedCopy(const StagingData& rStagingData_, uint64_t inEntryOffset_, uint64_t size_);

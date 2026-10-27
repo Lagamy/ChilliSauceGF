@@ -80,11 +80,11 @@ StagingHeap& StagingAllocator::getHeap(const StagingData& rStagingData_)
 	return this->pages[rStagingData_.direction][rStagingData_.stagingPageId].heaps[rStagingData_.heapId];
 }
 
-void StagingAllocator::releaseCompleted(uint64_t completedBatchId_)
+void StagingAllocator::releaseBatch(uint64_t batchId_)
 {
 	for(StagingPage& rPage : this->pages[UPLOAD])
 	{
-		rPage.releaseCompleted(completedBatchId_);
+		rPage.releaseBatch(batchId_);
 	}
 }
 

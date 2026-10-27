@@ -59,6 +59,7 @@ void OneShotCommandPool::rerecordEnabledCmdBuffers()
 	    vkResetCommandBuffer(this->commandBuffers.buffers[this->commandBuffers.enabled[i]], 0); 
         uint32_t& enabledCmdBufId = this->commandBuffers.enabled[i]; 
 		this->commandBuffers.commandsToRecord[enabledCmdBufId](this->commandBuffers.buffers[enabledCmdBufId]);
+        this->commandBuffers.buffersToEnabled[enabledCmdBufId] = UninitializedId;
     }
     
     this->commandBuffers.enabled.clear();

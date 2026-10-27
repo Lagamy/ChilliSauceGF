@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <cstring>
 #include <format>
-#include <limits>
 #include <stdexcept>
 #include <sys/types.h>
 #include <vulkan/vulkan_core.h>
@@ -24,20 +23,48 @@ void uploadQueuedCopiesCMDs(VkCommandBuffer& cmdBuffer_)
 {
 	MemoryManager& rMemoryManager = getMemoryManager();
 
+	/* Every slot has its own command buffer but shares this function, so the slot is the one that owns the handle being recorded. */
+	UploadBatch* pBatch = nullptr;
+	for(UploadBatch& rBatch : rMemoryManager.uploadBatches)
+	{
+		if(getCommandBuffer(TRANSFER, ONESHOT, rBatch.cmdId) == cmdBuffer_)
+		{
+			pBatch = &rBatch;
+			break;
+		}
+	}
+	#ifdef ENGINE_DEBUG
+		if(pBatch == nullptr)
+		{
+			throw std::runtime_error("Memory Manager: Upload command buffer doesn't belong to any upload batch.");
+		}
+	#endif
+
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
 
 	/*
+		The first synchronization scope of a pipeline barrier includes every command earlier in submission order on the queue, also from earlier vkQueueSubmit calls (spec: Synchronization and Cache Control -> Pipeline Barriers).
+		So this TRANSFER -> TRANSFER dependency orders the batch after earlier batches, e.g. an update write must not overtake a readback copy that reads the same entry buffer.
+		Only one batch is in flight at a time (the next starts after the previous fence was observed signaled), so the CPU already guarantees this order. The barrier is a second guard.
+	*/
+	VkMemoryBarrier batchStartBarrier = {};
+	batchStartBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	batchStartBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+	batchStartBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+	vkCmdPipelineBarrier(cmdBuffer_, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &batchStartBarrier, 0, nullptr, 0, nullptr);
+
+	/*
 		Copies of one batch run in recorded order with no implicit ordering between them. A readback copy reads an entry buffer that an update copy in the same batch may write
 		(a write after a read), so a TRANSFER -> TRANSFER memory dependency is recorded wherever the kind of copy switches.
 	*/
 	bool hasReadback = false;
-	for(uint32_t i = 0; i < rMemoryManager.recordedCopies.size(); i++)
+	for(uint32_t i = 0; i < pBatch->recordedCopies.size(); i++)
 	{
-		const PendingCopy& rCopy = rMemoryManager.recordedCopies[i];
-		if(i > 0 && rCopy.isReadback != rMemoryManager.recordedCopies[i - 1].isReadback)
+		const PendingCopy& rCopy = pBatch->recordedCopies[i];
+		if(i > 0 && rCopy.isReadback != pBatch->recordedCopies[i - 1].isReadback)
 		{
 			VkMemoryBarrier barrier = {};
 			barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
@@ -71,46 +98,101 @@ void MemoryManager::setup()
 	this->dynamicAllocator.init();
 	this->stagingAllocator.init();
 
-	this->uploadFenceId = addFence(true);
-	this->uploadPassId = addPass("Memory Manager Uploading", ONESHOT, TRANSFER, this->uploadFenceId);
-	addTaskToPass(this->uploadPassId, "Queued Copies Upload", uploadQueuedCopiesCMDs);
+	this->uploadBatches.resize(1);
+	for(uint32_t i = 0; i < this->uploadBatches.size(); i++)
+	{
+		UploadBatch& rBatch = this->uploadBatches[i];
+		rBatch.fenceId = addFence(true);
+		rBatch.passId = addPass(std::format("Memory Manager Upload Batch {}", i).c_str(), ONESHOT, TRANSFER, rBatch.fenceId);
+		uint32_t taskId = addTaskToPass(rBatch.passId, "Queued Copies Upload", uploadQueuedCopiesCMDs);
+		rBatch.cmdId = getPass(rBatch.passId).tasks[taskId].cmdIds[0];
+	}
 }
 
 uint64_t MemoryManager::queueCopy(const PendingCopy& rCopy_)
 {
-	this->queuedCopies.emplace_back(rCopy_);
-	return this->queuedUploadBatchId;
+	UploadBatch& rBatch = this->uploadBatches[DefaultUploadSlotId];
+	if(rBatch.queuedCopies.empty())
+	{
+		rBatch.queuedBatchId = this->nextUploadBatchId;
+		this->nextUploadBatchId++;
+	}
+	rBatch.queuedCopies.emplace_back(rCopy_);
+	return rBatch.queuedBatchId;
+}
+
+/*
+	Batch ids only grow and a slot carries an id from its first queued copy until its fence was observed signaled, so an id that no slot carries anymore is complete.
+	Completion is per batch. Batches on one queue can finish out of order, so one batch's fence says nothing about the others.
+	0 is the id of an entry with nothing uploaded, OpenBatchId is a copy that is not queued yet.
+*/
+bool MemoryManager::isBatchCompleted(uint64_t batchId_)
+{
+	if(batchId_ == OpenBatchId)
+	{
+		return false;
+	}
+	if(batchId_ == 0)
+	{
+		return true;
+	}
+
+	for(const UploadBatch& rBatch : this->uploadBatches)
+	{
+		if(rBatch.queuedBatchId == batchId_ || (rBatch.inFlight && rBatch.recordedBatchId == batchId_))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void MemoryManager::startUploadBatch(uint32_t slotId_)
+{
+	UploadBatch& rBatch = this->uploadBatches[slotId_];
+	rBatch.recordedCopies = std::move(rBatch.queuedCopies);
+	rBatch.queuedCopies.clear();
+	rBatch.recordedBatchId = rBatch.queuedBatchId;
+	rBatch.queuedBatchId = 0;
+	resetFence(rBatch.fenceId);
+	enablePass(rBatch.passId);
+	rBatch.inFlight = true;
+}
+
+/* Called once the slot's fence was observed signaled, so its copies stopped reading the staging ranges tagged with its id. */
+void MemoryManager::completeUploadBatch(uint32_t slotId_)
+{
+	UploadBatch& rBatch = this->uploadBatches[slotId_];
+	rBatch.inFlight = false;
+	this->stagingAllocator.releaseBatch(rBatch.recordedBatchId);
 }
 
 void MemoryManager::updateUploadBatches()
 {
 	/*
-		The batch's fence is only reset once the CPU saw it signaled, since vkResetFences requires the fence to have no pending submission.
-		That also means the batch command buffer finished executing, so it is safe to re-record it and to reuse its staging buffers.
-		There is no semaphore on this pass: a binary semaphore signaled every batch and never waited on could not be signaled again.
+		A slot's fence is only reset once the CPU saw it signaled, since vkResetFences requires the fence to have no pending submission.
+		That also means the slot's command buffer finished executing, so it is safe to re-record it and to reuse its staging buffers.
+		There is no semaphore on these passes: a binary semaphore signaled every batch and never waited on could not be signaled again.
 	*/
-	if(this->uploadBatchInFlight && wasFenceSignaled(this->uploadFenceId))
+	for(uint32_t i = 0; i < this->uploadBatches.size(); i++)
 	{
-		this->completedUploadBatchId = this->inFlightUploadBatchId;
-		this->uploadBatchInFlight = false;
-		this->stagingAllocator.releaseCompleted(this->completedUploadBatchId);
+		if(this->uploadBatches[i].inFlight && wasFenceSignaled(this->uploadBatches[i].fenceId))
+		{
+			this->completeUploadBatch(i);
+		}
 	}
 
-	if(!this->uploadBatchInFlight && !this->queuedCopies.empty())
+	UploadBatch& rDefaultBatch = this->uploadBatches[DefaultUploadSlotId];
+	if(!rDefaultBatch.inFlight && !rDefaultBatch.queuedCopies.empty())
 	{
-		this->recordedCopies = std::move(this->queuedCopies);
-		this->queuedCopies.clear();
-		this->inFlightUploadBatchId = this->queuedUploadBatchId;
-		this->queuedUploadBatchId++;
-		resetFence(this->uploadFenceId);
-		enablePass(this->uploadPassId);
-		this->uploadBatchInFlight = true;
+		this->startUploadBatch(DefaultUploadSlotId);
 	}
 }
 
 void MemoryManager::resolvePendingOperations()
 {
 	this->updateUploadBatches();
+
 	for(uint32_t i = 0; i < this->pendingOperationsInOrder.size(); i++)
 	{
 		Operation& rPendingOperation = this->pendingOperationsInOrder[i]; 
@@ -118,7 +200,8 @@ void MemoryManager::resolvePendingOperations()
 		{
 			UpdateRequest& rUpdateInfo = this->entriesPendingForUpdate[rPendingOperation.id]; 
 			MemoryEntry& rMemoryEntry = this->getEntry(rUpdateInfo.memoryEntryId); 
-			if(!rMemoryEntry.isPendingUpload()) // Then we can update it. 
+			/* A readback requested before this update must see the bytes from before it. The update waits until that readback copy completed, so the order is decided here on the CPU and not only by barriers. */
+			if(!rMemoryEntry.isPendingUpload() && !rMemoryEntry.isPendingReadback()) // Then we can update it.
 			{
 				rMemoryEntry.queueStagedCopy(rUpdateInfo.stagingData, rUpdateInfo.stagingData.inEntryOffset, rUpdateInfo.stagingData.size);
 				this->entriesPendingForUpdate.remove(rPendingOperation.id); 
@@ -140,7 +223,8 @@ void MemoryManager::resolvePendingOperations()
 		else 
 		{
 			MemoryEntry& rMemoryEntry = this->getEntry(this->entriesPendingForRemoval[rPendingOperation.id]); 
-			if(!rMemoryEntry.isPendingUpload()) // Then we can remove it. 
+			/* A queued or in-flight readback copy still reads the entry's buffer, and destroying a buffer that pending commands use is invalid. So removal also waits for the readback batch. */
+			if(!rMemoryEntry.isPendingUpload() && !rMemoryEntry.isPendingReadback()) // Then we can remove it.
 			{
 				this->dynamicAllocator.removeGPULocalEntry(this->entriesPendingForRemoval[rPendingOperation.id].id); 
 				this->entriesPendingForRemoval.remove(rPendingOperation.id);
@@ -149,6 +233,7 @@ void MemoryManager::resolvePendingOperations()
 			}
 		}
 	}
+
 	/* Updates resolved above queued new copies. Starting the batch here submits them this frame, since passes are compiled after this function. */
 	this->updateUploadBatches();
 }
@@ -221,6 +306,15 @@ void MemoryManager::updateEntry(MemoryEntryId entryId_, const void* data_, uint6
 		rEntry.upload(data_, inSrcOffset_, inEntryOffset_, size_); 
 	}
 } 
+
+/*
+	Creates a dynamic entry that nothing is uploaded to. Unlike reserveEntry it takes no staging range and needs no commitEntry: the entry has nothing pending, so its buffer can be bound (e.g. into a descriptor set) right away.
+	A GPU_LOCAL entry's bytes are undefined until the first updateEntry / getStagingContainer write has been copied.
+*/
+MemoryEntryId MemoryManager::allocateEntry(const char* name_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_)
+{
+	return { DYNAMIC, this->dynamicAllocator.allocateEntry(name_, size_, memoryVisability_, bufferType_) };
+}
 
 /*
 	Creates a dynamic entry without data. The caller writes through getStagingContainer / getSharedContainer and then calls commitEntry.
@@ -356,7 +450,7 @@ ReadbackId MemoryManager::requestReadback(MemoryEntryId entryId_, uint64_t inEnt
 /* The CPU may read only after the batch that holds the copy was observed completed (its fence signaled). OpenBatchId means the copy is not queued yet. */
 bool MemoryManager::isReadbackReady(ReadbackId readbackId_)
 {
-	return this->readbackRequests[readbackId_].batchId <= this->completedUploadBatchId;
+	return this->isBatchCompleted(this->readbackRequests[readbackId_].batchId);
 }
 
 /* The container takes entry byte offsets, same as getStagingContainer: the range stores inEntryOffset of the request. READBACK memory is coherent when the device has a coherent+cached type, otherwise readStaging invalidates it. */

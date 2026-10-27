@@ -1,4 +1,5 @@
 #pragma once
+#include "Descriptor.h"
 #include "Pool.h" 
 #include "DescriptorSet.h"
 #include "DescriptorSetLayout.h"
@@ -7,9 +8,9 @@ namespace Graphics
 {
 struct DescriptorsManager 
 {
-    Pool<DescriptorSetLayout> layouts; // Same layout can have   
+    Pool<DescriptorSetLayout> layouts; // Same layout can have multiple Descriptor Sets in it. 
     Pool<DescriptorSet> descriptorSet; // with Pool (since this framework has them 1 to 1. Since we use dynamic pools)
-};  
+};
 }
 
 // Set guards for: 

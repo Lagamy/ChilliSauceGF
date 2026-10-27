@@ -22,7 +22,7 @@ struct StagingAllocator
 	StagingData allocate(StagingDirectionEnum direction_, uint64_t size_);
 	void tagBatch(const StagingData& rStagingData_, uint64_t batchId_);
 	StagingHeap& getHeap(const StagingData& rStagingData_);
-	void releaseCompleted(uint64_t completedBatchId_);
+	void releaseBatch(uint64_t batchId_);
 	void releaseReadback(const StagingData& rStagingData_);
 
 	void init();
