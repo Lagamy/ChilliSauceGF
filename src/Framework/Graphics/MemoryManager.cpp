@@ -308,11 +308,16 @@ void MemoryManager::updateEntry(MemoryEntryId entryId_, const void* data_, uint6
 } 
 
 /*
-	Creates a dynamic entry that nothing is uploaded to. Unlike reserveEntry it takes no staging range and needs no commitEntry: the entry has nothing pending, so its buffer can be bound (e.g. into a descriptor set) right away.
+	Creates an entry that nothing is uploaded to. Unlike reserveEntry it takes no staging range and needs no commitEntry: the entry has nothing pending, so its buffer can be bound (e.g. into a descriptor set) once it exists.
+	A dynamic entry's buffer exists right away. A static entry only gets its place in the static heap here (it is added before StaticAllocator::allocateAndUpload, which skips it because its data is nullptr), so its buffer exists after that call.
 	A GPU_LOCAL entry's bytes are undefined until the first updateEntry / getStagingContainer write has been copied.
 */
-MemoryEntryId MemoryManager::allocateEntry(const char* name_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_)
+MemoryEntryId MemoryManager::allocateEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_)
 {
+	if(allocatorType_ == STATIC)
+	{
+		return { STATIC, this->staticAllocator.addEntry(name_, nullptr, size_, memoryVisability_, bufferType_) };
+	}
 	return { DYNAMIC, this->dynamicAllocator.allocateEntry(name_, size_, memoryVisability_, bufferType_) };
 }
 

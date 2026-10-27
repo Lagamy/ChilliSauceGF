@@ -7,7 +7,7 @@ namespace Graphics
 {
     struct DescriptorBlueprint 
     {
-        ReflectionLayout layout;
+        PoolId layoutId;
         std::vector<PoolId> derivedDescriptors;
         
         void addMember(); // Note: use in editor

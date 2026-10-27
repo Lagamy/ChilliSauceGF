@@ -50,6 +50,7 @@ Buffer& StaticAllocator::getBuffer(BufferTypeEnum uploadType_, MemoryVisabilityE
 	GPU_LOCAL entries are staged like any other upload: each one gets its own range from the StagingAllocator. The range stays open until upload() queues the copy and tags it with that batch.
 	It is only reused after that batch's fence was observed signaled.
 	CPU_SHARED entries are written straight into the mapped heap memory.
+	An entry added without data (MemoryManager::allocateEntry passes nullptr) only gets its place in the heap. Nothing is staged or written for it, so it has nothing pending and later writes are normal updates.
 */
 void StaticAllocator::allocateAndUpload()
 {
@@ -64,6 +65,10 @@ void StaticAllocator::allocateAndUpload()
 		{
 			MemoryEntry& rEntry = this->memoryEntries[entryId];
 			rEntry.inGPUFirstByte = this->cpuSharedHeap.bufferOffsets[i] + rEntry.inBufferFirstByte;
+			if(rEntry.data == nullptr)
+			{
+				continue;
+			}
 			rEntry.upload(rEntry.data, 0, 0, rEntry.size);
 		}
 
@@ -71,6 +76,10 @@ void StaticAllocator::allocateAndUpload()
 		{
 			MemoryEntry& rEntry = this->memoryEntries[entryId];
 			rEntry.inGPUFirstByte = this->gpuLocalHeap.bufferFirstByte[i] + rEntry.inBufferFirstByte;
+			if(rEntry.data == nullptr)
+			{
+				continue;
+			}
 			rEntry.stagingData = rMemoryManager.stagingAllocator.allocate(UPLOAD, rEntry.size);
 			rEntry.upload(rEntry.data, 0, 0, rEntry.size);
 		}

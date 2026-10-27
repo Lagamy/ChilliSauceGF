@@ -50,7 +50,7 @@ struct MemoryManager
 	bool isUploadInGPU(MemoryEntryId memoryEntryId_);
 	void updateEntry(MemoryEntryId entryId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 	void removeDynamicEntry(MemoryEntryId entryId_); 
-	MemoryEntryId allocateEntry(const char* name_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_);
+	MemoryEntryId allocateEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_);
 	MemoryEntryId reserveEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_);
 	void commitEntry(MemoryEntryId entryId_);
 	StagingDataContainer getStagingContainer(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_);

@@ -1,16 +1,21 @@
 #pragma once 
 #include "GPUDataContainer.h"
 #include "MemoryEntryId.h"
+#include "DescriptorBlueprint.h"
+#include "Utilities.h"
 
 namespace Graphics 
 {
 struct Descriptor 
-{
-	uint32_t DSlayoutId; 
+{	
+	PoolId DSlayoutId;
+	MemoryVisabilityEnum memoryVisability; 
 	PoolId setId; 
 	PoolId BlueprintId; 
 	MemoryEntryId memoryEntryId; 
 
-	bool created = false; 
+	bool created = false;
+
+	DescriptorBlueprint& getBlueprint();
 };
 }

@@ -160,7 +160,8 @@ pool per queue family (3).
   `CPU_SHARED` entries are written into the mapped heap, `GPU_LOCAL` entries get
   their own `StagingAllocator` range and a queued copy in the normal upload batch
   (no dedicated pass, fence or semaphore). An entry bigger than the biggest
-  staging page throws.
+  staging page throws. An entry added with a `nullptr` data pointer (`MemoryManager::allocateEntry`) only gets its
+  place in the heap and is skipped by the upload loop.
 - `DynamicAllocator`: pages configured via `addPage` before `init()`, sorted by
   upper-bound entry size. Each page (`BasePage` → `GPULocalPage` /
   `CPUSharedPage`) owns a `Pool<MemoryBlock>`, per-block `FreeSpace` interval
@@ -211,7 +212,7 @@ pool per queue family (3).
   `getMemoryEntry` and `isUploadInGPU` to `MemoryManager::addEntry`,
   `updateEntry`, `removeDynamicEntry`, `getEntry` and `isUploadInGPU`;
   `allocateMemoryEntry` (size = layout size × repeat count, layout looked up in the `bufferType_` list of `ReflectionSystem`)
-  and `allocateMemoryEntryRaw` (byte size, e.g. index buffers) to `MemoryManager::allocateEntry`;
+  and `allocateMemoryEntryRaw` (byte size, e.g. index buffers), both with an `allocatorType_`, to `MemoryManager::allocateEntry`;
   `requestMemoryEntryReadback`, `isReadbackReady`, `mapReadback` and `releaseReadback` to the
   readback functions above.
 - Host-visible memory (`CPU_SHARED` blocks and all staging heaps) is mapped once when the `MemoryBlock` is created
@@ -235,9 +236,10 @@ pool per queue family (3).
   returns the persistent `SharedDataContainer` of a `CPU_SHARED` entry. Both map
   entry byte offsets. `reserveEntry` creates a dynamic entry without data (pending
   until `commitEntry` queues its copy). Static entries can't be reserved.
-  `allocateEntry` also creates a dynamic entry without data, but takes no staging range and needs no commit:
-  nothing is pending, so the buffer can be bound right away and later writes are normal updates
-  (`GPU_LOCAL` bytes are undefined until the first update was copied).
+  `allocateEntry` also creates an entry without data, but takes no staging range and needs no commit:
+  nothing is pending and later writes are normal updates (`GPU_LOCAL` bytes are undefined until the first update
+  was copied). A dynamic entry's buffer exists right away. A static entry must be allocated before
+  `StaticAllocator::allocateAndUpload` (same rule as `addEntry`), and its buffer exists only after that call.
 - `GPU_ONLY` entry updates are batched by `MemoryManager`. `MemoryEntry::upload`
   writes the staging heap and calls `MemoryManager::queueCopy`, which stores a
   `PendingCopy` in the default upload slot and returns a batch id kept in `MemoryEntry::uploadBatchId`.
