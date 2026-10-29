@@ -152,13 +152,12 @@ struct PoolMap {
 	PoolId getIdByName(const char* name_)
 	{
 		const auto& iterator = this->nameToId.find(name_);
-		
-		#ifdef ENGINE_DEBUG
-			if (iterator == this->nameToId.end()) // doesn't exist 
-			{
-				throw std::runtime_error(std::format("{} Pool: no object with name {} was found.", this->name, name_));
-			}
-		#endif
+
+		/* Not under ENGINE_DEBUG: names come from user code, and dereferencing end() on a miss would be undefined behaviour in release. */
+		if (iterator == this->nameToId.end())
+		{
+			throw std::runtime_error(std::format("{} Pool: no object with name {} was found.", this->name, name_));
+		}
 		return iterator->second;
 	}
 

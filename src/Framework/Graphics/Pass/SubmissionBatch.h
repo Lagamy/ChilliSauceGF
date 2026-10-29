@@ -23,7 +23,8 @@ struct SubmissionBatch
     std::vector<VkSubmitInfo> submitInfos; 
     
     SyncRetrivalFunc dynamicSignalFenceFunc; 
-    PoolId signalFenceId = UninitializedPoolId; 
+    PoolId signalFenceId = UninitializedPoolId;
+    std::vector<PoolId> frameFenceIds;
 
     std::vector<uint32_t> submissionsWithDynamicSync; 
     bool dynamicSignalFence = false; 

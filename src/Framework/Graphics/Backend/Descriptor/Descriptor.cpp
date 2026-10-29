@@ -3,7 +3,7 @@
 
 namespace Graphics
 {
-	/* The blueprint lives in the DescriptorSetLayout this descriptor was derived from. DSlayoutId is an index into DescriptorsManager::layouts, so the lookup skips the Pool id validation. */
+	/* The blueprint lives in the DescriptorSetLayout this descriptor was derived from. Both ids are validated by Pool::operator[] under ENGINE_DEBUG. */
 	DescriptorBlueprint& Descriptor::getBlueprint()
 	{
 		return getDescriptorsManager().layouts[this->DSlayoutId].getDescriptorBlueprint(this->BlueprintId);

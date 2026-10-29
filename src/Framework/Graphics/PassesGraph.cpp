@@ -10,6 +10,9 @@
 #include "Task.h"
 #include "Utilities.h"
 #include <cstddef>
+#include <format>
+#include <limits>
+#include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -17,15 +20,32 @@ namespace Graphics
 {
 PassId PassesGraph::addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_)
 {
+    if(cmdType_ == FRAME)
+    {
+        throw std::runtime_error(std::format("Passes Graph: FRAME pass {} can't take a fence, its per frame fences are owned by the pass.", name_));
+    }
     this->passesPerCmdType[cmdType_].passesPerQueue[queueFamily_].emplace_back(name_, signalFenceId_);
     PassId id = {cmdType_, queueFamily_, this->passesPerCmdType[cmdType_].passesPerQueue[queueFamily_].size() - 1};
     this->passesOrder.emplace_back(id); 
     return id;
 }
 
+/*
+    A fence only covers the submission it was passed to, so every FRAME pass gets its own fence per frame in flight (created signaled, the first wait must not block).
+    Without them a frame with several passes would only be waited on for one of them.
+*/
 PassId PassesGraph::addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_)
 {
     this->passesPerCmdType[cmdType_].passesPerQueue[queueFamily_].emplace_back(name_);
+    if(cmdType_ == FRAME)
+    {
+        Pass& rPass = this->passesPerCmdType[cmdType_].passesPerQueue[queueFamily_].back();
+        rPass.frameFenceIds.reserve(Globals::renderer.framesAtFlightCount);
+        for(uint32_t frame = 0; frame < Globals::renderer.framesAtFlightCount; frame++)
+        {
+            rPass.frameFenceIds.emplace_back(addFence(true));
+        }
+    }
     PassId id = {cmdType_, queueFamily_, this->passesPerCmdType[cmdType_].passesPerQueue[queueFamily_].size() - 1};
     this->passesOrder.emplace_back(id); 
     return id;
@@ -33,6 +53,10 @@ PassId PassesGraph::addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFa
 
 PassId PassesGraph::addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc singalFenceFunc_)
 {
+    if(cmdType_ == FRAME)
+    {
+        throw std::runtime_error(std::format("Passes Graph: FRAME pass {} can't take a fence, its per frame fences are owned by the pass.", name_));
+    }
     this->passesPerCmdType[cmdType_].passesPerQueue[queueFamily_].emplace_back(name_, singalFenceFunc_);
     PassId id = {cmdType_, queueFamily_, this->passesPerCmdType[cmdType_].passesPerQueue[queueFamily_].size() - 1};
     this->passesOrder.emplace_back(id); 
@@ -147,6 +171,22 @@ void PassesGraph::disableFramePass(PassId passId_)
     }
 }
 
+/*
+    Blocks until every FRAME pass has finished its submission of frame frameIndex_, which is what makes that frame's command pools and CPU_SHARED memory safe for the CPU to touch.
+    Waiting doesn't reset the fences, resolveSync_SubmitToGPU does that when it submits. Must not be called between a pass's fence reset and its submit.
+*/
+void PassesGraph::waitForFrame(uint32_t frameIndex_)
+{
+    for(const auto& rPassesPerQueue : this->passesPerCmdType[FRAME].passesPerQueue)
+    {
+        for(const auto& rPass : rPassesPerQueue)
+        {
+            VkFence fence = getFence(rPass.frameFenceIds[frameIndex_]);
+            vkWaitForFences(getMainDevice().logicalDevice, 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+        }
+    }
+}
+
 void PassesGraph::compileIfDirty()
 {
     if(this->orderDirty)
@@ -168,8 +208,9 @@ void PassesGraph::compileIfDirty()
                 }
                 else
                 {
-                    rBatch.signalFenceId = rPass.signalFenceId; 
+                    rBatch.signalFenceId = rPass.signalFenceId;
                 }
+                rBatch.frameFenceIds = rPass.frameFenceIds;
 
                 rBatch.perSubmissionMetadata.reserve(rPass.tasks.size());
 
@@ -245,16 +286,23 @@ void PassesGraph::resolveSync_SubmitToGPU()
     for(uint32_t batchId = 0; batchId < this->submissionBatches.size();)
 	{
         SubmissionBatch& rBatch = this->submissionBatches[batchId]; 
-        VkFence signalFence = VK_NULL_HANDLE; 
-		if(rBatch.dynamicSignalFence)
+        VkFence signalFence = VK_NULL_HANDLE;
+        if(rBatch.lifetime == FRAME)
         {
-            rBatch.signalFenceId = rBatch.dynamicSignalFenceFunc(); 
+            signalFence = getFence(rBatch.frameFenceIds[getCurrentFrameIndex()]);
         }
+        else
+        {
+            if(rBatch.dynamicSignalFence)
+            {
+                rBatch.signalFenceId = rBatch.dynamicSignalFenceFunc();
+            }
 
-        if(rBatch.signalFenceId != UninitializedPoolId)
-	    {
-		    signalFence = getFence(rBatch.signalFenceId); 
-	    }
+            if(rBatch.signalFenceId != UninitializedPoolId)
+            {
+                signalFence = getFence(rBatch.signalFenceId);
+            }
+        }
 
         for(const auto& rSubmissionId : rBatch.submissionsWithDynamicSync)
         {
@@ -283,8 +331,16 @@ void PassesGraph::resolveSync_SubmitToGPU()
             }
             rSubmitInfo.commandBufferCount = 1; 
         }
-        
-	    vkQueueSubmit(getQueue(rBatch.queueFamily), rBatch.submitInfos.size(), rBatch.submitInfos.data(), signalFence); 
+
+        /*
+            A fence passed to vkQueueSubmit has to be unsignaled with no pending use, so a frame fence is reset right before the submit that signals it, not at the start of the frame.
+            A pass that is disabled this frame never reaches this point, so its fence stays signaled and waitForFrame doesn't hang on it.
+        */
+        if(rBatch.lifetime == FRAME)
+        {
+            vkResetFences(getMainDevice().logicalDevice, 1, &signalFence);
+        }
+	    vkQueueSubmit(getQueue(rBatch.queueFamily), rBatch.submitInfos.size(), rBatch.submitInfos.data(), signalFence);
         if(rBatch.lifetime == ONESHOT) // cmdBuffers were already disabled when recorded, remove this submissionBatch from list
 	    {
 		    this->submissionBatches.erase(this->submissionBatches.begin() + batchId); 

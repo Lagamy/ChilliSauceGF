@@ -1,18 +1,19 @@
-#pragma once 
+#pragma once
 #include "Utilities.h"
-#include "DescriptorSet.h"
+#include <array>
 #include <cstdint>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
-namespace Graphics 
+namespace Graphics
 {
-struct DescriptorPool 
+struct DescriptorPool
 {
-    VkDescriptorPool vkHandle; 
+    VkDescriptorPool vkHandle = VK_NULL_HANDLE;
     std::vector<VkDescriptorPoolSize> poolSizePerType;
     std::array<uint32_t, 4> initializedDescriptorTypes = {UninitializedId, UninitializedId, UninitializedId, UninitializedId};
 
-    void setDescriptorCountPerType(DescriptorTypeEnum descriptorType_, uint32_t count_); 
+    void setDescriptorCountPerType(DescriptorTypeEnum descriptorType_, uint32_t count_);
     void create(uint32_t maxSets_);
     void destroy();
 };

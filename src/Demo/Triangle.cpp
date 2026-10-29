@@ -32,7 +32,8 @@ namespace Graphics
 			vertexLayoutId = addVerticeLayout("Triangle Vertice Layout");
 			vertexMemberIds.positionId = addMemberToVerticeLayout(vertexLayoutId, "Position", VEC3);
 			vertexMemberIds.colorId = addMemberToVerticeLayout(vertexLayoutId, "Color", VEC4);
-			graphicsPipelineId = addGraphicsPipelineLayout("Draw Triangle", vertexShaderId, fragmentShaderId, vertexLayoutId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, getPresentationRenderPass(), 0);
+			pipelineLayoutId = addPipelineLayout();
+			graphicsPipelineId = addGraphicsPipelineLayout("Draw Triangle", pipelineLayoutId, vertexShaderId, fragmentShaderId, vertexLayoutId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, getPresentationRenderPass(), 0);
 		
 		}
 
@@ -63,7 +64,7 @@ namespace Graphics
 
 		void definePasses()
 		{
-			PassId passId = addPass("Triangle Pass", FRAME, GRAPHICS, getCurrentFrameAvailableFence);
+			PassId passId = addPass("Triangle Pass", FRAME, GRAPHICS);
 			uint32_t taskId = addTaskToPass(passId, "Draw Triangle", recordCMDs); 
 		
 			addDynamicWaitSemaphoreToTask(passId, taskId, getCurrentFrameImageIsAcquiredSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);

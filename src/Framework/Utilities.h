@@ -126,8 +126,8 @@ namespace Graphics
 
 	inline VkDescriptorType descriptorTypes[4] 
 	{
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-    	VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    	VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
 		VK_DESCRIPTOR_TYPE_SAMPLER 
 	};
@@ -241,8 +241,6 @@ namespace Graphics
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& rSurfaceCapabilities_); // What size are images can be, based on limitations(our window size)
 
 	// Utills 
-	// Write Descriptor Set Data(By binding it to a Buffer with that data).
-	void writeBufferDescriptorSet(VkDescriptorSet& rSet, VkBuffer& rBuffer, VkDeviceSize _dataSize, uint32_t _binding, VkDescriptorType _descriptorType, uint32_t _arrayElement);
 	VkDeviceSize alignUp(VkDeviceSize value, VkDeviceSize alignment); // Adds missing bytes starting bytes, and end bytes
 
 

@@ -36,7 +36,8 @@ src/Framework/
     Renderer                  Owns everything GPU-side; setup/draw/shutdown
     *Manager, GPUScene,       Containers grouping resources of one kind
     PassesGraph, SyncManager,
-    ReflectionSystem
+    ReflectionSystem,
+    DescriptorsManager
     FrameResources            Per-frame-in-flight cmd pools + sync objects
     Backend/Base/             Thin Vulkan object wrappers (Instance, Device, Swapchain,
                               Buffer, MemoryBlock, RenderPass, SubPass, Framebuffer,
@@ -44,6 +45,8 @@ src/Framework/
     Backend/CommandBuffer/    FrameCommandPool, OneShotCommandPool, CmdPoolsPack
     Backend/Synchronisation/  Fence, Semaphore
     Backend/Image/            Image (+ views), Sampler
+    Backend/Descriptor/       DescriptorSetLayout, DescriptorBlueprint, DescriptorSet, Descriptor,
+                              DescriptorPool
     Backend/ValidationLayers/ DebugMessenger, layer/extension lists
     Pass/                     Pass, Task, PassId, SubmissionBatch, SubmissionMetadata
     Reflection/               ReflectionLayout, MemberBlueprint, CPUDataContainer,
@@ -57,7 +60,7 @@ src/Framework/
 - `Globals::renderer` (`Graphics::Renderer`) is a single global that owns all
   subsystems as value members: `instance`, `mainDevice`, `surface`, `swapchain`,
   `memoryManager`, `syncManager`, `shadersManager`, `resourcesManager`,
-  `pipelinesManager`, `reflectionSystem`, `passesGraph`, `gpuSceneManager`,
+  `pipelinesManager`, `descriptorsManager`, `reflectionSystem`, `passesGraph`, `gpuSceneManager`,
   `framesResources`, `oneShotCommandPools`, `presentationRenderPass`.
 - `Api.h` declares free functions in `namespace Graphics` (`getX`, `addX`,
   `removeX`, `setX`, command-recording helpers). Each is a thin forwarder into
@@ -73,19 +76,20 @@ src/Framework/
 2. `Core::setup` creates the GLFW window, then `Renderer::setup`: instance →
    surface → device → swapchain (sets `framesAtFlightCount` = swapchain image
    count) → `FrameResources` → `MemoryManager::setup` → presentation render pass →
-   framebuffers → GPUSceneManager `define*` (then `changed` is reset) → static allocator upload → pipelines →
+   framebuffers → GPUSceneManager `define*` (then `changed` is reset) → descriptor memory allocation →
+   static allocator upload → descriptor layouts + sets creation → pipelines (pipeline layouts first) →
    command pools (allocated from tasks registered by `define*`).
 3. `Renderer::draw` per frame (skipped while `Globals::resizing`):
    if `GPUSceneManager::changed`, run `define*` again and reset it → resolve
-   pending memory ops → GPUSceneManager `update*` → wait + reset the frame's
-   `frameAvailableFence` → `vkAcquireNextImageKHR` (signals the frame's
+   pending memory ops → GPUSceneManager `update*` → `passesGraph.waitForFrame(currentFrame)`
+   (waits on the frame's fence of every `FRAME` pass) → `vkAcquireNextImageKHR` (signals the frame's
    `imageAcquiredSemaphore`) → re-record enabled command buffers →
    `passesGraph.compileIfDirty()` → `resolveSync_SubmitToGPU()` →
    `presentToScreen()` (waits on the swapchain image's
    `imageUseFinishedSemaphore`) → advance `currentFrame`.
 4. `Renderer::shutdown` calls `vkDeviceWaitIdle`, then destroys in reverse
-   dependency order (sync → frame resources → one-shot pools → pipelines →
-   render passes → framebuffers → shaders → memory → swapchain → device →
+   dependency order (sync → frame resources → one-shot pools → pipelines (and pipeline layouts) →
+   descriptor sets and layouts → render passes → framebuffers → shaders → memory → swapchain → device →
    surface → instance).
 5. Window resize (`Core::windowSizeCallback`): `vkDeviceWaitIdle`, destroy and
    recreate swapchain + framebuffers.
@@ -117,6 +121,10 @@ pool per queue family (3).
 - `enablePass` / `disableFramePass` mark the graph dirty; `compileIfDirty`
   rebuilds `SubmissionBatch`es (one `vkQueueSubmit` per enabled pass, one
   `VkSubmitInfo` per task).
+- Every `FRAME` pass owns one fence per frame in flight (`Pass::frameFenceIds`, created signaled in `addPass`). The framework picks
+  `frameFenceIds[currentFrame]` for the pass's submit and resets it right before `vkQueueSubmit` (a pass that is disabled that frame
+  keeps its fence signaled). `PassesGraph::waitForFrame(frame)` waits on all of them. `addPass` throws if a `FRAME` pass is given a
+  fence; `ONESHOT` passes still take one.
 - Static sync = `PoolId` of a semaphore/fence resolved at compile time.
   Dynamic sync = a `SyncRetrivalFunc` (`PoolId(*)()`) called at every submit
   (e.g. `getCurrentFrameImageIsAcquiredSemaphore`), for objects that change per
@@ -255,6 +263,50 @@ pool per queue family (3).
 - `MemoryVisabilityEnum`: `GPU_ONLY` (device-local, uploaded through staging)
   and `CPU_SHARED` (host-visible|coherent, written with map/memcpy/unmap).
 
+## Descriptors (static buffer descriptors)
+
+Uniform and storage buffer descriptors only. No dynamic buffers, bindless, images or samplers (the
+`DescriptorSetLayout` constructor throws for the latter two).
+
+- `DescriptorsManager` (`Graphics/`) owns `PoolMap<DescriptorSetLayout> layouts` and
+  `Pool<DescriptorSet> descriptorSet`.
+- `DescriptorSetLayout` has one `DescriptorTypeEnum` and one set of shader stages for all its bindings.
+  `addDescriptorBlueprint(name)` adds a binding: it creates the blueprint plus its own uniform/storage
+  `ReflectionLayout` (in `ReflectionSystem`), both named `<layout name>/<name>` so blueprint names only have to be unique inside one layout, the blueprint slot index is the binding number (dead slots are skipped,
+  numbers can be sparse; removing a blueprint also removes its `ReflectionLayout`). Members are added with `DescriptorBlueprint::addMember` (forwarded to that layout). The API function `addDescriptorBlueprint(layoutName, blueprintName)` finds the layout by name.
+  `create()` builds the `VkDescriptorSetLayout`.
+- `deriveDescriptorSet(layoutId, allocatorType, memoryVisability)` creates a `DescriptorSet` with one `Descriptor` per
+  blueprint slot (same slot index) and adds the set id to each blueprint's `derivedDescriptors`. Blueprints can't be
+  added, removed or get members after memory of a derived set was allocated, and can't be added/removed once sets are derived.
+- A `DescriptorSet` owns its `DescriptorPool` (1 pool : 1 set, `maxSets` 1, destroyed with the set; destroying the pool
+  frees the set). Two phases: `allocateDescriptorsMemory()` calls `allocateMemoryEntry` per descriptor (size = layout size,
+  one repeat unit; static entries have to be added before `StaticAllocator::allocateAndUpload`), `create()` allocates the
+  `VkDescriptorSet` and writes every binding with one `vkUpdateDescriptorSets` (offset 0 for dynamic entries,
+  `inBufferFirstByte` for static ones). `MemoryEntry::descriptorSet` points back at the set.
+- `DescriptorSet::setDescriptorMemberValue<T>(blueprintId, memberId, value)` writes through
+  `getStagingContainer` (`GPU_LOCAL`) or `getSharedContainer` (`CPU_SHARED`) and `ReflectionLayout::setMember`, like `Mesh`.
+- `Renderer::setup` calls `allocateAllDescriptorsMemory()` before the static upload and `createAll()` (layouts, then sets) after it and
+  before `createAllPipelines()`. `Renderer::shutdown` calls `descriptorsManager.destroy()` (sets, then layouts) after the pipelines.
+- Pipelines: `PipelinesManager::pipelineLayouts` (`Pool<PipelineLayout>`) owns the pipeline layouts, a `GraphicsPipeline`
+  holds a `pipelineLayoutId`. `PipelineLayout::usedByGraphicsPipelineIds` and `DescriptorSetLayout::usedByPipelineLayoutIds`
+  are filled by `PipelinesManager::addGraphicsPipeline` / `addDescriptorSetLayoutToPipelineLayout`.
+  `createAllPipelines` creates the layouts first. `bindDescriptorSet` records `vkCmdBindDescriptorSets`.
+- Editor-time cascade: adding/removing a blueprint of a created `DescriptorSetLayout` calls `recreate()`: destroy + create the
+  layout, then `PipelineLayout::recreate()` for each layout using it (destroy + create the layout and its graphics pipelines).
+  `PipelineLayout::addDescriptorSetLayout` on a created layout recreates it too. Nothing waits for the GPU, the caller has to
+  make sure nothing submitted uses them.
+- CPU/GPU sync of `CPU_SHARED` writes: one set is shared by every frame in flight. `bindDescriptorSet` sets bit `currentFrame` in
+  `DescriptorSet::framesInFlightMask` while recording. `setDescriptorMemberValue` on a `CPU_SHARED` descriptor first calls
+  `PassesGraph::waitForFrame` for every marked frame (and clears the bits), then writes (write-after-read needs only
+  that execution dependency, the memory is coherent). A write that is not followed by a rebind waits at most once. If the set is bound
+  and written every frame, the writes wait for all earlier frames, so effectively one frame is in flight. It must not be called while
+  recording a command buffer (the current fence is reset but not submitted, the wait would never return). `GPU_LOCAL` writes go through
+  staging and don't wait.
+- Not handled: `ONESHOT` passes have no frame fence, so a set bound there is not covered by the mask (fix before implementing compute),
+  `ReflectionLayout` adds no std140/std430 padding, static entries are packed without
+  `minUniformBufferOffsetAlignment` / `minStorageBufferOffsetAlignment`, `Renderer::draw`'s scene change path doesn't allocate or
+  create descriptors.
+
 ## Reflection
 
 `ReflectionSystem::layoutsPerBufferType[bufferType - 1]` (no INDEX layout) holds
@@ -318,7 +370,7 @@ keeps no copy of its vertex bytes; it writes through these containers.
 - Types `PascalCase`; functions, members, locals `camelCase`.
 - Function parameters end with `_` (`size_`, `rRenderpass_`).
 - Reference variables/params prefixed `r` (`rEntry`, `rPass`); pointers prefixed
-  `p` (`pRenderPass`, `pCurrentFrameAvailable`).
+  `p` (`pRenderPass`, `pMapped`).
 - Members always accessed through `this->`.
 - Ids: `xxxId` (`PoolId meshId`, `PassId uploadPassId`, `uint32_t taskId`).
   Invalid id sentinels: `UninitializedId`, `UninitializedPoolId`.

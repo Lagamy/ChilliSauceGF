@@ -30,6 +30,7 @@ namespace Graphics
 	PassesGraph& getPassesManager(); 
 	PipelinesManager& getPipelinesManager(); 
 	DescriptorsManager& getDescriptorsManager(); 
+	ReflectionSystem& getReflectionSystem(); 
 	
 	VkSemaphore& getSemaphore(PoolId semaphoreId_);
 	VkFence& getFence(PoolId fenceId_);
@@ -47,7 +48,6 @@ namespace Graphics
 	Pass& getPass(PassId passId_);
 	PoolId getCurrentSwapchainImageUseFinishedSemaphore(); 
 	PoolId getCurrentFrameImageIsAcquiredSemaphore(); 
-	PoolId getCurrentFrameAvailableFence();
 	uint64_t getIndividualUpdateMemBlockSize(); 
 
 
@@ -60,6 +60,8 @@ namespace Graphics
 	GraphicsPipeline& getGraphicsPipeline(PoolId layoutId_); 
 	RenderPass& getPresentationRenderPass();
 	ReflectionLayout& getVerticeLayout(PoolId layoutId_);
+	DescriptorSet& getDescriptorSet(PoolId setId_);
+	DescriptorSetLayout& getDescriptorSetLayout(PoolId layoutId_);
 
 
 	// Set
@@ -96,7 +98,13 @@ namespace Graphics
 
 	PoolId addVerticeLayout(const char* name_);
 	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_);
-	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 
+	PoolId addDescriptorSetLayout(const char* name_, DescriptorTypeEnum descriptorType_, VkShaderStageFlags shaderStages_);
+	PoolId addDescriptorBlueprint(const char* layoutName_, const char* blueprintName_);
+	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_);
+	PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_);
+	PoolId addPipelineLayout();
+	void addDescriptorSetLayoutToPipelineLayout(PoolId pipelineLayoutId_, PoolId descriptorSetLayoutId_);
+	PoolId addGraphicsPipelineLayout(const char* name_, PoolId pipelineLayoutId_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 
 	void addPageForStagingReadbacks(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_);
 	void addPageForStagingUploads(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_);
 	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_);
@@ -126,6 +134,7 @@ namespace Graphics
 	// Commands Recording
 	void beginCMDsRecording(VkCommandBuffer& cmdBuffer_);
 	void bindGraphicsPipeline(PoolId graphicsPipelineId_, VkCommandBuffer& cmdBuffer_); 
+	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, uint32_t setIndex_, VkCommandBuffer& cmdBuffer_);
 	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer& cmdBuffer_);
 	void endCMDsRecording(VkCommandBuffer& cmdBuffer_); 
 

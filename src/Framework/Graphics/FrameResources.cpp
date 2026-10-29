@@ -8,7 +8,6 @@ namespace Graphics
 		std::ostringstream name;
 		this->id = id_; 
 		this->imageAcquiredSemaphoreId = addSemaphore();
-		this->frameAvailableFenceId = addFence(true);
 	}
 
 	void FrameResources::createCmdPools()

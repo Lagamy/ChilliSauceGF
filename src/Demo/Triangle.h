@@ -18,6 +18,7 @@ namespace Triangle {
 	inline TriangleVertexMemberIds vertexMemberIds; 
 
 	inline PoolId meshId;
+	inline PoolId pipelineLayoutId; 
 	inline PoolId graphicsPipelineId; 
 
 	inline uint64_t counter = 0; 

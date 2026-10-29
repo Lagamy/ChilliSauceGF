@@ -12,6 +12,10 @@ struct PipelinesManager
 	PoolMap<GraphicsPipeline> graphicsPipelines = ("Graphics Pipelines");
     PoolMap<ComputePipeline> computePipelines = ("Compute Pipelines");
 
+    PoolId addPipelineLayout();
+    void addDescriptorSetLayoutToPipelineLayout(PoolId pipelineLayoutId_, PoolId descriptorSetLayoutId_);
+    PoolId addGraphicsPipeline(const char* name_, PoolId pipelineLayoutId_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_);
+
     void createAllPipelines(); 
     void destroyAllPipelines();
 }; 

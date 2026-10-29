@@ -47,8 +47,14 @@ void Renderer::setup()
 	this->gpuSceneManager.definePasses();
 	this->gpuSceneManager.changed = false;
 
+	// Descriptor memory has to be added before the static heaps are allocated
+	this->descriptorsManager.allocateAllDescriptorsMemory();
+
 	// Send static uploads to the GPU
 	this->memoryManager.staticAllocator.allocateAndUpload();
+
+	// Descriptor sets point at the buffers that exist after the static allocation. Pipeline layouts need the set layouts, so those go before the pipelines
+	this->descriptorsManager.createAll();
 
 	// Create Pipelines, CmdBuffers
 	createAllPipelines(); 
@@ -77,10 +83,8 @@ void Renderer::draw()
 		this->gpuSceneManager.updateResources();
 		this->gpuSceneManager.updatePasses(); 
 
-		VkFence* pCurrentFrameAvailable = &getFence(this->framesResources[this->currentFrame].frameAvailableFenceId);
-		vkWaitForFences(this->mainDevice.logicalDevice, 1, pCurrentFrameAvailable, VK_TRUE, std::numeric_limits<uint64_t>::max()); // wait for frame available fence signal
-		vkResetFences(this->mainDevice.logicalDevice, 1, pCurrentFrameAvailable); // unsignal fence
-																
+		this->passesGraph.waitForFrame(this->currentFrame);
+
 		vkAcquireNextImageKHR(
 			this->mainDevice.logicalDevice, this->swapchain.get(), std::numeric_limits<uint64_t>::max(), 
 			getSemaphore(this->framesResources[currentFrame].imageAcquiredSemaphoreId), VK_NULL_HANDLE, &imageIndex
@@ -110,6 +114,7 @@ void Renderer::shutdown()
 	}
 	this->oneShotCommandPools.destroy();
 	this->pipelinesManager.destroyAllPipelines(); 
+	this->descriptorsManager.destroy();
 	this->renderPasses.clear();
 	this->swapchain.destroyFramebuffers(); 
 	this->presentationRenderPass.destroy(); 

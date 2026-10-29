@@ -2,6 +2,7 @@
 #include "Api.h"
 #include "Utilities.h"
 #include <cstdint>
+#include <stdexcept>
 
 namespace  Graphics 
 {
@@ -13,22 +14,25 @@ namespace  Graphics
             this->initializedDescriptorTypes[descriptorType_] = this->poolSizePerType.size() - 1; 
         }
 
-        uint8_t descriptorTypeId = this->initializedDescriptorTypes[descriptorTypeId]; 
-        this->poolSizePerType[descriptorTypeId].descriptorCount = count_; 
-        this->poolSizePerType[descriptorTypeId].type = descriptorTypes[descriptorType_];  
+        uint32_t poolSizeId = this->initializedDescriptorTypes[descriptorType_]; 
+        this->poolSizePerType[poolSizeId].descriptorCount = count_; 
+        this->poolSizePerType[poolSizeId].type = descriptorTypes[descriptorType_];  
     }
 
+    /* Vulkan requires poolSizeCount > 0, so a pool without any configured descriptor type can't be created. */
     void DescriptorPool::create(uint32_t maxSets_)
     {
-	    // Data to create Descriptor Pool
+	    if(this->poolSizePerType.empty())
+	    {
+		    throw std::runtime_error("Descriptor Pool: Can't create a pool without descriptors. Set descriptor counts first.");
+	    }
+
 	    VkDescriptorPoolCreateInfo poolCreateInfo = {};
 	    poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	    poolCreateInfo.maxSets = maxSets_; 
-	    poolCreateInfo.poolSizeCount = this->poolSizePerType.size(); // Amount of Pool Sizes being passed
-	    poolCreateInfo.pPoolSizes = this->poolSizePerType.data(); // Pool Sizes to create pool with
+	    poolCreateInfo.poolSizeCount = this->poolSizePerType.size();
+	    poolCreateInfo.pPoolSizes = this->poolSizePerType.data();
 
-
-	    // Create Descriptor Pool
 	    VkResult result = vkCreateDescriptorPool(getMainDevice().logicalDevice, &poolCreateInfo, nullptr, &this->vkHandle);
 	    if (result != VK_SUCCESS)
 	    {
@@ -38,7 +42,10 @@ namespace  Graphics
 
     void DescriptorPool::destroy()
     {
-	    vkDestroyDescriptorPool(getMainDevice().logicalDevice, this->vkHandle, nullptr);
+	    if(this->vkHandle != VK_NULL_HANDLE)
+	    {
+		    vkDestroyDescriptorPool(getMainDevice().logicalDevice, this->vkHandle, nullptr);
+		    this->vkHandle = VK_NULL_HANDLE;
+	    }
     }
 }
- 

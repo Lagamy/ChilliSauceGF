@@ -61,6 +61,11 @@ namespace Graphics
 	{
 		return Globals::renderer.descriptorsManager;
 	} 
+
+	ReflectionSystem& getReflectionSystem()
+	{
+		return Globals::renderer.reflectionSystem;
+	}
 	
 
 	// For now i only need 1 of each
@@ -123,11 +128,6 @@ namespace Graphics
 	{
 		return getCurrentFrameResources().imageAcquiredSemaphoreId;
 	} 
-
-	PoolId getCurrentFrameAvailableFence()
-	{
-		return getCurrentFrameResources().frameAvailableFenceId;
-	}
 
 	uint64_t getIndividualUpdateMemBlockSize()
 	{
@@ -197,6 +197,16 @@ namespace Graphics
 	ReflectionLayout& getVerticeLayout(PoolId layoutId_)
 	{
 		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX_BUFFER - 1][layoutId_]; // - 1 due to INDEX layout not existing  
+	}
+
+	DescriptorSet& getDescriptorSet(PoolId setId_)
+	{
+		return Globals::renderer.descriptorsManager.descriptorSet[setId_];
+	}
+
+	DescriptorSetLayout& getDescriptorSetLayout(PoolId layoutId_)
+	{
+		return Globals::renderer.descriptorsManager.layouts[layoutId_];
 	}
 
 	Mesh& getMesh(PoolId meshId_)
@@ -331,9 +341,39 @@ namespace Graphics
 		return Globals::renderer.resourcesManager.meshes.add(name_, name_, verticeLayoutId_, repeatCount_); 
 	} 
 
-	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_)
+	PoolId addDescriptorSetLayout(const char* name_, DescriptorTypeEnum descriptorType_, VkShaderStageFlags shaderStages_)
 	{
-		return Globals::renderer.pipelinesManager.graphicsPipelines.add(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
+		return Globals::renderer.descriptorsManager.addDescriptorSetLayout(name_, descriptorType_, shaderStages_);
+	}
+
+	PoolId addDescriptorBlueprint(const char* layoutName_, const char* blueprintName_)
+	{
+		return Globals::renderer.descriptorsManager.addDescriptorBlueprint(layoutName_, blueprintName_);
+	}
+
+	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_)
+	{
+		return Globals::renderer.descriptorsManager.addMemberToDescriptorBlueprint(layoutId_, blueprintId_, name_, dataType_);
+	}
+
+	PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_)
+	{
+		return Globals::renderer.descriptorsManager.addDescriptorSet(layoutId_, allocatorType_, memoryVisability_);
+	}
+
+	PoolId addPipelineLayout()
+	{
+		return Globals::renderer.pipelinesManager.addPipelineLayout();
+	}
+
+	void addDescriptorSetLayoutToPipelineLayout(PoolId pipelineLayoutId_, PoolId descriptorSetLayoutId_)
+	{
+		Globals::renderer.pipelinesManager.addDescriptorSetLayoutToPipelineLayout(pipelineLayoutId_, descriptorSetLayoutId_);
+	}
+
+	PoolId addGraphicsPipelineLayout(const char* name_, PoolId pipelineLayoutId_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_)
+	{
+		return Globals::renderer.pipelinesManager.addGraphicsPipeline(name_, pipelineLayoutId_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
 	} 
 
 	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_)
@@ -453,6 +493,16 @@ namespace Graphics
 	void bindGraphicsPipeline(PoolId graphicsPipelineId_, VkCommandBuffer &cmdBuffer_) 
 	{
 		vkCmdBindPipeline(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, getGraphicsPipeline(graphicsPipelineId_).get());
+	}
+
+	/* The set has to be compatible with the set layout at setIndex_ of the pipeline's layout (descriptor set layout compatibility), that's the only thing Vulkan requires for the bind. */
+	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, uint32_t setIndex_, VkCommandBuffer &cmdBuffer_)
+	{
+		VkPipelineLayout pipelineLayout = getPipelinesManager().pipelineLayouts[getGraphicsPipeline(graphicsPipelineId_).pipelineLayoutId].get();
+		DescriptorSet& rDescriptorSet = getDescriptorSet(descriptorSetId_);
+		VkDescriptorSet descriptorSet = rDescriptorSet.get();
+		rDescriptorSet.markUsedInCurrentFrame();
+		vkCmdBindDescriptorSets(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, setIndex_, 1, &descriptorSet, 0, nullptr);
 	}
 
 	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer &cmdBuffer_) 

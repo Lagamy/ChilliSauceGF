@@ -80,6 +80,8 @@ add_executable(ChilliSauceGF
  	"src/Framework/Graphics/MemoryManagment/Pages/FreeSpace.cpp"
  	"src/Framework/Graphics/MemoryManagment/Heaps/GPULocalHeap.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/CPUSharedHeap.cpp"
  	src/Framework/Graphics/Backend/Descriptor/DescriptorBlueprint.cpp src/Framework/Graphics/Backend/Descriptor/Descriptor.cpp
+ 	src/Framework/Graphics/Backend/Descriptor/DescriptorSetLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSet.cpp
+ 	src/Framework/Graphics/Backend/Descriptor/DescriptorPool.cpp src/Framework/Graphics/DescriptorsManager.cpp
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")

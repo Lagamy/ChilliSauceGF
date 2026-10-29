@@ -14,7 +14,7 @@ namespace Graphics
 {
 struct GraphicsPipeline {
 	VkPipeline vkHandle = VK_NULL_HANDLE;
-	PipelineLayout pipelineLayout;
+	PoolId pipelineLayoutId;
  
 	// In order to have a cached info for pipeline recreation 
 	VkPrimitiveTopology primitiveType; // What Primitive do verticies represent(Points, lines, triangle, etc) 
@@ -33,7 +33,7 @@ struct GraphicsPipeline {
 	void create();
 	void destroy();
 	
-	GraphicsPipeline(PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_) : vertexShaderId(vertexShaderId_), fragmentShaderId(fragmentShaderId_), verticeLayoutId(verticeLayoutId_), primitiveType(primitiveType_), polygonMode(polygonMode_), pRenderPass(&rRenderpass_), subpassId(subpassId_) {};
+	GraphicsPipeline(PoolId pipelineLayoutId_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_) : pipelineLayoutId(pipelineLayoutId_), vertexShaderId(vertexShaderId_), fragmentShaderId(fragmentShaderId_), verticeLayoutId(verticeLayoutId_), primitiveType(primitiveType_), polygonMode(polygonMode_), pRenderPass(&rRenderpass_), subpassId(subpassId_) {};
 	VkPipeline get() const;
 };
 }

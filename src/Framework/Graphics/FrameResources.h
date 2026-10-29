@@ -12,7 +12,6 @@ struct FrameResources {
 	uint32_t id; 
 	CmdPoolsPack<FrameCommandPool> frameCmdPools; 
 	PoolId imageAcquiredSemaphoreId; 
-	PoolId frameAvailableFenceId; 
 
 
 	void setup(uint32_t id_);

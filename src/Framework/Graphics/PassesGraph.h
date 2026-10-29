@@ -31,6 +31,7 @@ struct PassesGraph
     void enablePass(PassId passId_); 
     void disableFramePass(PassId passId_); // Since oneshot - self disables
 
+    void waitForFrame(uint32_t frameIndex_);
     void compileIfDirty();
     void resolveDynamicSync(SubmissionBatch& rSubmissionBatch_, SubmissionMetadata& rMetadata); 
     void resolveSync_SubmitToGPU();     
