@@ -229,7 +229,6 @@ namespace Graphics
 			}
 			return valid;
 		}
-		// Todo: if there are no Transfer or Compute queues - assign their indices to available Graphics queue, so further code works anyways, just on one queue. 
 	};
 	
 	QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device_);

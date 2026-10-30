@@ -19,7 +19,7 @@ namespace Graphics
 		{
 			usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		}
-		PoolId bufferId = this->buffers.add(size_, usage, VK_SHARING_MODE_EXCLUSIVE, uploadName_); 
+		PoolId bufferId = this->buffers.add(size_, usage, this->memoryVisability == GPU_LOCAL ? getMemoryManager().queueTransferSync.gpuLocalSharingMode : VK_SHARING_MODE_EXCLUSIVE, uploadName_); 
 		VkMemoryRequirements bufferReqs = this->buffers[bufferId].memoryReqs;
 		if(bufferReqs.size > this->memoryBlockSize)
 		{

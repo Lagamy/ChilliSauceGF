@@ -270,6 +270,11 @@ namespace Graphics
 		return Globals::renderer.shadersManager.shaders.add(name_, Disk::executablePath + path_);  
 	}
 
+	void addDescriptorToShader(PoolId shaderId_, uint32_t setIndex_, PoolId blueprintId_)
+	{
+		getShader(shaderId_).addDescriptor(setIndex_, blueprintId_);
+	}
+
 	void removeShader(PoolId& id_)
 	{
 		Globals::renderer.shadersManager.shaders.remove(id_); 
@@ -277,13 +282,13 @@ namespace Graphics
 
 
 
-	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_)
+	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_, bool readOnly_)
 	{
-		return Globals::renderer.memoryManager.addEntry(name_, data_, size_, allocatorType_, memoryVisability_, uploadType_);
+		return Globals::renderer.memoryManager.addEntry(name_, data_, size_, allocatorType_, memoryVisability_, uploadType_, readOnly_);
 	}
 
 	/* The layout is looked up in the bufferType_ list. The INDEX layout doesn't exist, and the TEXTURE and SAMPLER lists aren't there yet. */
-	MemoryEntryId allocateMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, PoolId layoutId_, uint32_t repeatCount_)
+	MemoryEntryId allocateMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, PoolId layoutId_, uint32_t repeatCount_, bool readOnly_)
 	{
 		#ifdef ENGINE_DEBUG
 			if(bufferType_ < VERTEX_BUFFER || bufferType_ > STORAGE_BUFFER)
@@ -293,12 +298,12 @@ namespace Graphics
 		#endif
 
 		VkDeviceSize size = Globals::renderer.reflectionSystem.layoutsPerBufferType[bufferType_ - 1][layoutId_].size * repeatCount_; // - 1 due to INDEX layout not existing
-		return Globals::renderer.memoryManager.allocateEntry(name_, allocatorType_, memoryVisability_, bufferType_, size);
+		return Globals::renderer.memoryManager.allocateEntry(name_, allocatorType_, memoryVisability_, bufferType_, size, readOnly_);
 	}
 
-	MemoryEntryId allocateMemoryEntryRaw(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_)
+	MemoryEntryId allocateMemoryEntryRaw(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_)
 	{
-		return Globals::renderer.memoryManager.allocateEntry(name_, allocatorType_, memoryVisability_, bufferType_, size_);
+		return Globals::renderer.memoryManager.allocateEntry(name_, allocatorType_, memoryVisability_, bufferType_, size_, readOnly_);
 	}
 
 	void updateMemoryEntry(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)
@@ -359,6 +364,21 @@ namespace Graphics
 	PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_)
 	{
 		return Globals::renderer.descriptorsManager.addDescriptorSet(layoutId_, allocatorType_, memoryVisability_);
+	}
+
+	void removeDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_)
+	{
+		Globals::renderer.descriptorsManager.removeDescriptorBlueprint(layoutId_, blueprintId_);
+	}
+
+	void removeDescriptorSet(PoolId setId_)
+	{
+		Globals::renderer.descriptorsManager.removeDescriptorSet(setId_);
+	}
+
+	void removeDescriptorSetLayout(PoolId layoutId_)
+	{
+		Globals::renderer.descriptorsManager.removeDescriptorSetLayout(layoutId_);
 	}
 
 	PoolId addPipelineLayout()
@@ -472,6 +492,8 @@ namespace Graphics
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	
 		vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
+		Globals::renderer.recordingPipelineId = UninitializedPoolId;
+		Globals::renderer.recordingSetIds.clear();
 		setViewportAndScissors(cmdBuffer_);
 		VkClearValue clearColor = {};
 		clearColor.color = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -492,24 +514,76 @@ namespace Graphics
 
 	void bindGraphicsPipeline(PoolId graphicsPipelineId_, VkCommandBuffer &cmdBuffer_) 
 	{
+		Globals::renderer.recordingPipelineId = graphicsPipelineId_;
 		vkCmdBindPipeline(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, getGraphicsPipeline(graphicsPipelineId_).get());
 	}
 
-	/* The set has to be compatible with the set layout at setIndex_ of the pipeline's layout (descriptor set layout compatibility), that's the only thing Vulkan requires for the bind. */
+	/*
+		The set has to be compatible with the set layout at setIndex_ of the pipeline's layout (descriptor set layout compatibility), that's the only thing Vulkan requires for the bind. It is always bound, even while some of its descriptors have no data yet: every binding was written by DescriptorSet::create, and a shader only reads the bindings it uses.
+		The set is remembered for the rest of the recording (Renderer::recordingSetIds), drawMeshIndexed looks up the descriptors its shaders declared (Shader::addDescriptor) in it.
+	*/
 	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, uint32_t setIndex_, VkCommandBuffer &cmdBuffer_)
 	{
 		VkPipelineLayout pipelineLayout = getPipelinesManager().pipelineLayouts[getGraphicsPipeline(graphicsPipelineId_).pipelineLayoutId].get();
-		DescriptorSet& rDescriptorSet = getDescriptorSet(descriptorSetId_);
-		VkDescriptorSet descriptorSet = rDescriptorSet.get();
-		rDescriptorSet.markUsedInCurrentFrame();
+		if(Globals::renderer.recordingSetIds.size() <= setIndex_)
+		{
+			Globals::renderer.recordingSetIds.resize(setIndex_ + 1, UninitializedPoolId);
+		}
+		Globals::renderer.recordingSetIds[setIndex_] = descriptorSetId_;
+		VkDescriptorSet descriptorSet = getDescriptorSet(descriptorSetId_).get();
 		vkCmdBindDescriptorSets(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, setIndex_, 1, &descriptorSet, 0, nullptr);
 	}
 
-	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer &cmdBuffer_) 
+	/* The set bound at setIndex_ in the command buffer being recorded. Throws when a shader declares a descriptor of a set index nothing was bound to, since the draw would read an unbound set. */
+	static DescriptorSet& getRecordingSet(uint32_t setIndex_)
 	{
-		Mesh& rMesh = getMesh(meshId_); 
+		if(Globals::renderer.recordingSetIds.size() <= setIndex_ || Globals::renderer.recordingSetIds[setIndex_] == UninitializedPoolId)
+		{
+			throw std::runtime_error(std::format("Draw: A shader uses a descriptor of set index {}, but no set is bound there.", setIndex_));
+		}
+		return getDescriptorSet(Globals::renderer.recordingSetIds[setIndex_]);
+	}
+
+	/*
+		A draw may only read the descriptors its shader declared once their first data was copied (DescriptorSet::isDescriptorSettled), later updates are ordered by the upload batch barriers. Descriptors the shader doesn't use don't matter, even when they share a set with one that is pending.
+		A draw that fails this is skipped for the frame and recorded again on a later one (the command buffer is re-recorded every frame), like drawMeshIndexed skips until its uploads are in the GPU.
+	*/
+	static bool areShaderDescriptorsSettled(const Shader& rShader_)
+	{
+		for(const ShaderDescriptorUse& rUse : rShader_.descriptors)
+		{
+			if(!getRecordingSet(rUse.setIndex).isDescriptorSettled(rUse.descriptorId))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/* Queued only for draws that are recorded, so a descriptor that was skipped keeps accepting its first writes. The entries are locked after the frame's submit (DescriptorsManager::lockBoundDescriptors). */
+	static void queueShaderDescriptorLocks(const Shader& rShader_)
+	{
+		for(const ShaderDescriptorUse& rUse : rShader_.descriptors)
+		{
+			getDescriptorsManager().queueLockOnSubmit(Globals::renderer.recordingSetIds[rUse.setIndex], rUse.descriptorId);
+		}
+	}
+
+	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer &cmdBuffer_)
+	{
+		Mesh& rMesh = getMesh(meshId_);
+		GraphicsPipeline& rPipeline = getGraphicsPipeline(Globals::renderer.recordingPipelineId);
+		Shader& rVertexShader = getShader(rPipeline.vertexShaderId);
+		Shader& rFragmentShader = getShader(rPipeline.fragmentShaderId);
+		if(!areShaderDescriptorsSettled(rVertexShader) || !areShaderDescriptorsSettled(rFragmentShader))
+		{
+			return;
+		}
 		if(isUploadInGPU(rMesh.vbMemoryUploadId) && isUploadInGPU(rMesh.ibMemoryUploadId))
 		{
+			queueShaderDescriptorLocks(rVertexShader);
+			queueShaderDescriptorLocks(rFragmentShader);
+
 			const MemoryEntry& indexUpload = getMemoryEntry(rMesh.ibMemoryUploadId); 
 			const MemoryEntry& vertexUpload = getMemoryEntry(rMesh.vbMemoryUploadId);
 			MemoryManager& rMemoryManager = Globals::renderer.memoryManager;

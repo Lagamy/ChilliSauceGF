@@ -314,13 +314,29 @@ void PassesGraph::resolveSync_SubmitToGPU()
             VkSubmitInfo& rSubmitInfo = rBatch.submitInfos[submissionId];
             SubmissionMetadata& rMetadata = rBatch.perSubmissionMetadata[submissionId];
 
+            /*
+                Queues don't order work against each other, so with separate queue families the first submit of the batch also waits for the queues that submitted before it,
+                and the last one signals this queue's done semaphore (see QueueTransferSync). The batch's own semaphores stay untouched, they are reused by later frames.
+            */
+            rMetadata.submitWaitSemaphores = rMetadata.waitSemaphores;
+            rMetadata.submitWaitStages = rMetadata.waitStages;
+            rMetadata.submitSignalSemaphores = rMetadata.signalSemaphores;
+            if(submissionId == 0)
+            {
+                getMemoryManager().queueTransferSync.addWaits(rMetadata.submitWaitSemaphores, rMetadata.submitWaitStages);
+            }
+            if(submissionId + 1 == rBatch.submitInfos.size())
+            {
+                getMemoryManager().queueTransferSync.addSignal(rBatch.queueFamily, rMetadata.submitSignalSemaphores);
+            }
+
             rSubmitInfo = {};
             rSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            rSubmitInfo.pWaitSemaphores = rMetadata.waitSemaphores.data(); 
-            rSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(rMetadata.waitSemaphores.size()); 
-            rSubmitInfo.pWaitDstStageMask = rMetadata.waitStages.data(); 
-            rSubmitInfo.pSignalSemaphores = rMetadata.signalSemaphores.data(); 
-            rSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(rMetadata.signalSemaphores.size());
+            rSubmitInfo.pWaitSemaphores = rMetadata.submitWaitSemaphores.data(); 
+            rSubmitInfo.waitSemaphoreCount = static_cast<uint32_t>(rMetadata.submitWaitSemaphores.size()); 
+            rSubmitInfo.pWaitDstStageMask = rMetadata.submitWaitStages.data(); 
+            rSubmitInfo.pSignalSemaphores = rMetadata.submitSignalSemaphores.data(); 
+            rSubmitInfo.signalSemaphoreCount = static_cast<uint32_t>(rMetadata.submitSignalSemaphores.size());
             if(rBatch.lifetime == ONESHOT)
             {
                 rSubmitInfo.pCommandBuffers = &getCommandBuffer(rBatch.queueFamily, ONESHOT, rBatch.perSubmissionMetadata[submissionId].cmdIds[0]);

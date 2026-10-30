@@ -225,23 +225,30 @@ QueueFamilyIndices Device::getQueueFamilies(VkPhysicalDevice & rDevice)
 				indicies.indices[PresentationQueueId] = i;
 			}
 		}
-
-		if (indicies.indices[TRANSFER] == -1) // Default to graphics queue
-		{
-			indicies.indices[TRANSFER] = indicies.indices[GRAPHICS]; 
-		}
-
-		if (indicies.indices[COMPUTE] == -1) // Default to graphics queue
-		{
-			indicies.indices[COMPUTE] = indicies.indices[GRAPHICS];
-		}
-
-		// Check if all required queues were found. 
-		if (indicies.isValid())
-		{
-			break;
-		}
 		i++;
+	}
+
+	/*
+		Transfer and compute prefer the graphics family, so everything runs on one queue and needs no cross-queue synchronization (QueueTransferSync). A dedicated family found above is only the fallback.
+		A graphics family always supports transfer operations, even when it doesn't report VK_QUEUE_TRANSFER_BIT (spec: VkQueueFlagBits). Compute is only taken from it when it reports VK_QUEUE_COMPUTE_BIT.
+	*/
+	int32_t graphicsFamily = indicies.indices[GRAPHICS];
+	if (graphicsFamily >= 0)
+	{
+		indicies.indices[TRANSFER] = graphicsFamily;
+		if (queueFamilyList[graphicsFamily].queueFlags & VK_QUEUE_COMPUTE_BIT)
+		{
+			indicies.indices[COMPUTE] = graphicsFamily;
+		}
+	}
+	else
+	{
+		return indicies;
+	}
+
+	if (indicies.indices[COMPUTE] == -1) // Default to graphics queue
+	{
+		indicies.indices[COMPUTE] = graphicsFamily;
 	}
 	return indicies;
 }

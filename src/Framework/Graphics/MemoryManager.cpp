@@ -19,6 +19,9 @@
 
 namespace Graphics
 {
+/* Every stage that reads an entry buffer in a draw or dispatch: vertex input (vertex and index buffers), all graphics shader stages and compute (uniform and storage buffers). */
+static const VkPipelineStageFlags DrawReadStages = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
 void uploadQueuedCopiesCMDs(VkCommandBuffer& cmdBuffer_)
 {
 	MemoryManager& rMemoryManager = getMemoryManager();
@@ -49,18 +52,23 @@ void uploadQueuedCopiesCMDs(VkCommandBuffer& cmdBuffer_)
 		The first synchronization scope of a pipeline barrier includes every command earlier in submission order on the queue, also from earlier vkQueueSubmit calls (spec: Synchronization and Cache Control -> Pipeline Barriers).
 		So this TRANSFER -> TRANSFER dependency orders the batch after earlier batches, e.g. an update write must not overtake a readback copy that reads the same entry buffer.
 		Only one batch is in flight at a time (the next starts after the previous fence was observed signaled), so the CPU already guarantees this order. The barrier is a second guard.
+		The graphics and compute stages in the source scope order the batch after the draws of earlier frames, which may still read the entry buffers: a write after a read only needs this execution dependency, no access masks.
+		It works because TRANSFER and GRAPHICS use one queue. With separate families a barrier only orders its own queue, and a transfer-only queue family doesn't support graphics or compute stages in a barrier (spec: vkCmdPipelineBarrier, stage support per queue family),
+		so the source is TRANSFER only and the done semaphores (QueueTransferSync) order the batch after the other queues' work.
 	*/
+	VkPipelineStageFlags batchStartStages = VK_PIPELINE_STAGE_TRANSFER_BIT | (rMemoryManager.queueTransferSync.separateFamilies ? 0 : DrawReadStages);
 	VkMemoryBarrier batchStartBarrier = {};
 	batchStartBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 	batchStartBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 	batchStartBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-	vkCmdPipelineBarrier(cmdBuffer_, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &batchStartBarrier, 0, nullptr, 0, nullptr);
+	vkCmdPipelineBarrier(cmdBuffer_, batchStartStages, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &batchStartBarrier, 0, nullptr, 0, nullptr);
 
 	/*
 		Copies of one batch run in recorded order with no implicit ordering between them. A readback copy reads an entry buffer that an update copy in the same batch may write
 		(a write after a read), so a TRANSFER -> TRANSFER memory dependency is recorded wherever the kind of copy switches.
 	*/
 	bool hasReadback = false;
+	bool hasUpdate = false;
 	for(uint32_t i = 0; i < pBatch->recordedCopies.size(); i++)
 	{
 		const PendingCopy& rCopy = pBatch->recordedCopies[i];
@@ -73,6 +81,7 @@ void uploadQueuedCopiesCMDs(VkCommandBuffer& cmdBuffer_)
 			vkCmdPipelineBarrier(cmdBuffer_, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 		}
 		hasReadback = hasReadback || rCopy.isReadback;
+		hasUpdate = hasUpdate || !rCopy.isReadback;
 
 		VkBufferCopy bufferCopyRegion = {};
 		bufferCopyRegion.srcOffset = rCopy.srcOffset;
@@ -90,11 +99,32 @@ void uploadQueuedCopiesCMDs(VkCommandBuffer& cmdBuffer_)
 		barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
 		vkCmdPipelineBarrier(cmdBuffer_, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 	}
+
+	/*
+		Makes the update copies' writes available and visible to the draws and dispatches that read the entry buffers (vertex, index, uniform and storage reads). Without it nothing orders a draw after the copy:
+		the second synchronization scope of a pipeline barrier includes every command later in submission order on the queue, and the transfer pass is submitted before this frame's graphics passes.
+		Skipped when the batch only holds readbacks, which write staging memory.
+		Also skipped with separate queue families: the barrier would not reach the other queues, and the batch's signal of the transfer done semaphore makes the writes available and visible to the commands that wait for it (spec: Synchronization and Cache Control -> Semaphores).
+	*/
+	if(hasUpdate && !rMemoryManager.queueTransferSync.separateFamilies)
+	{
+		VkMemoryBarrier barrier = {};
+		barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+		vkCmdPipelineBarrier(cmdBuffer_, VK_PIPELINE_STAGE_TRANSFER_BIT, DrawReadStages, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+	}
 	vkEndCommandBuffer(cmdBuffer_);
 }
 
 void MemoryManager::setup()
 {
+	/*
+		The queue families are resolved first: GPU_LOCAL buffers created by the allocators take their sharing mode from it.
+		uploadQueuedCopiesCMDs orders the batch against draws with barriers when TRANSFER and GRAPHICS share a queue, and with semaphores when they do not.
+	*/
+	this->queueTransferSync.setup();
+
 	this->dynamicAllocator.init();
 	this->stagingAllocator.init();
 
@@ -239,25 +269,49 @@ void MemoryManager::resolvePendingOperations()
 }
 
 
-MemoryEntryId MemoryManager::addEntry(const char* name_, const void* data_, VkDeviceSize size_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)
+MemoryEntryId MemoryManager::addEntry(const char* name_, const void* data_, VkDeviceSize size_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, bool readOnly_)
 {
-	PoolId id; 
+	MemoryEntryId entryId;
 	if(allocatorType_ == STATIC)
 	{
-		id = this->staticAllocator.addEntry(name_, data_, size_, memoryVisability_, uploadType_); 		
-		return { STATIC, id};
+		entryId = { STATIC, this->staticAllocator.addEntry(name_, data_, size_, memoryVisability_, uploadType_) };
 	}
-	else 
+	else
 	{
-		id = this->dynamicAllocator.addAndUploadEntry(name_, data_, size_, memoryVisability_, uploadType_);
-		return { DYNAMIC, id}; 
+		entryId = { DYNAMIC, this->dynamicAllocator.addAndUploadEntry(name_, data_, size_, memoryVisability_, uploadType_) };
 	}
+	this->getEntry(entryId).readOnly = readOnly_;
+	return entryId;
 }
 
 
 bool MemoryManager::isUploadInGPU(MemoryEntryId entryId_)
 {
 	return !this->getEntry(entryId_).isPendingUpload();
+}
+
+/* An UPDATE stays in entriesPendingForUpdate until resolvePendingOperations queues its copy, after that the entry's upload batch covers it. */
+bool MemoryManager::hasPendingWrite(MemoryEntryId entryId_)
+{
+	if(this->getEntry(entryId_).isPendingUpload())
+	{
+		return true;
+	}
+
+	for(uint32_t i = 0; i < this->entriesPendingForUpdate.allocatedSize(); i++)
+	{
+		if(!this->entriesPendingForUpdate.alive[i])
+		{
+			continue;
+		}
+
+		const MemoryEntryId& pendingId = this->entriesPendingForUpdate.getInternal(i).memoryEntryId;
+		if(pendingId.allocatorType == entryId_.allocatorType && pendingId.id == entryId_.id)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 MemoryEntry& MemoryManager::getEntry(MemoryEntryId entryId_)
@@ -290,7 +344,11 @@ Buffer& MemoryManager::getBuffer(const MemoryEntry& rEntry_)
 
 void MemoryManager::updateEntry(MemoryEntryId entryId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)
 {
-	MemoryEntry& rEntry = this->getEntry(entryId_); 
+	MemoryEntry& rEntry = this->getEntry(entryId_);
+	if(rEntry.locked)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Entry {} is locked (readOnly), it can't be updated.", rEntry.name));
+	}
 
 	/*
 		Every GPU_LOCAL update goes through a staging range. The bytes are written into the range right away, only the copy is deferred until the entry has no upload in flight (for static entries that includes the initial upload).
@@ -311,21 +369,28 @@ void MemoryManager::updateEntry(MemoryEntryId entryId_, const void* data_, uint6
 	Creates an entry that nothing is uploaded to. Unlike reserveEntry it takes no staging range and needs no commitEntry: the entry has nothing pending, so its buffer can be bound (e.g. into a descriptor set) once it exists.
 	A dynamic entry's buffer exists right away. A static entry only gets its place in the static heap here (it is added before StaticAllocator::allocateAndUpload, which skips it because its data is nullptr), so its buffer exists after that call.
 	A GPU_LOCAL entry's bytes are undefined until the first updateEntry / getStagingContainer write has been copied.
+	readOnly_ declares that the entry can be locked later (lockEntry). Writes stay legal until then.
 */
-MemoryEntryId MemoryManager::allocateEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_)
+MemoryEntryId MemoryManager::allocateEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_)
 {
+	MemoryEntryId entryId;
 	if(allocatorType_ == STATIC)
 	{
-		return { STATIC, this->staticAllocator.addEntry(name_, nullptr, size_, memoryVisability_, bufferType_) };
+		entryId = { STATIC, this->staticAllocator.addEntry(name_, nullptr, size_, memoryVisability_, bufferType_) };
 	}
-	return { DYNAMIC, this->dynamicAllocator.allocateEntry(name_, size_, memoryVisability_, bufferType_) };
+	else
+	{
+		entryId = { DYNAMIC, this->dynamicAllocator.allocateEntry(name_, size_, memoryVisability_, bufferType_) };
+	}
+	this->getEntry(entryId).readOnly = readOnly_;
+	return entryId;
 }
 
 /*
 	Creates a dynamic entry without data. The caller writes through getStagingContainer / getSharedContainer and then calls commitEntry.
 	A GPU_LOCAL entry counts as pending (OpenBatchId is bigger than any completed batch) until commitEntry queues its copy, so it isn't drawn with garbage.
 */
-MemoryEntryId MemoryManager::reserveEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_)
+MemoryEntryId MemoryManager::reserveEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_)
 {
 	if(allocatorType_ == STATIC)
 	{
@@ -335,6 +400,7 @@ MemoryEntryId MemoryManager::reserveEntry(const char* name_, AllocatorTypeEnum a
 	PoolId id = this->dynamicAllocator.reserveEntry(name_, size_, memoryVisability_, bufferType_);
 	MemoryEntry& rEntry = this->dynamicAllocator.memoryEntries[id];
 	rEntry.awaitingCommit = true;
+	rEntry.readOnly = readOnly_;
 	if(memoryVisability_ == GPU_LOCAL)
 	{
 		rEntry.uploadBatchId = OpenBatchId;
@@ -360,14 +426,33 @@ void MemoryManager::commitEntry(MemoryEntryId entryId_)
 }
 
 /*
+	Marks a readOnly entry as locked: from now on every write path (updateEntry, getStagingContainer, getSharedContainer) throws. Readbacks and removal stay allowed.
+	Only an entry declared readOnly at creation can be locked.
+*/
+void MemoryManager::lockEntry(MemoryEntryId entryId_)
+{
+	MemoryEntry& rEntry = this->getEntry(entryId_);
+	if(!rEntry.readOnly)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Can't lock entry {}, it was not created readOnly.", rEntry.name));
+	}
+	rEntry.locked = true;
+}
+
+/*
 	The container takes entry byte offsets, so Layout::setMember can pass its entry offset straight to write(). MemoryManager::writeStaging turns that into stagingOffset + offset - stagingData.inEntryOffset,
 	which stays inside the range as long as the write stays inside [inEntryOffset_, inEntryOffset_ + size_).
 	A reserved entry that wasn't committed yet hands out its whole-entry range, so initial data needs no copy of its own. Otherwise a new open range is allocated and an UPDATE operation is queued for it.
 	The caller writes the range right away. The copy is queued by resolvePendingOperations once the entry has no upload in flight, and the range is freed after that batch completes.
+	Throws if the entry is locked.
 */
 StagingDataContainer MemoryManager::getStagingContainer(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_)
 {
 	MemoryEntry& rEntry = this->getEntry(entryId_);
+	if(rEntry.locked)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Entry {} is locked (readOnly), it can't be written.", rEntry.name));
+	}
 	#ifdef ENGINE_DEBUG
 		if(rEntry.memoryVisability != GPU_LOCAL)
 		{
@@ -399,10 +484,14 @@ StagingDataContainer MemoryManager::getStagingContainer(MemoryEntryId entryId_, 
 	return container;
 }
 
-/* The container only names the entry, so it is persistent and valid as long as the entry exists. */
+/* The container only names the entry, so it is persistent and valid as long as the entry exists. Throws if the entry is locked, since the container is for writing (readbacks build their own). */
 SharedDataContainer MemoryManager::getSharedContainer(MemoryEntryId entryId_)
 {
 	MemoryEntry& rEntry = this->getEntry(entryId_);
+	if(rEntry.locked)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Entry {} is locked (readOnly), it can't be written.", rEntry.name));
+	}
 	#ifdef ENGINE_DEBUG
 		if(rEntry.memoryVisability != CPU_SHARED)
 		{
@@ -458,7 +547,10 @@ bool MemoryManager::isReadbackReady(ReadbackId readbackId_)
 	return this->isBatchCompleted(this->readbackRequests[readbackId_].batchId);
 }
 
-/* The container takes entry byte offsets, same as getStagingContainer: the range stores inEntryOffset of the request. READBACK memory is coherent when the device has a coherent+cached type, otherwise readStaging invalidates it. */
+/*
+	The container takes entry byte offsets, same as getStagingContainer: the range stores inEntryOffset of the request. READBACK memory is coherent when the device has a coherent+cached type, otherwise readStaging invalidates it.
+	The CPU_SHARED container is built here and not through getSharedContainer, so readbacks of locked entries work.
+*/
 ReadbackDataContainer MemoryManager::getReadbackContainer(ReadbackId readbackId_)
 {
 	ReadbackRequest& rRequest = this->readbackRequests[readbackId_];
@@ -473,7 +565,8 @@ ReadbackDataContainer MemoryManager::getReadbackContainer(ReadbackId readbackId_
 	ReadbackDataContainer container;
 	if(rEntry.memoryVisability == CPU_SHARED)
 	{
-		container = this->getSharedContainer(rRequest.memoryEntryId);
+		container.isShared = true;
+		container.entryId = rRequest.memoryEntryId;
 	}
 	else
 	{

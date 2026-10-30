@@ -56,7 +56,9 @@ struct Renderer {
 	uint32_t framesAtFlightCount; // Max amount of frames that can be in the queue at the same time 
 	uint32_t currentFrame = 0; 
 	uint32_t queueFamiliesCount = 3; 
-	uint32_t imageIndex; // Whichever Driver sees as first to become available. Frames are decoupled from images this way. 
+	uint32_t imageIndex; // Whichever Driver sees as first to become available. Frames are decoupled from images this way.
+	PoolId recordingPipelineId = UninitializedPoolId; // graphics pipeline bound by bindGraphicsPipeline in the command buffer being recorded
+	std::vector<PoolId> recordingSetIds; // per set index: the set bound by bindDescriptorSet in the command buffer being recorded (UninitializedPoolId if none). Cleared by beginCMDsRecording
 
 	void setup();
 	void draw(); 

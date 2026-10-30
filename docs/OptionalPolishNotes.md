@@ -54,3 +54,12 @@ out-of-bounds problem above applies.
 so the next frame rebuilds every batch with `compileIfDirty`, not just the new one. This
 is cheap now (O(enabled passes + tasks)). Making it incremental only matters if
 compilation gets more expensive (dependency sorting, barrier generation).
+
+## Descriptor sets bound in ONESHOT passes
+
+Status: not covered. `removeDescriptorSet` waits for the `FRAME` passes' fences
+(`PassesGraph::waitForFrame`), and the per-frame `CPU_SHARED` copy-in (`syncToFrame`) relies on the same fences. A `ONESHOT` pass has no per-frame fence, so a set bound in one is not protected.
+
+Not needed now: `ONESHOT` passes are used for `GPU_LOCAL` transfers, and `CPU_SHARED` writes are plain `memcpy`.
+It matters once compute (or any `ONESHOT` pass that binds descriptor sets) is implemented. Then the set needs
+to remember the fence of the `ONESHOT` submit that used it and the write has to wait on it too.

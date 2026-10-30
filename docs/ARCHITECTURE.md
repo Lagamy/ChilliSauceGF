@@ -82,7 +82,7 @@ src/Framework/
 3. `Renderer::draw` per frame (skipped while `Globals::resizing`):
    if `GPUSceneManager::changed`, run `define*` again and reset it → resolve
    pending memory ops → GPUSceneManager `update*` → `passesGraph.waitForFrame(currentFrame)`
-   (waits on the frame's fence of every `FRAME` pass) → `vkAcquireNextImageKHR` (signals the frame's
+   (waits on the frame's fence of every `FRAME` pass) → `descriptorsManager.syncToFrame(currentFrame)` (copies changed descriptor shadows into the frame's entries) → `vkAcquireNextImageKHR` (signals the frame's
    `imageAcquiredSemaphore`) → re-record enabled command buffers →
    `passesGraph.compileIfDirty()` → `resolveSync_SubmitToGPU()` →
    `presentToScreen()` (waits on the swapchain image's
@@ -96,7 +96,7 @@ src/Framework/
 
 Frames vs images: per-frame-in-flight objects live in `FrameResources`
 (indexed by `currentFrame`); per-swapchain-image objects live on the swapchain
-`Image` (indexed by `imageIndex`). Framebuffers are indexed by `imageIndex`.
+`Image` (indexed by `imageIndex`). Framebuffers are indexed by `imageIndex`. Per-frame descriptor copies (`Descriptor::memoryEntryIds`, `DescriptorSet::vkHandles`) are indexed by `currentFrame`.
 
 ## Queues
 
@@ -104,6 +104,13 @@ Frames vs images: per-frame-in-flight objects live in `FrameResources`
 `Device::queues` and `QueueFamilyIndices::indices` have 4 slots; slot
 `PresentationQueueId` (3) is the present queue. `CmdPoolsPack` holds one command
 pool per queue family (3).
+
+`Device::getQueueFamilies` prefers the graphics family for `TRANSFER` and `COMPUTE` (a graphics family always supports transfer; compute only if it reports it), so normally all three are one `VkQueue`
+(queue 0 of the family). A dedicated family is only the fallback. When the families differ, `MemoryManager::queueTransferSync` (`QueueTransferSync`, set up first in `MemoryManager::setup`) makes
+`GPU_LOCAL` buffers `CONCURRENT` (every distinct family listed; `CPU_SHARED` and staging buffers stay `EXCLUSIVE`) and creates one "done" semaphore per distinct family (graphicsDone, transferDone, computeDone).
+`PassesGraph::resolveSync_SubmitToGPU` makes the first submit of every batch wait (`ALL_COMMANDS`) for each done semaphore that is signaled and not waited on yet (also its own queue's, since a binary semaphore
+has to be waited on before it is signaled again) and the last submit of the batch signal its queue's done semaphore. So every submit is ordered after everything submitted before it on the other queues (this also covers a copy not overwriting bytes
+an earlier draw reads). The extra semaphores live in `SubmissionMetadata::submit*`, rebuilt per submit; the batch's own semaphores are untouched. With one queue nothing is added.
 
 ## Passes, tasks, submission
 
@@ -214,7 +221,7 @@ pool per queue family (3).
   stores its batch in `MemoryEntry::readbackBatchId` and a pending `UPDATE` or `REMOVE` also waits for `isPendingReadback()`
   (a readback requested before an update sees the bytes from before it; the order is decided on the CPU, the barriers below are a second guard). `uploadQueuedCopiesCMDs` records a `TRANSFER ->
   TRANSFER` barrier at the start of every batch (orders it after earlier batches; with one batch in flight the CPU already guarantees that) and where the copy kind switches (a readback read before an update write in one
-  batch) and a final `TRANSFER_WRITE -> HOST_READ` barrier when the batch has readbacks.
+  batch) and a final `TRANSFER_WRITE -> HOST_READ` barrier when the batch has readbacks. The start barrier's source scope also has the graphics and compute stages, so a copy never overwrites bytes an earlier frame's draw still reads, and a batch with update copies ends with a `TRANSFER_WRITE ->` vertex/index/uniform/shader read barrier, so the draws submitted after it see the copies. Both barriers rely on one queue, which is the normal case (see Queues). With separate families the batch's start barrier has `TRANSFER` as its only source stage (a transfer-only family doesn't support graphics or compute stages), the final read barrier is skipped, and the done semaphores of `QueueTransferSync` order the batch against the other queues instead.
   GPU_LOCAL buffers have `TRANSFER_SRC`.
 - `Api.h` routes `addAndUploadMemoryEntry`, `updateMemoryEntry`, `removeUpload`,
   `getMemoryEntry` and `isUploadInGPU` to `MemoryManager::addEntry`,
@@ -248,6 +255,10 @@ pool per queue family (3).
   nothing is pending and later writes are normal updates (`GPU_LOCAL` bytes are undefined until the first update
   was copied). A dynamic entry's buffer exists right away. A static entry must be allocated before
   `StaticAllocator::allocateAndUpload` (same rule as `addEntry`), and its buffer exists only after that call.
+  `addEntry`, `allocateEntry` and `reserveEntry` (and their `Api.h` forwarders) take `readOnly_` (default false), stored in
+  `MemoryEntry::readOnly`. `MemoryManager::lockEntry` sets `MemoryEntry::locked` (throws if the entry is not `readOnly`). Writes are legal
+  until then; once locked, `updateEntry`, `getStagingContainer` and `getSharedContainer` throw. Readbacks (`getReadbackContainer`
+  builds its shared container without the check) and removal stay allowed. `Mesh` (readOnly meshes) and `DescriptorSet::lockReadOnlyDescriptor` lock entries.
 - `GPU_ONLY` entry updates are batched by `MemoryManager`. `MemoryEntry::upload`
   writes the staging heap and calls `MemoryManager::queueCopy`, which stores a
   `PendingCopy` in the default upload slot and returns a batch id kept in `MemoryEntry::uploadBatchId`.
@@ -278,34 +289,42 @@ Uniform and storage buffer descriptors only. No dynamic buffers, bindless, image
 - `deriveDescriptorSet(layoutId, allocatorType, memoryVisability)` creates a `DescriptorSet` with one `Descriptor` per
   blueprint slot (same slot index) and adds the set id to each blueprint's `derivedDescriptors`. Blueprints can't be
   added, removed or get members after memory of a derived set was allocated, and can't be added/removed once sets are derived.
-- A `DescriptorSet` owns its `DescriptorPool` (1 pool : 1 set, `maxSets` 1, destroyed with the set; destroying the pool
-  frees the set). Two phases: `allocateDescriptorsMemory()` calls `allocateMemoryEntry` per descriptor (size = layout size,
-  one repeat unit; static entries have to be added before `StaticAllocator::allocateAndUpload`), `create()` allocates the
-  `VkDescriptorSet` and writes every binding with one `vkUpdateDescriptorSets` (offset 0 for dynamic entries,
-  `inBufferFirstByte` for static ones). `MemoryEntry::descriptorSet` points back at the set.
+- A `DescriptorSet` owns its `DescriptorPool` (1 pool : 1 set object, destroyed with the set; destroying the pool
+  frees the `VkDescriptorSet`s). The set holds `vkHandles`: one `VkDescriptorSet` per frame in flight if any descriptor `isPerFrame()` (`!readOnly && CPU_SHARED`), otherwise one. The pool gets `maxSets` = copies and per-type count = descriptors x copies; `get()` returns the copy of `currentFrame` (or the only one). Two phases: `allocateDescriptorsMemory()` calls `allocateMemoryEntry` per descriptor and copy (`Descriptor::memoryEntryIds`: one entry per frame in flight if `isPerFrame()`, otherwise one; `getEntryId(frame)` picks; size = layout size,
+  one repeat unit, `Descriptor::readOnly` passed as `readOnly_`; `setDescriptorReadOnly(blueprintId, readOnly_)` sets it and throws once the memory was allocated; static entries have to be added before `StaticAllocator::allocateAndUpload`), `create()` allocates the
+  `VkDescriptorSet` copies and writes every binding of every copy with one `vkUpdateDescriptorSets` (copy f points at `getEntryId(f)`) (offset 0 for dynamic entries,
+  `inBufferFirstByte` for static ones). `MemoryEntry::descriptorSet` points back at the set (on every copy's entry).
 - `DescriptorSet::setDescriptorMemberValue<T>(blueprintId, memberId, value)` writes through
-  `getStagingContainer` (`GPU_LOCAL`) or `getSharedContainer` (`CPU_SHARED`) and `ReflectionLayout::setMember`, like `Mesh`.
+  `getStagingContainer` (`GPU_LOCAL`) or `getSharedContainer` (`CPU_SHARED`, readOnly descriptors) and `ReflectionLayout::setMember`, like `Mesh`.
+  A per-frame descriptor (`isPerFrame()`) instead writes `Descriptor::shadow` (a `CPUDataContainer`, one repeat unit, zeroed in `allocateDescriptorsMemory`) and bumps `Descriptor::version` (starts at 1);
+  `Descriptor::copyVersions[frame]` (starts at 0) is the version frame's entry holds.
 - `Renderer::setup` calls `allocateAllDescriptorsMemory()` before the static upload and `createAll()` (layouts, then sets) after it and
   before `createAllPipelines()`. `Renderer::shutdown` calls `descriptorsManager.destroy()` (sets, then layouts) after the pipelines.
 - Pipelines: `PipelinesManager::pipelineLayouts` (`Pool<PipelineLayout>`) owns the pipeline layouts, a `GraphicsPipeline`
   holds a `pipelineLayoutId`. `PipelineLayout::usedByGraphicsPipelineIds` and `DescriptorSetLayout::usedByPipelineLayoutIds`
   are filled by `PipelinesManager::addGraphicsPipeline` / `addDescriptorSetLayoutToPipelineLayout`.
-  `createAllPipelines` creates the layouts first. `bindDescriptorSet` records `vkCmdBindDescriptorSets`.
+  `createAllPipelines` creates the layouts first and skips pipelines and layouts that already exist. `bindDescriptorSet` always records `vkCmdBindDescriptorSets` and remembers the set per index in `Renderer::recordingSetIds` (cleared by `beginCMDsRecording`; `bindGraphicsPipeline` stores the bound pipeline in `Renderer::recordingPipelineId`; recording is single-threaded, one command buffer at a time). A `Shader` lists the descriptors it reads (`Shader::addDescriptor(setIndex, blueprintId)`, `Api.h` `addDescriptorToShader`; a shader may have none), see the sync paragraph below.
 - Editor-time cascade: adding/removing a blueprint of a created `DescriptorSetLayout` calls `recreate()`: destroy + create the
   layout, then `PipelineLayout::recreate()` for each layout using it (destroy + create the layout and its graphics pipelines).
   `PipelineLayout::addDescriptorSetLayout` on a created layout recreates it too. Nothing waits for the GPU, the caller has to
   make sure nothing submitted uses them.
-- CPU/GPU sync of `CPU_SHARED` writes: one set is shared by every frame in flight. `bindDescriptorSet` sets bit `currentFrame` in
-  `DescriptorSet::framesInFlightMask` while recording. `setDescriptorMemberValue` on a `CPU_SHARED` descriptor first calls
-  `PassesGraph::waitForFrame` for every marked frame (and clears the bits), then writes (write-after-read needs only
-  that execution dependency, the memory is coherent). A write that is not followed by a rebind waits at most once. If the set is bound
-  and written every frame, the writes wait for all earlier frames, so effectively one frame is in flight. It must not be called while
-  recording a command buffer (the current fence is reset but not submitted, the wait would never return). `GPU_LOCAL` writes go through
+- CPU/GPU sync of `CPU_SHARED` writes: a per-frame descriptor's writes only touch its CPU shadow, so they never wait and are legal at any time (also while recording).
+  `DescriptorsManager::syncToFrame(currentFrame)` runs in `Renderer::draw` right after `waitForFrame(currentFrame)` and, per set, copies every shadow whose
+  `version` differs from `copyVersions[frame]` into that frame's entry (whole entry, `MemoryManager::writeShared`) and records the version. The fence wait is the write-after-read
+  dependency (the frame's previous submission read that copy), the memory is coherent so no flush, and the host write before `vkQueueSubmit` is visible to the submission. Other frames' copies are never touched.
+  Non-per-frame `CPU_SHARED` descriptors (readOnly) are written straight into their single entry and don't wait: nothing tracks which frames bind a set anymore, so they are only safe to write before the GPU first reads them. `drawMeshIndexed` looks up the descriptors the vertex and fragment shader of the bound pipeline declared in the sets bound at their indices (`getRecordingSet`; it throws when nothing is bound there) and skips the draw while one of them has a write pending (`DescriptorSet::isDescriptorSettled`: a `GPU_LOCAL` descriptor, readOnly or not, whose first write is still pending (`MemoryManager::hasPendingWrite`, i.e. upload queued or in flight, or an `UPDATE` waiting); once a check saw it settled, `Descriptor::firstDataSettled` stays true and later updates are not waited for), so a draw never reads a descriptor before its first data was copied (the batch barriers above order the later updates). Descriptors the shaders don't declare don't matter, even in the same set, and the set is bound anyway (the declaration is what lets the draw wait for the descriptors, so it is a contract: nothing checks the SPIR-V, so a shader reading an undeclared descriptor can read it before its data was copied): every binding was written by `create` and a shader only reads the bindings it uses. A skipped draw is recorded again on a later frame, since the command buffer is re-recorded every frame. For a recorded draw `drawMeshIndexed` queues the declared descriptors (`DescriptorsManager::queueLockOnSubmit`) and `Renderer::draw` calls `DescriptorsManager::lockBoundDescriptors` right after `resolveSync_SubmitToGPU`, which runs `DescriptorSet::lockReadOnlyDescriptor` (once per descriptor, `Descriptor::readOnlyLocked`): it `lockEntry`s every copy of the descriptor if it is readOnly, so a write after the submit that first recorded a draw reading it throws (also `GPU_LOCAL`); descriptors no draw read stay writable. `GPU_LOCAL` writes go through
   staging and don't wait.
-- Not handled: `ONESHOT` passes have no frame fence, so a set bound there is not covered by the mask (fix before implementing compute),
-  `ReflectionLayout` adds no std140/std430 padding, static entries are packed without
-  `minUniformBufferOffsetAlignment` / `minStorageBufferOffsetAlignment`, `Renderer::draw`'s scene change path doesn't allocate or
-  create descriptors.
+- Removing (`removeDescriptorBlueprint`, `removeDescriptorSet`, `removeDescriptorSetLayout`, forwarded by `Api.h`): a blueprint can only be
+  removed while no set is derived from its layout (it also removes the blueprint's `ReflectionLayout`). `removeDescriptorSet` waits (`PassesGraph::waitForFrame`) for
+  every frame in flight, removes all entries (every copy) of a `DYNAMIC` set (`GPU_LOCAL` ones through the deferred `REMOVE` operation), unregisters the set from its blueprints and destroys it (its pool).
+  Entries of a `STATIC` set can't be removed and stay in the static heap until shutdown. Like writes, it must not be called while recording.
+  `removeDescriptorSetLayout` throws if sets are derived or a `PipelineLayout` still uses the layout (nothing detaches a layout from a pipeline layout yet), otherwise it
+  destroys the layout and removes its blueprints.
+- Scene change: `Renderer::draw`'s re-define branch calls `allocateAllDescriptorsMemory`, `createAll` and `createAllPipelines` after `define*`. All three skip what already exists (a set counts as created once it has `vkHandles`, with all its per-frame copies). A new `STATIC` set
+  throws there (static entries have to be added before `StaticAllocator::allocateAndUpload`), so sets defined by a scene have to be `DYNAMIC`. Passes defined by the scene
+  have the limits described in `docs/OptionalPolishNotes.md`.
+- Not handled: `ReflectionLayout` adds no std140/std430 padding, static entries are packed without
+  `minUniformBufferOffsetAlignment` / `minStorageBufferOffsetAlignment`.
 
 ## Reflection
 
@@ -326,9 +345,11 @@ keeps no copy of its vertex bytes; it writes through these containers.
 
 ### Mesh updates
 
-- `Mesh::queueUpload(allocatorType, visibility)` reserves the vertex entry
+- `Mesh::queueUpload(allocatorType, visibility, readOnly_ = false)` reserves the vertex entry
   (`MemoryManager::reserveEntry`, no data yet) and uploads the index entry
-  (`vbMemoryUploadId`, `ibMemoryUploadId`).
+  (`vbMemoryUploadId`, `ibMemoryUploadId`). With `readOnly_` both entries are created `readOnly`: the index entry is locked
+  at the end of `queueUpload`, the vertex entry at the end of `commitUpload` (`MemoryManager::lockEntry`), so later
+  `setVerticeMember` calls throw. Readbacks still work.
 - `Mesh::setVerticeMember<T>(memberId, verticeId, data)` computes
   `verticeId * layout.size + member.firstByteId`, gets a container for that range
   and writes through `ReflectionLayout::setMember`. For `GPU_LOCAL` the container is a

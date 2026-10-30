@@ -15,8 +15,10 @@ namespace Graphics {
 		BufferTypeEnum bufferType;
 		uint32_t pageId; // Also needed for static, so I can optimize the updates
 		StagingData stagingData;
-		bool isForDynamic = false; 
-		
+		bool isForDynamic = false;
+		bool readOnly = false; // Declared at creation. A readOnly entry can be locked with MemoryManager::lockEntry.
+		bool locked = false; // Set by MemoryManager::lockEntry. Writes (updates, staging and shared containers) throw from then on. Readbacks and removal stay allowed.
+
 		// For Uniform / Storage 
 		PoolId descriptorSet;
 

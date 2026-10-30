@@ -22,12 +22,13 @@ namespace Graphics
 		PoolId verticeLayoutId;
 		uint32_t verticesCount;
 		MemoryVisabilityEnum memoryVisability;
+		bool readOnly = false;
 		std::vector<uint32_t> indices;
 
 		MemoryEntryId vbMemoryUploadId; // Handle to mem entry in the GPUMemoryManager
 		MemoryEntryId ibMemoryUploadId;
 
-		/* Writes one member of one vertice. Only valid after queueUpload. Before commitUpload it fills the initial data, after it it's an update. */
+		/* Writes one member of one vertice. Only valid after queueUpload. Before commitUpload it fills the initial data, after it it's an update (throws if the mesh was queued readOnly). */
 		template<typename T>
 		void setVerticeMember(PoolId memberId_, uint32_t verticeId_, T data_)
 		{
@@ -73,7 +74,7 @@ namespace Graphics
 			return rLayout.getMember<T>(container, memberId_, verticeId_);
 		}
 
-		void queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_);
+		void queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, bool readOnly_ = false);
 		void commitUpload();
 
 		Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_);

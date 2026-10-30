@@ -36,8 +36,6 @@ struct DescriptorSetLayout
 	void create(); // only call after descriptor blueprints are setted up 
 	void recreate(); // destroy + create + recreation of every PipelineLayout (and Pipelines) that uses this layout 
 	void destroy();
-
-	private:
 	void throwIfSetsDerived(const char* action_) const;
 };
 }

@@ -73,7 +73,7 @@ add_executable(ChilliSauceGF
 
 	#Memory Managment 
 	"src/Framework/Graphics/MemoryManagment/DynamicAllocator.cpp" "src/Framework/Graphics/MemoryManagment/StaticAllocator.cpp"
-	"src/Framework/Graphics/MemoryManagment/MemoryEntry.cpp"
+	"src/Framework/Graphics/MemoryManagment/MemoryEntry.cpp" "src/Framework/Graphics/MemoryManagment/QueueTransferSync.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/GPULocalPage.cpp" "src/Framework/Graphics/MemoryManagment/Pages/CPUSharedPage.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/BasePage.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/StagingHeap.cpp"
  	"src/Framework/Graphics/MemoryManagment/StagingAllocator.cpp" "src/Framework/Graphics/MemoryManagment/Pages/StagingPage.cpp"

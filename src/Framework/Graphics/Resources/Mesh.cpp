@@ -16,18 +16,28 @@ Mesh::Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_)
 /*
     The vertex entry is only reserved: it has its place in the GPU buffer but no data yet. For GPU_LOCAL its whole-entry staging range is handed out by
     setVerticeMember, so the initial data is written straight into upload staging. commitUpload queues the copy once every member is set.
+    With readOnly_ the index entry is already complete here, so it is locked right away. The vertex entry is locked in commitUpload, after the last initial write.
 */
-void Mesh::queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_)
+void Mesh::queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, bool readOnly_)
 {
     this->memoryVisability = memoryVisability_;
-    this->vbMemoryUploadId = getMemoryManager().reserveEntry(std::format("{} Vertex data", this->name).c_str(), allocatorType_, memoryVisability_, VERTEX_BUFFER, getVerticeLayout(this->verticeLayoutId).size * this->verticesCount);
+    this->readOnly = readOnly_;
+    this->vbMemoryUploadId = getMemoryManager().reserveEntry(std::format("{} Vertex data", this->name).c_str(), allocatorType_, memoryVisability_, VERTEX_BUFFER, getVerticeLayout(this->verticeLayoutId).size * this->verticesCount, readOnly_);
     // Create Index Buffer and fill it with data.
-	this->ibMemoryUploadId = addAndUploadMemoryEntry(std::format("{} Index data", this->name).c_str(), allocatorType_, memoryVisability_, INDEX_BUFFER, this->indices.data(), this->indices.size() * sizeof(uint32_t));
+	this->ibMemoryUploadId = addAndUploadMemoryEntry(std::format("{} Index data", this->name).c_str(), allocatorType_, memoryVisability_, INDEX_BUFFER, this->indices.data(), this->indices.size() * sizeof(uint32_t), readOnly_);
+    if(readOnly_)
+    {
+        getMemoryManager().lockEntry(this->ibMemoryUploadId);
+    }
 }
 
 void Mesh::commitUpload()
 {
     getMemoryManager().commitEntry(this->vbMemoryUploadId);
+    if(this->readOnly)
+    {
+        getMemoryManager().lockEntry(this->vbMemoryUploadId);
+    }
 }
 
 StagingDataContainer Mesh::getStagingContainer(uint64_t inEntryOffset_, uint64_t size_)

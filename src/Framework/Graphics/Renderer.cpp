@@ -76,6 +76,10 @@ void Renderer::draw()
 			this->gpuSceneManager.defineResources(); 
 			this->gpuSceneManager.definePasses();
 			this->gpuSceneManager.changed = false;
+
+			this->descriptorsManager.allocateAllDescriptorsMemory();
+			this->descriptorsManager.createAll();
+			createAllPipelines();
 		}
 
 		this->memoryManager.resolvePendingOperations();
@@ -84,6 +88,7 @@ void Renderer::draw()
 		this->gpuSceneManager.updatePasses(); 
 
 		this->passesGraph.waitForFrame(this->currentFrame);
+		this->descriptorsManager.syncToFrame(this->currentFrame);
 
 		vkAcquireNextImageKHR(
 			this->mainDevice.logicalDevice, this->swapchain.get(), std::numeric_limits<uint64_t>::max(), 
@@ -98,6 +103,7 @@ void Renderer::draw()
 		this->passesGraph.compileIfDirty(); 
 		// Resolve dynamic sync and Submit graph to queues
  		this->passesGraph.resolveSync_SubmitToGPU();
+		this->descriptorsManager.lockBoundDescriptors();
 		
 		presentToScreen(); 
 		this->currentFrame = (this->currentFrame + 1) % this->framesAtFlightCount; 

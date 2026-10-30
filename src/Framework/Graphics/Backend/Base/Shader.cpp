@@ -26,6 +26,12 @@ Shader::~Shader()
     this->destroy(); 
 }
 
+/* Declaring the same descriptor twice is harmless, the draw just checks it twice. */
+void Shader::addDescriptor(uint32_t setIndex_, PoolId blueprintId_)
+{
+	this->descriptors.push_back({setIndex_, blueprintId_});
+}
+
 VkShaderModule Shader::get() const 
 {
 	return this->vkHandle;
@@ -35,6 +41,7 @@ Shader::Shader(Shader&& other) noexcept
 {
     vkHandle = other.vkHandle;
     path = std::move(other.path);
+    descriptors = std::move(other.descriptors);
 
     other.vkHandle = VK_NULL_HANDLE;
 }
@@ -54,6 +61,7 @@ Shader& Shader::operator=(Shader&& other) noexcept
 
         this->vkHandle = other.vkHandle;
         this->path = std::move(other.path);
+        this->descriptors = std::move(other.descriptors);
 
         other.vkHandle = VK_NULL_HANDLE;
     }
