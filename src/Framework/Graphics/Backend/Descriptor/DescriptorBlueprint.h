@@ -15,6 +15,11 @@ namespace Graphics
         std::vector<PoolId> derivedDescriptors; // Ids of the DescriptorSets derived from it. The descriptor in each of them lives in the same slot as this blueprint in its DescriptorSetLayout.
 
         DescriptorBlueprint(const char* name_, BufferTypeEnum bufferType_, PoolId layoutId_) : name(name_), bufferType(bufferType_), layoutId(layoutId_) {};
-        PoolId addMember(const char* name_, DataTypeEnum dataType_); // Note: use in editor
+        PoolId addMember(const char* name_, DataTypeEnum dataType_); // Scalar. Note: use in editor
+        PoolId addMember(const char* name_, DataTypeEnum dataType_, uint32_t elementCount_); // Array
+        PoolId addMember(const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_); // Matrix
+
+    private:
+        ReflectionLayout& getLayoutForNewMember(const char* memberName_);
     };
 }

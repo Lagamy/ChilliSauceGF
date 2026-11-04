@@ -22,6 +22,16 @@ namespace Graphics
         return this->layouts[layoutId_].getDescriptorBlueprint(blueprintId_).addMember(name_, dataType_);
     }
 
+    PoolId DescriptorsManager::addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t elementCount_)
+    {
+        return this->layouts[layoutId_].getDescriptorBlueprint(blueprintId_).addMember(name_, dataType_, elementCount_);
+    }
+
+    PoolId DescriptorsManager::addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_)
+    {
+        return this->layouts[layoutId_].getDescriptorBlueprint(blueprintId_).addMember(name_, dataType_, rowCount_, columnCount_);
+    }
+
     PoolId DescriptorsManager::addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_)
     {
         return this->layouts[layoutId_].deriveDescriptorSet(layoutId_, allocatorType_, memoryVisability_);

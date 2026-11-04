@@ -11,6 +11,14 @@ struct TriangleVertexMemberIds
 	PoolId colorId; 
 }; 
 
+struct TriangleMVPMemberIds
+{
+	PoolId projectionId;
+	PoolId viewId;
+	PoolId modelId;
+};
+
+
 namespace Triangle { 
 	inline PoolId vertexShaderId; 
 	inline PoolId fragmentShaderId; 
@@ -18,10 +26,16 @@ namespace Triangle {
 	inline TriangleVertexMemberIds vertexMemberIds; 
 
 	inline PoolId meshId;
-	inline PoolId pipelineLayoutId; 
 	inline PoolId graphicsPipelineId; 
 
+	inline PoolId dsLayoutId;
+	inline PoolId mvpBlueprintId;
+	inline TriangleMVPMemberIds mvpMemberIds;
+	inline PoolId descriptorSetId;
+
 	inline uint64_t counter = 0; 
+	inline bool descriptorsHaveSet = false; 
+	inline VkExtent2D lastProjectionExtent = {};
 
 	void setupEnvironment(); 
 	void defineLayouts();

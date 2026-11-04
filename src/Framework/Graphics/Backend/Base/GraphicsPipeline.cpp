@@ -3,6 +3,8 @@
 #include "Layout.h"
 #include "RenderPass.h"
 #include <vulkan/vulkan_core.h>
+#include <stdexcept>
+#include <format>
 
 namespace Graphics
 {
@@ -39,15 +41,44 @@ void GraphicsPipeline::create()
 
 	// How attribute is defined within Vertex 
 	std::vector<VkVertexInputAttributeDescription> attributesDescriptions;
-	attributesDescriptions.resize(rVerticeLayout.memberBlueprints.allocatedSize());
-	
-	for(uint32_t i = 0; i < attributesDescriptions.size(); i++)
+
+	/*
+		Every attribute location holds at most a vec4. A matrix takes one location per column (a vector of rowCount floats) and an array one location per element, so a member
+		can use several consecutive locations, which is how GLSL numbers the inputs. Arrays of matrices are the same, element by element. A matrix shaped member (an array of arrays) can't be a vertex input.
+	*/
+	uint32_t location = 0;
+	for(uint32_t i = 0; i < rVerticeLayout.memberBlueprints.allocatedSize(); i++)
 	{
 		MemberBlueprint& rMemberBlueprint = rVerticeLayout.memberBlueprints[{i, 0}]; 
-		attributesDescriptions[i].offset = rMemberBlueprint.firstByteId;
-		attributesDescriptions[i].binding = 0;
-		attributesDescriptions[i].location = i;
-		attributesDescriptions[i].format =  typeToVkFormat[rMemberBlueprint.dataType]; 
+		if(rMemberBlueprint.shapeMetadata.shapeEnum == MATRIX)
+		{
+			throw std::runtime_error(std::format("Graphics Pipeline: Vertex layout member {} is a matrix of elements, which can't be a vertex attribute.", rVerticeLayout.memberBlueprints.getName({i, 0})));
+		}
+
+		uint32_t elementCount = (rMemberBlueprint.shapeMetadata.shapeEnum == ARRAY) ? rMemberBlueprint.shapeMetadata.elementCount : 1;
+		uint32_t rowCount = rMemberBlueprint.typeMetadata.rowCount;
+		uint32_t columnCount = (rowCount > 1) ? rMemberBlueprint.typeMetadata.elementCount : 1;
+		DataTypeEnum attributeType = (rowCount > 1) ? static_cast<DataTypeEnum>(VEC2 + rowCount - 2) : rMemberBlueprint.typeMetadata.typeEnum;
+		size_t columnStride = alignUp(rowCount * 4, rMemberBlueprint.alignmentRule);
+
+		for(uint32_t elementId = 0; elementId < elementCount; elementId++)
+		{
+			size_t elementOffset = rMemberBlueprint.firstByteId;
+			if(rMemberBlueprint.shapeMetadata.shapeEnum == ARRAY)
+			{
+				elementOffset += rMemberBlueprint.getArrayElementOffset(elementId);
+			}
+			for(uint32_t columnId = 0; columnId < columnCount; columnId++)
+			{
+				VkVertexInputAttributeDescription attributeDescription = {};
+				attributeDescription.offset = elementOffset + columnId * columnStride;
+				attributeDescription.binding = 0;
+				attributeDescription.location = location;
+				attributeDescription.format = typeToVkFormat[attributeType];
+				attributesDescriptions.push_back(attributeDescription);
+				location++;
+			}
+		}
 	}
 
 	// Feed pipeline create info

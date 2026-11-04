@@ -9,6 +9,11 @@ void PipelineLayout::create()
 	descriptorLayouts.reserve(this->descriptorSetLayoutIds.size());
 	for(const PoolId& layoutId : this->descriptorSetLayoutIds)
 	{
+		if(layoutId == UninitializedPoolId)
+		{
+			descriptorLayouts.emplace_back(getPipelinesManager().getEmptySetLayout());
+			continue;
+		}
 		descriptorLayouts.emplace_back(getDescriptorsManager().layouts[layoutId].get()); 
 	}
 
@@ -24,18 +29,6 @@ void PipelineLayout::create()
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Pipeline Layout!");
-	}
-}
-
-/*
-	A pipeline layout copies the set layout handles when it is created, so adding a set layout to a created one rebuilds it.
-*/
-void PipelineLayout::addDescriptorSetLayout(PoolId descriptorSetLayoutId_)
-{
-	this->descriptorSetLayoutIds.emplace_back(descriptorSetLayoutId_);
-	if(this->vkHandle != VK_NULL_HANDLE)
-	{
-		this->recreate();
 	}
 }
 

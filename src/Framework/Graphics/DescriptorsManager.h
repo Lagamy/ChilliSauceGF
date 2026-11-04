@@ -23,6 +23,8 @@ struct DescriptorsManager
     PoolId addDescriptorSetLayout(const char* name_, DescriptorTypeEnum descriptorType_, VkShaderStageFlags shaderStages_);
     PoolId addDescriptorBlueprint(const char* layoutName_, const char* blueprintName_);
     PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_);
+    PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t elementCount_); // Array
+    PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_); // Matrix
     PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_);
     void removeDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_); // throws if the layout has derived sets
     void removeDescriptorSet(PoolId setId_); // waits for the frames that bind it, so don't call it while recording

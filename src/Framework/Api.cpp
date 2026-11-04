@@ -270,9 +270,9 @@ namespace Graphics
 		return Globals::renderer.shadersManager.shaders.add(name_, Disk::executablePath + path_);  
 	}
 
-	void addDescriptorToShader(PoolId shaderId_, uint32_t setIndex_, PoolId blueprintId_)
+	void addDescriptorToShader(PoolId shaderId_, uint32_t setIndex_, PoolId setLayoutId_, PoolId blueprintId_)
 	{
-		getShader(shaderId_).addDescriptor(setIndex_, blueprintId_);
+		getShader(shaderId_).addDescriptor(setIndex_, setLayoutId_, blueprintId_);
 	}
 
 	void removeShader(PoolId& id_)
@@ -341,6 +341,16 @@ namespace Graphics
 		return getVerticeLayout(layoutId_).addMemberBlueprint(name_, dataType_);
 	}
 
+	PoolId addMemberToVerticeLayout(PoolId layoutId_, const char* name_, DataTypeEnum dataType_, uint32_t elementCount_)
+	{
+		return getVerticeLayout(layoutId_).addMemberBlueprint(name_, dataType_, elementCount_);
+	}
+
+	PoolId addMemberToVerticeLayout(PoolId layoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_)
+	{
+		return getVerticeLayout(layoutId_).addMemberBlueprint(name_, dataType_, rowCount_, columnCount_);
+	}
+
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_)
 	{
 		return Globals::renderer.resourcesManager.meshes.add(name_, name_, verticeLayoutId_, repeatCount_); 
@@ -359,6 +369,16 @@ namespace Graphics
 	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_)
 	{
 		return Globals::renderer.descriptorsManager.addMemberToDescriptorBlueprint(layoutId_, blueprintId_, name_, dataType_);
+	}
+
+	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t elementCount_)
+	{
+		return Globals::renderer.descriptorsManager.addMemberToDescriptorBlueprint(layoutId_, blueprintId_, name_, dataType_, elementCount_);
+	}
+
+	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_)
+	{
+		return Globals::renderer.descriptorsManager.addMemberToDescriptorBlueprint(layoutId_, blueprintId_, name_, dataType_, rowCount_, columnCount_);
 	}
 
 	PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_)
@@ -381,19 +401,9 @@ namespace Graphics
 		Globals::renderer.descriptorsManager.removeDescriptorSetLayout(layoutId_);
 	}
 
-	PoolId addPipelineLayout()
+	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_)
 	{
-		return Globals::renderer.pipelinesManager.addPipelineLayout();
-	}
-
-	void addDescriptorSetLayoutToPipelineLayout(PoolId pipelineLayoutId_, PoolId descriptorSetLayoutId_)
-	{
-		Globals::renderer.pipelinesManager.addDescriptorSetLayoutToPipelineLayout(pipelineLayoutId_, descriptorSetLayoutId_);
-	}
-
-	PoolId addGraphicsPipelineLayout(const char* name_, PoolId pipelineLayoutId_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_)
-	{
-		return Globals::renderer.pipelinesManager.addGraphicsPipeline(name_, pipelineLayoutId_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
+		return Globals::renderer.pipelinesManager.addGraphicsPipeline(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
 	} 
 
 	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_)

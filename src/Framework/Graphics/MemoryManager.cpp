@@ -440,7 +440,7 @@ void MemoryManager::lockEntry(MemoryEntryId entryId_)
 }
 
 /*
-	The container takes entry byte offsets, so Layout::setMember can pass its entry offset straight to write(). MemoryManager::writeStaging turns that into stagingOffset + offset - stagingData.inEntryOffset,
+	The container takes entry byte offsets, so Layout::setMemberScalar can pass its entry offset straight to write(). MemoryManager::writeStaging turns that into stagingOffset + offset - stagingData.inEntryOffset,
 	which stays inside the range as long as the write stays inside [inEntryOffset_, inEntryOffset_ + size_).
 	A reserved entry that wasn't committed yet hands out its whole-entry range, so initial data needs no copy of its own. Otherwise a new open range is allocated and an UPDATE operation is queued for it.
 	The caller writes the range right away. The copy is queued by resolvePendingOperations once the entry has no upload in flight, and the range is freed after that batch completes.

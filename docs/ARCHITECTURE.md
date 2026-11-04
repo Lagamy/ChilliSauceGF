@@ -169,7 +169,8 @@ an earlier draw reads). The extra semaphores live in `SubmissionMetadata::submit
   `resolvePendingOperations()` applies each frame once the entry's upload fence
   is signaled.
 - `StaticAllocator`: entries are added before allocation (throws if already
-  allocated). `allocateAndUpload()` creates one `GPULocalHeap` (one memory block,
+  allocated). `addEntry` rounds the first byte of every uniform entry up to `minUniformBufferOffsetAlignment` and of every
+  storage entry up to `minStorageBufferOffsetAlignment` (descriptor offsets must be multiples of them); other buffer types stay packed. `allocateAndUpload()` creates one `GPULocalHeap` (one memory block,
   one `VkBuffer` per `BufferTypeEnum`, bound at aligned offsets) and one
   `CPUSharedHeap`, then uploads every entry through `MemoryEntry::upload`:
   `CPU_SHARED` entries are written into the mapped heap, `GPU_LOCAL` entries get
@@ -294,19 +295,21 @@ Uniform and storage buffer descriptors only. No dynamic buffers, bindless, image
   one repeat unit, `Descriptor::readOnly` passed as `readOnly_`; `setDescriptorReadOnly(blueprintId, readOnly_)` sets it and throws once the memory was allocated; static entries have to be added before `StaticAllocator::allocateAndUpload`), `create()` allocates the
   `VkDescriptorSet` copies and writes every binding of every copy with one `vkUpdateDescriptorSets` (copy f points at `getEntryId(f)`) (offset 0 for dynamic entries,
   `inBufferFirstByte` for static ones). `MemoryEntry::descriptorSet` points back at the set (on every copy's entry).
-- `DescriptorSet::setDescriptorMemberValue<T>(blueprintId, memberId, value)` writes through
-  `getStagingContainer` (`GPU_LOCAL`) or `getSharedContainer` (`CPU_SHARED`, readOnly descriptors) and `ReflectionLayout::setMember`, like `Mesh`.
+- `DescriptorSet::setDescriptorMemberValue<T>(blueprintId, memberId, value)` (plus `setDescriptorMemberArrayElement`, `setDescriptorMemberMatrixElement`, `setDescriptorMemberMatrixRow` / `Column`, with `Array<T>` or `Matrix<T>` sources; a `GPU_LOCAL` write covers only the bytes it replaces, a column is written element by element) writes through
+  `getStagingContainer` (`GPU_LOCAL`) or `getSharedContainer` (`CPU_SHARED`, readOnly descriptors) and `ReflectionLayout::setMemberScalar`, like `Mesh`.
   A per-frame descriptor (`isPerFrame()`) instead writes `Descriptor::shadow` (a `CPUDataContainer`, one repeat unit, zeroed in `allocateDescriptorsMemory`) and bumps `Descriptor::version` (starts at 1);
   `Descriptor::copyVersions[frame]` (starts at 0) is the version frame's entry holds.
 - `Renderer::setup` calls `allocateAllDescriptorsMemory()` before the static upload and `createAll()` (layouts, then sets) after it and
   before `createAllPipelines()`. `Renderer::shutdown` calls `descriptorsManager.destroy()` (sets, then layouts) after the pipelines.
-- Pipelines: `PipelinesManager::pipelineLayouts` (`Pool<PipelineLayout>`) owns the pipeline layouts, a `GraphicsPipeline`
+- Pipelines: `PipelinesManager::pipelineLayouts` (`Pool<PipelineLayout>`) owns the pipeline layouts. The user never creates one: `addGraphicsPipeline` calls `getOrAddPipelineLayout`, which builds the ordered
+  set layout list from the descriptors the vertex and fragment shader declared (`ShaderDescriptorUse::setLayoutId` at `setIndex`; the shaders must agree on a shared set, otherwise it throws; an index nobody declared stays `UninitializedPoolId` and `PipelineLayout::create` fills it with `PipelinesManager::getEmptySetLayout()`, a zero-binding set layout, because a pipeline layout can't have a null set layout without the graphics pipeline library feature) and reuses an existing
+  layout with the same list, so pipelines with the same set layouts share one `VkPipelineLayout`. Shaders have to declare their descriptors before the pipeline is added. A `GraphicsPipeline`
   holds a `pipelineLayoutId`. `PipelineLayout::usedByGraphicsPipelineIds` and `DescriptorSetLayout::usedByPipelineLayoutIds`
-  are filled by `PipelinesManager::addGraphicsPipeline` / `addDescriptorSetLayoutToPipelineLayout`.
-  `createAllPipelines` creates the layouts first and skips pipelines and layouts that already exist. `bindDescriptorSet` always records `vkCmdBindDescriptorSets` and remembers the set per index in `Renderer::recordingSetIds` (cleared by `beginCMDsRecording`; `bindGraphicsPipeline` stores the bound pipeline in `Renderer::recordingPipelineId`; recording is single-threaded, one command buffer at a time). A `Shader` lists the descriptors it reads (`Shader::addDescriptor(setIndex, blueprintId)`, `Api.h` `addDescriptorToShader`; a shader may have none), see the sync paragraph below.
+  are filled when a pipeline / a new layout is added.
+  `createAllPipelines` creates the layouts first and skips pipelines and layouts that already exist. `bindDescriptorSet` always records `vkCmdBindDescriptorSets` and remembers the set per index in `Renderer::recordingSetIds` (cleared by `beginCMDsRecording`; `bindGraphicsPipeline` stores the bound pipeline in `Renderer::recordingPipelineId`; recording is single-threaded, one command buffer at a time). A `Shader` lists the descriptors it reads (`Shader::addDescriptor(setIndex, setLayoutId, blueprintId)`, `Api.h` `addDescriptorToShader`; a shader may have none), see the sync paragraph below.
 - Editor-time cascade: adding/removing a blueprint of a created `DescriptorSetLayout` calls `recreate()`: destroy + create the
   layout, then `PipelineLayout::recreate()` for each layout using it (destroy + create the layout and its graphics pipelines).
-  `PipelineLayout::addDescriptorSetLayout` on a created layout recreates it too. Nothing waits for the GPU, the caller has to
+  Nothing waits for the GPU, the caller has to
   make sure nothing submitted uses them.
 - CPU/GPU sync of `CPU_SHARED` writes: a per-frame descriptor's writes only touch its CPU shadow, so they never wait and are legal at any time (also while recording).
   `DescriptorsManager::syncToFrame(currentFrame)` runs in `Renderer::draw` right after `waitForFrame(currentFrame)` and, per set, copies every shadow whose
@@ -323,8 +326,8 @@ Uniform and storage buffer descriptors only. No dynamic buffers, bindless, image
 - Scene change: `Renderer::draw`'s re-define branch calls `allocateAllDescriptorsMemory`, `createAll` and `createAllPipelines` after `define*`. All three skip what already exists (a set counts as created once it has `vkHandles`, with all its per-frame copies). A new `STATIC` set
   throws there (static entries have to be added before `StaticAllocator::allocateAndUpload`), so sets defined by a scene have to be `DYNAMIC`. Passes defined by the scene
   have the limits described in `docs/OptionalPolishNotes.md`.
-- Not handled: `ReflectionLayout` adds no std140/std430 padding, static entries are packed without
-  `minUniformBufferOffsetAlignment` / `minStorageBufferOffsetAlignment`.
+- `ReflectionLayout` pads members to its `alignment` (`NONE`/`STD140`/`STD430`): `MemberBlueprint` aligns `firstByteId` up to `alignmentRule`, `size` includes column/element/row padding, and `ReflectionLayout::size` ends at the last member rounded up to the layout's alignment (`structAlignment`: the largest member rule, at least 16 for `STD140`), so repeat unit N starts at `N * size`. `DescriptorSetLayout::addDescriptorBlueprint` creates uniform layouts as `STD140` and storage layouts as `STD430`; vertex layouts stay `NONE` (the pipeline's stride and offsets are the packed sizes). A matrix aligns like a column in `STD430` (8 for 2-row matrices) and to 16 in `STD140` (`resolveSTDPaddingRule`).
+  `DescriptorBlueprint::addMember` (and `Api.h` `addMemberToDescriptorBlueprint` / `addMemberToVerticeLayout`) have a scalar, an array (`elementCount_`) and a matrix (`rowCount_`, `columnCount_`) overload, forwarded to `ReflectionLayout::addMemberBlueprint`.
 
 ## Reflection
 
@@ -332,9 +335,11 @@ Uniform and storage buffer descriptors only. No dynamic buffers, bindless, image
 `ReflectionLayout`s. A layout is a pure blueprint: `MemberBlueprint`s (type, offset,
 size) and the total `size`; it holds no data. A `CPUDataContainer` (byte vector ×
 `repeatCount`, e.g. vertices) is owned by the instance that uses it.
-`ReflectionLayout::setMember<T>` / `getMember<T>` take the container, a member id and
-a repeat unit id, check `T` against the member's type through `GPUTypeMap<T>`, and
-throw on mismatch or out-of-range repeat index. They are templated on the container
+`ReflectionLayout::setMemberScalar<T>` / `getMemberScalar<T>` take the container, a member id and
+a repeat unit id, check `T` against the member's type and shape (`SCALAR`/`ARRAY`/`MATRIX`) through `GPUTypeMap<T>`, and
+throw on mismatch or out-of-range repeat index. They write/read `sizeof(T)` bytes (matrix types such as `Mat3` column by column, each column at a multiple of the alignment rule; the element setters below do the same through `writeTyped`). `setElementInMemberArray`, `setElementInMemberMatrix`,
+`setRowInMemberMatrix` and `setColumnInMemberMatrix` (plus the getters `getElementInMemberArray` / `getElementInMemberMatrix`, which read through `readTyped`; rows/columns come from a `Misc/Array.h` `Array<T>`, or from a row/column of a `Misc/Matrix.h` `Matrix<T>` through the overloads that take a source matrix and a source row/column id) write into `ARRAY`/`MATRIX` members at the offsets of
+`MemberBlueprint::getArrayElementOffset` / `getMatrixElementOffset` (element stride = element size rounded up to `alignmentRule`, row stride = row size rounded up to it, same as `Array`/`Matrix`). They are templated on the container
 type, constrained by `WritableDataContainer` / `ReadableDataContainer`
 (`DataContainerConcepts.h`): `repeatCount` plus `write`/`read(offset, ptr, size)`.
 `GPUDataContainer<Readable>` owns no bytes and touches no Vulkan memory: it holds ids (a `StagingData` range, or a
@@ -352,7 +357,7 @@ keeps no copy of its vertex bytes; it writes through these containers.
   `setVerticeMember` calls throw. Readbacks still work.
 - `Mesh::setVerticeMember<T>(memberId, verticeId, data)` computes
   `verticeId * layout.size + member.firstByteId`, gets a container for that range
-  and writes through `ReflectionLayout::setMember`. For `GPU_LOCAL` the container is a
+  and writes through `ReflectionLayout::setMemberScalar`. For `GPU_LOCAL` the container is a
   `StagingDataContainer` from `MemoryManager::getStagingContainer`; for `CPU_SHARED`
   it is the entry's `SharedDataContainer`. It throws under `ENGINE_DEBUG` if the mesh
   was never uploaded.
@@ -363,10 +368,11 @@ keeps no copy of its vertex bytes; it writes through these containers.
   an `UPDATE` operation.
 - There is no dirty tracking (`DirtyInMesh`, `verticeToDirtyId`, `markVerticeDirty`,
   `queueUpdate` were removed): each write has its own range, so there is nothing to merge.
+- `setVerticeMember` has the same array/matrix variants as the descriptor set (`setVerticeMemberArrayElement`, `setVerticeMemberMatrixElement`, `setVerticeMemberMatrixRow` / `Column`). A vertex layout may have scalar and array members (a `MAT*` member or array element takes one attribute location per column); `GraphicsPipeline::create` throws for a `MATRIX` shaped member.
 - Reading: `Mesh::requestVerticeMemberReadback(memberId, verticeId)` calls
   `requestMemoryEntryReadback` for the member's byte range and returns a `ReadbackId`. Once
-  `isReadbackReady` is true, `Mesh::getVerticeMember<T>(readbackId, memberId, verticeId)` maps it
-  (`mapReadback`) and reads through `ReflectionLayout::getMember`. `GPU_LOCAL` meshes copy into a
+  `isReadbackReady` is true, `Mesh::getVerticeMember<T>(readbackId, memberId, verticeId)` (or `getVerticeMemberArrayElement` / `getVerticeMemberMatrixElement`) maps it
+  (`mapReadback`) and reads through `ReflectionLayout::getMemberScalar`. `GPU_LOCAL` meshes copy into a
   readback range, `CPU_SHARED` meshes are ready immediately and read the mapped memory. The caller
   calls `releaseReadback` afterwards. There is no synchronous `getVertice`.
 

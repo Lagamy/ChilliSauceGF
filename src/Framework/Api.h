@@ -86,7 +86,7 @@ namespace Graphics
 	PoolId addSemaphore();
 	PoolId addFence(bool createSignaled_);
 	PoolId addShader(const char* name_, const char* path_); 
-	void addDescriptorToShader(PoolId shaderId_, uint32_t setIndex_, PoolId blueprintId_); // declares that the shader reads the descriptor of that blueprint in the set bound at setIndex_. drawMeshIndexed waits for the data of exactly these. Shaders without descriptors are fine. The declaration is what lets drawMeshIndexed check these descriptors and skip the draw until their first data is copied, so every descriptor the shader reads has to be declared: nothing checks the SPIR-V, an undeclared one can be read before its data was copied
+	void addDescriptorToShader(PoolId shaderId_, uint32_t setIndex_, PoolId setLayoutId_, PoolId blueprintId_); // declares that the shader reads the descriptor of that blueprint in the set (derived from setLayoutId_) bound at setIndex_. Graphics pipelines build their pipeline layout from these, so declare before adding the pipeline. drawMeshIndexed waits for the data of exactly these. Shaders without descriptors are fine. The declaration is what lets drawMeshIndexed check these descriptors and skip the draw until their first data is copied, so every descriptor the shader reads has to be declared: nothing checks the SPIR-V, an undeclared one can be read before its data was copied
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_, bool readOnly_ = false);
 	MemoryEntryId allocateMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, PoolId layoutId_, uint32_t repeatCount_, bool readOnly_ = false);
@@ -99,16 +99,18 @@ namespace Graphics
 
 	PoolId addVerticeLayout(const char* name_);
 	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_);
+	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t elementCount_); // Array. Only scalar and array members can be vertex attributes
+	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_); // Matrix
 	PoolId addDescriptorSetLayout(const char* name_, DescriptorTypeEnum descriptorType_, VkShaderStageFlags shaderStages_);
 	PoolId addDescriptorBlueprint(const char* layoutName_, const char* blueprintName_);
 	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_);
+	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t elementCount_); // Array
+	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_); // Matrix
 	PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_);
 	void removeDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_);
 	void removeDescriptorSet(PoolId setId_);
 	void removeDescriptorSetLayout(PoolId layoutId_);
-	PoolId addPipelineLayout();
-	void addDescriptorSetLayoutToPipelineLayout(PoolId pipelineLayoutId_, PoolId descriptorSetLayoutId_);
-	PoolId addGraphicsPipelineLayout(const char* name_, PoolId pipelineLayoutId_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 
+	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 
 	void addPageForStagingReadbacks(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_);
 	void addPageForStagingUploads(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_);
 	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_);

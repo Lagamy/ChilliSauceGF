@@ -43,6 +43,11 @@ namespace Graphics
 		return this->descriptors.getInternal(descriptorId_.id);
 	}
 
+	const MemberBlueprint& DescriptorSet::getMember(PoolId descriptorId_, PoolId memberId_)
+	{
+		return this->getReflectionLayout(this->getDescriptor(descriptorId_)).memberBlueprints[memberId_];
+	}
+
 	ReflectionLayout& DescriptorSet::getReflectionLayout(Descriptor& rDescriptor_)
 	{
 		DescriptorBlueprint& rBlueprint = rDescriptor_.getBlueprint();
@@ -116,7 +121,7 @@ namespace Graphics
 	/*
 		Creates the pool (one pool per set, sized for exactly its descriptors times the copies), allocates the copies of the set (one per frame in flight if any descriptor isPerFrame, otherwise one) from the layout and points every binding at its entry's buffer range in a single vkUpdateDescriptorSets.
 		The sets are fresh and never bound yet, so no pending command buffer uses it (a set may only be updated while none does, since there is no update-after-bind).
-		VkDescriptorBufferInfo::offset has to respect minUniformBufferOffsetAlignment / minStorageBufferOffsetAlignment: dynamic entries are their own buffer (offset 0), static ones sit at inBufferFirstByte in the shared heap buffer.
+		VkDescriptorBufferInfo::offset has to respect minUniformBufferOffsetAlignment / minStorageBufferOffsetAlignment: dynamic entries are their own buffer (offset 0), static ones sit at inBufferFirstByte in the shared heap buffer, which StaticAllocator::addEntry aligns for uniform and storage entries.
 	*/
     void DescriptorSet::create()
     {

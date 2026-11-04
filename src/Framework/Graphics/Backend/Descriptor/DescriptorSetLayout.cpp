@@ -46,7 +46,9 @@ namespace Graphics
 
 		BufferTypeEnum bufferType = static_cast<BufferTypeEnum>(UNIFORM_BUFFER + this->descriptorType);
 		std::string fullName = std::format("{}/{}", this->name, name_);
-		PoolId reflectionLayoutId = getReflectionSystem().layoutsPerBufferType[bufferType - 1].add(fullName.c_str()); // - 1 due to INDEX layout not existing
+		/* Uniform blocks follow std140 and storage blocks std430, which decides the padding of the members of the descriptor. */
+		STDAlignmentLayoutEnum alignment = (bufferType == UNIFORM_BUFFER) ? STD140 : STD430;
+		PoolId reflectionLayoutId = getReflectionSystem().layoutsPerBufferType[bufferType - 1].add(fullName.c_str(), alignment); // - 1 due to INDEX layout not existing
 		PoolId blueprintId = this->descriptorBlueprints.add(fullName.c_str(), bufferType, reflectionLayoutId);
 
         if(this->vkHandle != VK_NULL_HANDLE)

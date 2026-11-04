@@ -168,6 +168,25 @@
 		{
     		return ((value + alignment - 1) / alignment) * alignment;
 		}
+
+		uint8_t resolveSTDPaddingRule(STDAlignmentLayoutEnum aligLayout_, DataTypeEnum dataType_, bool isArray_)
+		{
+			if(aligLayout_ == NONE)
+			{
+				return 1;
+			}
+
+			/*
+				std140 rounds the alignment of arrays and of matrix columns up to 16. std430 keeps the element's own
+				alignment (a matrix aligns like a column: 8 bytes for 2-row matrices, 16 otherwise). dataType_ is the element's type.
+			*/
+			if(aligLayout_ == STD140 && (isArray_ || dataTypeToColumnsAndRows[dataType_].y > 1))
+			{
+				return 16;
+			}
+
+			return dataTypeToBaseAlignment[dataType_];
+		}
 	
 	}
 

@@ -6,6 +6,7 @@
 struct CPUDataContainer 
 {
     std::vector<char> data; 
+    
     uint32_t repeatCount = 1;
 
     void write(uint64_t offset_, const void* pSrc_, uint64_t size_)

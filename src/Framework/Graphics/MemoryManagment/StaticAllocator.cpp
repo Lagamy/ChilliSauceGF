@@ -4,29 +4,52 @@
 
 namespace Graphics
 {
-PoolId StaticAllocator::addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_) 
+/*
+	Alignment an entry's first byte needs inside its heap buffer.
+	Descriptors point at the entry with VkDescriptorBufferInfo::offset, which has to be a multiple of minUniformBufferOffsetAlignment (uniform) or minStorageBufferOffsetAlignment (storage).
+	The other buffer types have no such rule here, so they stay packed.
+*/
+static VkDeviceSize getEntryAlignment(BufferTypeEnum uploadType_)
 {
-	
+	if(uploadType_ != UNIFORM_BUFFER && uploadType_ != STORAGE_BUFFER)
+	{
+		return 1;
+	}
+	VkPhysicalDeviceProperties deviceProperties;
+	vkGetPhysicalDeviceProperties(getMainDevice().physicalDevice, &deviceProperties);
+	if(uploadType_ == UNIFORM_BUFFER)
+	{
+		return deviceProperties.limits.minUniformBufferOffsetAlignment;
+	}
+	return deviceProperties.limits.minStorageBufferOffsetAlignment;
+}
+
+PoolId StaticAllocator::addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)
+{
+
 	#ifdef ENGINE_DEBUG
 		if(this->allocated)
 		{
-			throw std::runtime_error("Static Allocator: Can't add entry to already allocated Static heaps.");  
+			throw std::runtime_error("Static Allocator: Can't add entry to already allocated Static heaps.");
 		}
 	#endif
-	
+
+	VkDeviceSize alignment = getEntryAlignment(uploadType_);
 	if(memoryVisability_ == GPU_LOCAL)
 	{
-		this->memoryEntries.emplace_back(name_, data_, size_, uploadType_, GPU_LOCAL, this->gpuLocalHeap.bufferSizes[uploadType_]); 
-		this->memoryEntryIdPerBuffTypePerMemVisability[memoryVisability_][uploadType_].emplace_back(this->memoryEntries.size() - 1); 
-		this->gpuLocalHeap.bufferSizes[uploadType_] += size_; 
+		VkDeviceSize firstByte = alignUp(this->gpuLocalHeap.bufferSizes[uploadType_], alignment);
+		this->memoryEntries.emplace_back(name_, data_, size_, uploadType_, GPU_LOCAL, firstByte);
+		this->memoryEntryIdPerBuffTypePerMemVisability[memoryVisability_][uploadType_].emplace_back(this->memoryEntries.size() - 1);
+		this->gpuLocalHeap.bufferSizes[uploadType_] = firstByte + size_;
 		return PoolId(this->memoryEntries.size() - 1, 0);
 	}
-	else 
+	else
 	{
-		this->memoryEntries.emplace_back(name_, data_, size_, uploadType_, CPU_SHARED, this->cpuSharedHeap.bufferSizes[uploadType_]);
-		this->memoryEntryIdPerBuffTypePerMemVisability[memoryVisability_][uploadType_].emplace_back(this->memoryEntries.size() - 1); 
-		this->cpuSharedHeap.bufferSizes[uploadType_] += size_; 
-		this->cpuSharedHeap.size += size_; 
+		VkDeviceSize firstByte = alignUp(this->cpuSharedHeap.bufferSizes[uploadType_], alignment);
+		this->memoryEntries.emplace_back(name_, data_, size_, uploadType_, CPU_SHARED, firstByte);
+		this->memoryEntryIdPerBuffTypePerMemVisability[memoryVisability_][uploadType_].emplace_back(this->memoryEntries.size() - 1);
+		this->cpuSharedHeap.size += firstByte + size_ - this->cpuSharedHeap.bufferSizes[uploadType_];
+		this->cpuSharedHeap.bufferSizes[uploadType_] = firstByte + size_;
 		return PoolId(this->memoryEntries.size() - 1, 0);
 	}
 }
