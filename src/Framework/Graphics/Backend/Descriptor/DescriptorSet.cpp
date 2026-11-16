@@ -183,8 +183,6 @@ namespace Graphics
 	*/
 	void DescriptorSet::allocateDescriptorsMemory()
 	{
-		uint32_t uniformCount = 0;
-		uint32_t storageCount = 0;
 		uint32_t dynamicUniformCount = 0;
 		uint32_t dynamicStorageCount = 0;
 		for(uint32_t i = 0; i < this->descriptors.allocatedSize(); i++)
@@ -199,7 +197,6 @@ namespace Graphics
 			/* Every dynamic offset has to be a multiple of minUniformBufferOffsetAlignment (uniform) / minStorageBufferOffsetAlignment (storage), so the units are padded to it. */
 			rDescriptor.shape = rDescriptorLayout.makeShape(getDynamicAlignment(rDescriptor.getType()));
 			this->validateShape(rDescriptor);
-			(rDescriptor.getType() == UNIFORM_DESCRIPTOR ? uniformCount : storageCount)++;
 			if(rDescriptor.isDynamic())
 			{
 				(rDescriptor.getType() == UNIFORM_DESCRIPTOR ? dynamicUniformCount : dynamicStorageCount)++;
@@ -219,16 +216,7 @@ namespace Graphics
 				rDescriptor.copyVersions.assign(copiesCount, 0);
 			}
 		}
-		/* maxDescriptorSetUniformBuffers / maxDescriptorSetStorageBuffers count the dynamic descriptors of that type too, so the totals are checked next to the dynamic-only limits. */
 		const VkPhysicalDeviceLimits& rLimits = getMainDevice().properties.limits;
-		if(uniformCount > rLimits.maxDescriptorSetUniformBuffers)
-		{
-			throw std::runtime_error(std::format("Descriptor Set: {} uniform descriptors in one set, the device allows {}.", uniformCount, rLimits.maxDescriptorSetUniformBuffers));
-		}
-		if(storageCount > rLimits.maxDescriptorSetStorageBuffers)
-		{
-			throw std::runtime_error(std::format("Descriptor Set: {} storage descriptors in one set, the device allows {}.", storageCount, rLimits.maxDescriptorSetStorageBuffers));
-		}
 		if(dynamicUniformCount > rLimits.maxDescriptorSetUniformBuffersDynamic)
 		{
 			throw std::runtime_error(std::format("Descriptor Set: {} dynamic uniform descriptors in one set, the device allows {}.", dynamicUniformCount, rLimits.maxDescriptorSetUniformBuffersDynamic));
