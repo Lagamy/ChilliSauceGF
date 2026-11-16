@@ -6,7 +6,7 @@ Ideas that are not needed for the current demo. Nothing here is implemented.
 
 Status: not supported. `addPass` / `addTaskToPass` only work before the command
 pools are created in `Renderer::setup`. Today every call happens there
-(`Triangle::definePasses`, `MemoryManager` setup), so nothing breaks.
+(`Demo::definePasses`, `MemoryManager` setup), so nothing breaks.
 
 ### What goes wrong after setup
 

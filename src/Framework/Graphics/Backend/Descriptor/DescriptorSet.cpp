@@ -4,6 +4,7 @@
 #include "Descriptor.h"
 #include "MemoryManager.h"
 #include "Utilities.h"
+#include <array>
 #include <format>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
@@ -12,7 +13,13 @@ namespace Graphics
 {   
 	DescriptorSet::DescriptorSet(PoolId setLayout_, AllocatorTypeEnum allocatorType_) : setLayout(setLayout_), allocatorType(allocatorType_)
 	{
-		this->descriptorType = getDescriptorsManager().layouts[setLayout_].descriptorType;
+	}
+
+	/* The alignment of a dynamic offset (and of the entry start) depends on the buffer kind of the binding. */
+	static uint64_t getDynamicAlignment(DescriptorTypeEnum type_)
+	{
+		const VkPhysicalDeviceLimits& rLimits = getMainDevice().properties.limits;
+		return type_ == UNIFORM_DESCRIPTOR ? rLimits.minUniformBufferOffsetAlignment : rLimits.minStorageBufferOffsetAlignment;
 	}
 
 	/* The copy of the current frame if the set has one per frame in flight (see create), otherwise the only one. */
@@ -27,7 +34,7 @@ namespace Graphics
 		return this->vkHandles[this->vkHandles.size() == 1 ? 0 : getCurrentFrameIndex()];
 	}
 
-	/* Descriptors and blueprints share a slot, so the blueprint id's slot is the descriptor. Only the slot is used: the generations of the two Pools are independent. */
+	/* Descriptors and descriptor layouts share a slot, so the descriptor layout id's slot is the descriptor. Only the slot is used: the generations of the two Pools are independent. */
 	Descriptor& DescriptorSet::getDescriptor(PoolId descriptorId_)
 	{
 		#ifdef ENGINE_DEBUG
@@ -43,15 +50,29 @@ namespace Graphics
 		return this->descriptors.getInternal(descriptorId_.id);
 	}
 
-	const MemberBlueprint& DescriptorSet::getMember(PoolId descriptorId_, PoolId memberId_)
+	const VariableBlueprint& DescriptorSet::getVariable(PoolId descriptorId_, PoolId variableId_)
 	{
-		return this->getReflectionLayout(this->getDescriptor(descriptorId_)).memberBlueprints[memberId_];
+		DescriptorLayout& rDescriptorLayout = this->getDescriptor(descriptorId_).getDescriptorLayout();
+		const VariableRef& rVariableRef = rDescriptorLayout.getVariable(variableId_);
+		return rDescriptorLayout.getMember(rVariableRef.memberId).layout.variableBlueprints[rVariableRef.variableId];
 	}
 
-	ReflectionLayout& DescriptorSet::getReflectionLayout(Descriptor& rDescriptor_)
+	/*
+		A variable directly in the block has no repeat layer of its own, a variable of a struct member has one per layer of the struct. The repeatUnitId_ overloads of the setters are the one-layer case, so for a variable without layers it has to be 0 and no id is passed on.
+	*/
+	std::vector<uint32_t> DescriptorSet::makeSingleLayerIds(PoolId descriptorId_, PoolId variableId_, uint32_t repeatUnitId_)
 	{
-		DescriptorBlueprint& rBlueprint = rDescriptor_.getBlueprint();
-		return getReflectionSystem().layoutsPerBufferType[rBlueprint.bufferType - 1][rBlueprint.layoutId]; // - 1 due to INDEX layout not existing
+		DescriptorLayout& rDescriptorLayout = this->getDescriptor(descriptorId_).getDescriptorLayout();
+		const MemberBlueprint& rMember = rDescriptorLayout.getMember(rDescriptorLayout.getVariable(variableId_).memberId);
+		if(rMember.kind == VARIABLE_MEMBER)
+		{
+			if(repeatUnitId_ != 0)
+			{
+				throw std::runtime_error(std::format("Descriptor Set: {} is a variable directly in the block, it has no repeat unit {}.", rMember.name, repeatUnitId_));
+			}
+			return {};
+		}
+		return {repeatUnitId_};
 	}
 
 	StagingDataContainer DescriptorSet::getStagingContainer(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_)
@@ -66,7 +87,7 @@ namespace Graphics
 
 	/*
 		Marks a descriptor's entry as readOnly (see MemoryEntry::readOnly). The flag is read by allocateDescriptorsMemory when the entry is created, so it can't change afterwards.
-		descriptorId_ is the blueprint id, as in setDescriptorMemberValue.
+		descriptorId_ is the descriptor layout id, as in setDescriptorMemberValue.
 	*/
 	void DescriptorSet::setDescriptorReadOnly(PoolId descriptorId_, bool readOnly_)
 	{
@@ -82,11 +103,90 @@ namespace Graphics
 	}
 
 	/*
-		Allocates one MemoryEntry per descriptor (one per frame in flight and a zeroed shadow for a per-frame descriptor, see Descriptor::isPerFrame), sized from its blueprint's ReflectionLayout (one repeat unit). Nothing is uploaded: a GPU_LOCAL entry's bytes are undefined until the first setDescriptorMemberValue was copied.
+		A plain uniform binding sees the whole entry and a dynamic one a single element of the outermost layer, both have to fit maxUniformBufferRange (often 64KB), which storage buffers don't have.
+	*/
+	void DescriptorSet::checkDynamic(Descriptor& rDescriptor_, bool dynamic_)
+	{
+		bool isDynamic = rDescriptor_.isDynamic();
+		if(isDynamic && !dynamic_)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: {} has a dynamic layer, write it with the setDynamicDescriptorMember... functions.", rDescriptor_.getDescriptorLayout().name));
+		}
+		if(!isDynamic && dynamic_)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: {} has no dynamic layer, setDynamicDescriptorMember... is only for dynamic descriptor layouts.", rDescriptor_.getDescriptorLayout().name));
+		}
+	}
+
+	std::vector<uint32_t> DescriptorSet::makeDynamicIds(uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIds_)
+	{
+		std::vector<uint32_t> ids = {dynamicUnitId_};
+		ids.insert(ids.end(), innerIds_.begin(), innerIds_.end());
+		return ids;
+	}
+
+	std::vector<uint32_t> DescriptorSet::getDynamicOffsets(std::span<const uint32_t> unitIds_)
+	{
+		std::vector<uint32_t> offsets;
+		if(!getDescriptorsManager().layouts[this->setLayout].dynamic)
+		{
+			if(!unitIds_.empty())
+			{
+				throw std::runtime_error("Descriptor Set: Dynamic unit ids were given for a set whose layout has no dynamic descriptor layout.");
+			}
+			return offsets;
+		}
+		for(uint32_t i = 0; i < this->descriptors.allocatedSize(); i++)
+		{
+			if(!this->descriptors.alive[i])
+			{
+				continue;
+			}
+			Descriptor& rDescriptor = this->descriptors.getInternal(i);
+			if(!rDescriptor.isDynamic())
+			{
+				continue;
+			}
+			uint32_t unitId = offsets.size() < unitIds_.size() ? unitIds_[offsets.size()] : 0;
+			if(unitId >= rDescriptor.shape.dynamicLayer.count)
+			{
+				throw std::runtime_error(std::format("Descriptor Set: Dynamic unit id {} of {} is out of range, dynamicCount is {}.", unitId, rDescriptor.getDescriptorLayout().name, rDescriptor.shape.dynamicLayer.count));
+			}
+			offsets.push_back(static_cast<uint32_t>(unitId * rDescriptor.shape.dynamicLayer.stride));
+		}
+		if(!unitIds_.empty() && unitIds_.size() != offsets.size()) // also catches ids given for a set without dynamic descriptors
+		{
+			throw std::runtime_error(std::format("Descriptor Set: {} dynamic unit ids given, the set has {} dynamic descriptors.", unitIds_.size(), offsets.size()));
+		}
+		return offsets;
+	}
+
+	void DescriptorSet::validateShape(Descriptor& rDescriptor_)
+	{
+		uint64_t seenBytes = 0;
+		if(rDescriptor_.getType() != UNIFORM_DESCRIPTOR)
+		{
+			return;
+		}
+		seenBytes = rDescriptor_.isDynamic() ? rDescriptor_.shape.blockSize : rDescriptor_.shape.getSize();
+
+		uint64_t maxRange = getMainDevice().properties.limits.maxUniformBufferRange;
+		if(seenBytes > maxRange)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: Descriptor Layout {} binds {} bytes as a uniform, the device allows {}. Use a storage buffer or a dynamic uniform.", rDescriptor_.getDescriptorLayout().name, seenBytes, maxRange));
+		}
+	}
+
+	/*
+		Allocates one MemoryEntry per descriptor (one per frame in flight and a zeroed shadow for a per-frame descriptor, see Descriptor::isPerFrame), sized from its descriptor layout's block (DescriptorLayout::makeShape). Nothing is uploaded: a GPU_LOCAL entry's bytes are undefined until the first setDescriptorMemberValue was copied.
 		Static entries have to be added before StaticAllocator::allocateAndUpload, which is why this is separate from create.
 	*/
 	void DescriptorSet::allocateDescriptorsMemory()
 	{
+		uint32_t uniformCount = 0;
+		uint32_t storageCount = 0;
+		uint32_t dynamicUniformCount = 0;
+		uint32_t dynamicStorageCount = 0;
 		for(uint32_t i = 0; i < this->descriptors.allocatedSize(); i++)
 		{
 			if(!this->descriptors.alive[i])
@@ -95,31 +195,53 @@ namespace Graphics
 			}
 
 			Descriptor& rDescriptor = this->descriptors.getInternal(i);
-			DescriptorBlueprint& rBlueprint = rDescriptor.getBlueprint();
-			if(getReflectionLayout(rDescriptor).size == 0)
+			DescriptorLayout& rDescriptorLayout = rDescriptor.getDescriptorLayout();
+			/* Every dynamic offset has to be a multiple of minUniformBufferOffsetAlignment (uniform) / minStorageBufferOffsetAlignment (storage), so the units are padded to it. */
+			rDescriptor.shape = rDescriptorLayout.makeShape(getDynamicAlignment(rDescriptor.getType()));
+			this->validateShape(rDescriptor);
+			(rDescriptor.getType() == UNIFORM_DESCRIPTOR ? uniformCount : storageCount)++;
+			if(rDescriptor.isDynamic())
 			{
-				throw std::runtime_error(std::format("Descriptor Set: Blueprint {} has no members, a buffer can't have size 0.", rBlueprint.name));
+				(rDescriptor.getType() == UNIFORM_DESCRIPTOR ? dynamicUniformCount : dynamicStorageCount)++;
 			}
 
 			uint32_t copiesCount = rDescriptor.isPerFrame() ? Globals::renderer.framesAtFlightCount : 1;
 			rDescriptor.memoryEntryIds.reserve(copiesCount);
 			for(uint32_t copy = 0; copy < copiesCount; copy++)
 			{
-				MemoryEntryId entryId = allocateMemoryEntry(rBlueprint.name.c_str(), this->allocatorType, rDescriptor.memoryVisability, rBlueprint.bufferType, rBlueprint.layoutId, 1, rDescriptor.readOnly);
+				MemoryEntryId entryId = allocateMemoryEntryRaw(rDescriptorLayout.name.c_str(), this->allocatorType, rDescriptor.memoryVisability, rDescriptorLayout.bufferType, rDescriptor.shape.getSize(), rDescriptor.readOnly);
 				getMemoryManager().getEntry(entryId).descriptorSet = rDescriptor.setId;
 				rDescriptor.memoryEntryIds.emplace_back(entryId);
 			}
 			if(rDescriptor.isPerFrame())
 			{
-				rDescriptor.shadow.data.assign(getReflectionLayout(rDescriptor).size, 0);
+				rDescriptor.shadow.data.assign(rDescriptor.shape.getSize(), 0);
 				rDescriptor.copyVersions.assign(copiesCount, 0);
 			}
+		}
+		/* maxDescriptorSetUniformBuffers / maxDescriptorSetStorageBuffers count the dynamic descriptors of that type too, so the totals are checked next to the dynamic-only limits. */
+		const VkPhysicalDeviceLimits& rLimits = getMainDevice().properties.limits;
+		if(uniformCount > rLimits.maxDescriptorSetUniformBuffers)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: {} uniform descriptors in one set, the device allows {}.", uniformCount, rLimits.maxDescriptorSetUniformBuffers));
+		}
+		if(storageCount > rLimits.maxDescriptorSetStorageBuffers)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: {} storage descriptors in one set, the device allows {}.", storageCount, rLimits.maxDescriptorSetStorageBuffers));
+		}
+		if(dynamicUniformCount > rLimits.maxDescriptorSetUniformBuffersDynamic)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: {} dynamic uniform descriptors in one set, the device allows {}.", dynamicUniformCount, rLimits.maxDescriptorSetUniformBuffersDynamic));
+		}
+		if(dynamicStorageCount > rLimits.maxDescriptorSetStorageBuffersDynamic)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: {} dynamic storage descriptors in one set, the device allows {}.", dynamicStorageCount, rLimits.maxDescriptorSetStorageBuffersDynamic));
 		}
 		this->descriptorsMemoryAllocated = true;
 	}
 
 	/*
-		Creates the pool (one pool per set, sized for exactly its descriptors times the copies), allocates the copies of the set (one per frame in flight if any descriptor isPerFrame, otherwise one) from the layout and points every binding at its entry's buffer range in a single vkUpdateDescriptorSets.
+		Allocates the copies of the set (one per frame in flight if any descriptor isPerFrame, otherwise one) from the layout's pools (DescriptorSetLayout::allocateSets picks one with room) and points every binding at its entry's buffer range in a single vkUpdateDescriptorSets.
 		The sets are fresh and never bound yet, so no pending command buffer uses it (a set may only be updated while none does, since there is no update-after-bind).
 		VkDescriptorBufferInfo::offset has to respect minUniformBufferOffsetAlignment / minStorageBufferOffsetAlignment: dynamic entries are their own buffer (offset 0), static ones sit at inBufferFirstByte in the shared heap buffer, which StaticAllocator::addEntry aligns for uniform and storage entries.
 	*/
@@ -155,23 +277,9 @@ namespace Graphics
 		}
 		uint32_t copiesCount = hasPerFrameDescriptor ? Globals::renderer.framesAtFlightCount : 1;
 
-		this->pool.setDescriptorCountPerType(this->descriptorType, descriptorsCount * copiesCount);
-		this->pool.create(copiesCount);
-
-		std::vector<VkDescriptorSetLayout> setLayouts(copiesCount, getDescriptorsManager().layouts[this->setLayout].vkHandle);
+		DescriptorSetLayout& rLayout = getDescriptorsManager().layouts[this->setLayout];
 		this->vkHandles.resize(copiesCount);
-
-		VkDescriptorSetAllocateInfo setAllocInfo = {};
-		setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		setAllocInfo.descriptorPool = this->pool.vkHandle;
-		setAllocInfo.descriptorSetCount = copiesCount;
-		setAllocInfo.pSetLayouts = setLayouts.data();
-
-		VkResult result = vkAllocateDescriptorSets(getMainDevice().logicalDevice, &setAllocInfo, this->vkHandles.data());
-		if (result != VK_SUCCESS)
-		{
-			throw std::runtime_error("Failed to allocate Descriptor Sets!");
-		}
+		this->poolId = rLayout.allocateSets(copiesCount, this->vkHandles.data());
 
 		/* The writes keep pointers into bufferInfos, so it is reserved up front and never reallocates. Copy f of the set points every binding at getEntryId(f): a per-frame descriptor gets its own entry per copy, the others share one. */
 		MemoryManager& rMemoryManager = getMemoryManager(); 
@@ -199,7 +307,13 @@ namespace Graphics
 				VkDescriptorBufferInfo bufferInfo = {};
 				bufferInfo.buffer = rBuffer.get();
 				bufferInfo.offset = rMemoryEntry.isForDynamic ? 0 : rMemoryEntry.inBufferFirstByte;
-				bufferInfo.range = rMemoryEntry.size;
+				if(rDescriptor.isDynamic() && bufferInfo.offset % getDynamicAlignment(rDescriptor.getType()) != 0)
+				{
+					/* The dynamic offsets are multiples of the alignment (padded stride), so the sum only is if the entry starts aligned too. */
+					throw std::runtime_error(std::format("Descriptor Set: Dynamic entry {} starts at byte {}, not a multiple of the offset alignment of its buffer type.", rMemoryEntry.name, bufferInfo.offset));
+				}
+				/* A dynamic binding sees one block: the dynamic offset of the bind moves this window inside the entry, which holds all of them. The others see the whole entry. */
+				bufferInfo.range = rDescriptor.isDynamic() ? rDescriptor.shape.blockSize : rMemoryEntry.size;
 				bufferInfos.emplace_back(bufferInfo);
 
 				VkWriteDescriptorSet updateSetWrite = {};
@@ -207,7 +321,7 @@ namespace Graphics
 				updateSetWrite.dstSet = this->vkHandles[copy];
 				updateSetWrite.dstBinding = i;
 				updateSetWrite.dstArrayElement = 0;
-				updateSetWrite.descriptorType = descriptorTypes[this->descriptorType];
+				updateSetWrite.descriptorType = rDescriptor.getDescriptorLayout().getVkType();
 				updateSetWrite.descriptorCount = 1;
 				updateSetWrite.pBufferInfo = &bufferInfos.back();
 				updateSetWrites.emplace_back(updateSetWrite);
@@ -218,11 +332,19 @@ namespace Graphics
 		vkUpdateDescriptorSets(getMainDevice().logicalDevice, updateSetWrites.size(), updateSetWrites.data(), 0, nullptr);
     }
 
-	/* Destroying the pool frees the set allocated from it. The memory entries stay owned by the MemoryManager and are freed with it. */
+	/*
+		Gives the VkDescriptorSets back to its pool in the layout (the caller guarantees the GPU is done with them). The memory entries stay owned by the MemoryManager.
+		If the layout's pools are already gone (shutdown, or the layout was recreated) the sets went with it.
+	*/
 	void DescriptorSet::destroy()
 	{
-		this->pool.destroy();
+		DescriptorSetLayout& rLayout = getDescriptorsManager().layouts[this->setLayout];
+		if(this->poolId < rLayout.pools.size() && !this->vkHandles.empty())
+		{
+			vkFreeDescriptorSets(getMainDevice().logicalDevice, rLayout.pools[this->poolId].vkHandle, this->vkHandles.size(), this->vkHandles.data());
+		}
 		this->vkHandles.clear();
+		this->poolId = UninitializedId;
 	}
 
 	/*

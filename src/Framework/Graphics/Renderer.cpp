@@ -1,7 +1,9 @@
 #include "Renderer.h"
 #include "Api.h"
 #include "Globals.h"
+#include <format>
 #include <limits>
+#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics
@@ -15,6 +17,11 @@ void Renderer::setup()
 	//	createDebugMessenger();
 	this->surface.create(); // I need to know - what surface will be used, so I could check if device supports it. 
 	this->mainDevice.setup();
+	createDeviceObjects();
+}
+
+void Renderer::createDeviceObjects()
+{
 	this->swapchain.create();
 	this->framesResources.resize(this->framesAtFlightCount);
 	for (uint32_t i = 0; i < this->framesAtFlightCount; i++)
@@ -110,8 +117,9 @@ void Renderer::draw()
 	}
 }
 
-void Renderer::shutdown() 
+void Renderer::destroyDeviceObjects()
 {
+	/* Vulkan only allows destroying an object once no submitted work uses it, so the device goes idle first. */
 	vkDeviceWaitIdle(this->mainDevice.logicalDevice);
 	this->syncManager.destroy();
 	for (auto& rFrameResources : this->framesResources)
@@ -127,6 +135,67 @@ void Renderer::shutdown()
 	this->shadersManager.destroy(); 
 	this->memoryManager.destroy(); 
 	this->swapchain.destroy(); 
+}
+
+/*
+	Destroying the Vulkan objects leaves the CPU side of the managers behind (entries, passes, layouts, ids). Rebuilding on top of it would add everything twice, so it is reset here.
+	Pools are cleared, not recreated, so their generations keep growing and an id from before the reset stays invalid.
+	Runs after destroyDeviceObjects and before the device is destroyed: clearing the image pools still calls vkDestroyImage.
+*/
+void Renderer::resetDeviceState()
+{
+	this->passesGraph = PassesGraph();
+	this->memoryManager = MemoryManager();
+	this->descriptorsManager.boundDescriptors.clear();
+	for (auto& rLayouts : this->reflectionSystem.layoutsPerBufferType)
+	{
+		rLayouts.clear();
+	}
+	this->resourcesManager.meshes.clear();
+	this->resourcesManager.textures.clear();
+	this->imagesManager.cubemaps.clear();
+	this->imagesManager.volumetrics.clear();
+	this->imagesManager.textures.clear();
+	this->imagesManager.renderTargets.clear();
+	this->presentationRenderPass = RenderPass();
+	this->swapchain.renderTargets.clear();
+	this->swapchain.framebuffers.clear();
+	this->framesResources.clear();
+	this->oneShotCommandPools = CmdPoolsPack<OneShotCommandPool>();
+	this->currentFrame = 0;
+	this->recordingPipelineId = UninitializedPoolId;
+	this->recordingSetIds.clear();
+}
+
+/*
+	Rebuilds the renderer on another suitable GPU. The instance, surface and window stay; everything that depends on the device is destroyed and created again, and the scene comes back through the define* callbacks.
+	Ids the application kept from before (meshes, descriptor sets, passes) are invalid afterwards unless define* recreates them.
+	Waits for the GPU, so don't call it while recording or inside draw.
+*/
+void Renderer::switchDevice(uint32_t id_)
+{
+	if (id_ >= this->mainDevice.suitableDevices.size())
+	{
+		throw std::runtime_error(std::format("Renderer: can't switch to device {}, there are {} suitable devices.", id_, this->mainDevice.suitableDevices.size()));
+	}
+	if (id_ == this->mainDevice.mainDeviceId)
+	{
+		return;
+	}
+
+	this->gpuSceneManager.destroy();
+	destroyDeviceObjects();
+	resetDeviceState();
+	this->mainDevice.destroy();
+	this->mainDevice.selectDevice(id_);
+	this->mainDevice.createLogicalDevice();
+	this->projectManager.setupEnvironment();
+	createDeviceObjects();
+}
+
+void Renderer::shutdown() 
+{
+	destroyDeviceObjects();
 	this->mainDevice.destroy(); 
 	this->surface.destroy(); 
 	this->instance.destroy();

@@ -6,17 +6,18 @@
 
 namespace  Graphics 
 {
-    void DescriptorPool::setDescriptorCountPerType(DescriptorTypeEnum descriptorType_, uint32_t count_)
+    void DescriptorPool::setDescriptorCountPerType(DescriptorTypeEnum descriptorType_, bool dynamic_, uint32_t count_)
     {
-        if(this->initializedDescriptorTypes[descriptorType_] == UninitializedId)
+        uint32_t key = descriptorType_ * 2 + (dynamic_ ? 1 : 0);
+        if(this->initializedDescriptorTypes[key] == UninitializedId)
         {
             this->poolSizePerType.emplace_back(); 
-            this->initializedDescriptorTypes[descriptorType_] = this->poolSizePerType.size() - 1; 
+            this->initializedDescriptorTypes[key] = this->poolSizePerType.size() - 1; 
         }
 
-        uint32_t poolSizeId = this->initializedDescriptorTypes[descriptorType_]; 
+        uint32_t poolSizeId = this->initializedDescriptorTypes[key]; 
         this->poolSizePerType[poolSizeId].descriptorCount = count_; 
-        this->poolSizePerType[poolSizeId].type = descriptorTypes[descriptorType_];  
+        this->poolSizePerType[poolSizeId].type = getVkDescriptorType(descriptorType_, dynamic_);  
     }
 
     /* Vulkan requires poolSizeCount > 0, so a pool without any configured descriptor type can't be created. */
@@ -29,6 +30,7 @@ namespace  Graphics
 
 	    VkDescriptorPoolCreateInfo poolCreateInfo = {};
 	    poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	    poolCreateInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT; // sets are freed one by one when removed
 	    poolCreateInfo.maxSets = maxSets_; 
 	    poolCreateInfo.poolSizeCount = this->poolSizePerType.size();
 	    poolCreateInfo.pPoolSizes = this->poolSizePerType.data();

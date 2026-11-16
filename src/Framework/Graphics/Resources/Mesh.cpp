@@ -15,7 +15,7 @@ Mesh::Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_)
 
 /*
     The vertex entry is only reserved: it has its place in the GPU buffer but no data yet. For GPU_LOCAL its whole-entry staging range is handed out by
-    setVerticeMember, so the initial data is written straight into upload staging. commitUpload queues the copy once every member is set.
+    setVerticeVariable, so the initial data is written straight into upload staging. commitUpload queues the copy once every variable is set.
     With readOnly_ the index entry is already complete here, so it is locked right away. The vertex entry is locked in commitUpload, after the last initial write.
 */
 void Mesh::queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, bool readOnly_)

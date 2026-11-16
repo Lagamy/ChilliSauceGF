@@ -24,7 +24,7 @@ is work in progress; parts of it are not wired up yet.
 ## Directories
 
 ```
-src/Demo/                     Demo app: main.cpp, Triangle (example GPU scene)
+src/Demo/                     Demo app: main.cpp, Demo (example GPU scene), Triangle (mesh helper)
 src/Framework/
   Core                        Window (GLFW), main loop, resize callback
   Api.h/.cpp                  Public free-function API (namespace Graphics)
@@ -45,11 +45,12 @@ src/Framework/
     Backend/CommandBuffer/    FrameCommandPool, OneShotCommandPool, CmdPoolsPack
     Backend/Synchronisation/  Fence, Semaphore
     Backend/Image/            Image (+ views), Sampler
-    Backend/Descriptor/       DescriptorSetLayout, DescriptorBlueprint, DescriptorSet, Descriptor,
+    Backend/Descriptor/       DescriptorSetLayout, DescriptorLayout, MemberBlueprint, DescriptorShape,
+                              DescriptorSet, Descriptor,
                               DescriptorPool
     Backend/ValidationLayers/ DebugMessenger, layer/extension lists
     Pass/                     Pass, Task, PassId, SubmissionBatch, SubmissionMetadata
-    Reflection/               ReflectionLayout, MemberBlueprint, CPUDataContainer,
+    Reflection/               ReflectionLayout, VariableBlueprint, CPUDataContainer,
                               GPUDataContainer, DataContainerConcepts
     Resources/                Mesh, Vertex, Texture
     MemoryManagment/          Static/Dynamic allocators, Heaps/, Pages/ (WIP)
@@ -70,7 +71,7 @@ src/Framework/
 
 ## Startup, frame loop, shutdown
 
-1. `main` calls `Triangle::setGPUSceneToTriangle()`, which registers function
+1. `main` calls `Demo::setGPUSceneToDemo()`, which registers function
    pointers on `GPUSceneManager` (`defineLayouts`, `defineResources`,
    `definePasses`, and per-frame `update*`).
 2. `Core::setup` creates the GLFW window, then `Renderer::setup`: instance →
@@ -91,12 +92,17 @@ src/Framework/
    dependency order (sync → frame resources → one-shot pools → pipelines (and pipeline layouts) →
    descriptor sets and layouts → render passes → framebuffers → shaders → memory → swapchain → device →
    surface → instance).
-5. Window resize (`Core::windowSizeCallback`): `vkDeviceWaitIdle`, destroy and
+5. `Renderer::switchDevice(id)` (`Graphics::switchDevice`) rebuilds the renderer on `suitableDevices[id]`, keeping the instance, surface and window (no-op for the current id, throws for an unknown one). It calls the `GPUSceneManager::destroy` callback, then `destroyDeviceObjects()` (the `shutdown` body up to the swapchain: `vkDeviceWaitIdle`, then the reverse-order destroy), `resetDeviceState()` (CPU-side state the destroy calls leave behind: `PassesGraph`, `MemoryManager` and its allocators, reflection layouts, mesh/texture/image pools, presentation render pass, swapchain target/framebuffer vectors, frame resources, one-shot pools, recording state), `Device::destroy`, `selectDevice(id)`, `createLogicalDevice`, `projectManager.setupEnvironment()` and `createDeviceObjects()` (the `setup` body from the swapchain on, which runs `define*` again). Ids the application kept (meshes, sets, passes) are invalid afterwards unless `define*` recreates them. It waits for the GPU, so don't call it while recording or inside `draw`.
+6. Window resize (`Core::windowSizeCallback`): `vkDeviceWaitIdle`, destroy and
    recreate swapchain + framebuffers.
 
 Frames vs images: per-frame-in-flight objects live in `FrameResources`
 (indexed by `currentFrame`); per-swapchain-image objects live on the swapchain
 `Image` (indexed by `imageIndex`). Framebuffers are indexed by `imageIndex`. Per-frame descriptor copies (`Descriptor::memoryEntryIds`, `DescriptorSet::vkHandles`) are indexed by `currentFrame`.
+
+## Device selection
+
+`Device::getPhysicalDevice` (needs the surface) collects every physical device that passes `checkDeviceSuitable` into `Device::suitableDevices` (`SuitableDevice`: handle + `VkPhysicalDeviceProperties`), throws if there is none, and picks the first `DISCRETE_GPU` (otherwise index 0) through `Device::selectDevice(id)`. That sets `mainDeviceId`, `physicalDevice` and `Device::properties`. Code that needs a device limit reads `getMainDevice().properties.limits`.
 
 ## Queues
 
@@ -277,37 +283,37 @@ an earlier draw reads). The extra semaphores live in `SubmissionMetadata::submit
 
 ## Descriptors (static buffer descriptors)
 
-Uniform and storage buffer descriptors only. No dynamic buffers, bindless, images or samplers (the
-`DescriptorSetLayout` constructor throws for the latter two).
+Uniform and storage buffer descriptors, optionally dynamic. No bindless, images or samplers (`addBufferDescriptorLayout` throws for any type but uniform / storage).
 
 - `DescriptorsManager` (`Graphics/`) owns `PoolMap<DescriptorSetLayout> layouts` and
   `Pool<DescriptorSet> descriptorSet`.
-- `DescriptorSetLayout` has one `DescriptorTypeEnum` and one set of shader stages for all its bindings.
-  `addDescriptorBlueprint(name)` adds a binding: it creates the blueprint plus its own uniform/storage
-  `ReflectionLayout` (in `ReflectionSystem`), both named `<layout name>/<name>` so blueprint names only have to be unique inside one layout, the blueprint slot index is the binding number (dead slots are skipped,
-  numbers can be sparse; removing a blueprint also removes its `ReflectionLayout`). Members are added with `DescriptorBlueprint::addMember` (forwarded to that layout). The API function `addDescriptorBlueprint(layoutName, blueprintName)` finds the layout by name.
+- `DescriptorSetLayout` has one set of shader stages for all its bindings; the descriptor type is per descriptor layout (`DescriptorLayout::type`, `UNIFORM_DESCRIPTOR` or `STORAGE_DESCRIPTOR`), so one set can mix uniform and storage bindings.
+  `addBufferDescriptorLayout(name, type)` / `addBufferDynamicDescriptorLayout(name, type, dynamicCount)` add a binding (`addImageDescriptorLayout` is the not yet supported image twin, it throws). A `DescriptorLayout` is one binding, i.e. the block the shader sees (`buffer Objects { Object states[2]; mat4 model; }`),
+  the descriptor layout slot index is the binding number (dead slots are skipped, numbers can be sparse). Its members are added in the order of the shader's block, each a `MemberBlueprint` (`Backend/Descriptor/`) of one of two kinds: a variable directly in the block
+  (`DescriptorLayout::addMemberBlueprint`, a scalar or matrix overload, each with optional `repeatCountPerDimension`, `Api.h` `addMemberToDescriptorLayout`) or a struct (`addStructMemberBlueprint(name, repeatCountPerDimension)`, `Api.h` `addStructMemberToDescriptorLayout`) whose variables are added with `addVariable(structMemberId, ...)` (`Api.h` `addVariableToDescriptorLayout`).
+  Every member owns a `ReflectionLayout` by value (a variable member holds exactly one variable, a struct member its variables; uniform layouts are `STD140`, storage layouts `STD430`). The id `addMemberBlueprint` / `addVariable` returns is a descriptor wide variable id (a slot of `DescriptorLayout::variables`, a `VariableRef` = member id + id in that member's layout), the id every setter takes.
   `create()` builds the `VkDescriptorSetLayout`.
 - `deriveDescriptorSet(layoutId, allocatorType, memoryVisability)` creates a `DescriptorSet` with one `Descriptor` per
-  blueprint slot (same slot index) and adds the set id to each blueprint's `derivedDescriptors`. Blueprints can't be
+  descriptor layout slot (same slot index) and adds the set id to each descriptor layout's `derivedDescriptors`. Descriptor layouts can't be
   added, removed or get members after memory of a derived set was allocated, and can't be added/removed once sets are derived.
-- A `DescriptorSet` owns its `DescriptorPool` (1 pool : 1 set object, destroyed with the set; destroying the pool
-  frees the `VkDescriptorSet`s). The set holds `vkHandles`: one `VkDescriptorSet` per frame in flight if any descriptor `isPerFrame()` (`!readOnly && CPU_SHARED`), otherwise one. The pool gets `maxSets` = copies and per-type count = descriptors x copies; `get()` returns the copy of `currentFrame` (or the only one). Two phases: `allocateDescriptorsMemory()` calls `allocateMemoryEntry` per descriptor and copy (`Descriptor::memoryEntryIds`: one entry per frame in flight if `isPerFrame()`, otherwise one; `getEntryId(frame)` picks; size = layout size,
-  one repeat unit, `Descriptor::readOnly` passed as `readOnly_`; `setDescriptorReadOnly(blueprintId, readOnly_)` sets it and throws once the memory was allocated; static entries have to be added before `StaticAllocator::allocateAndUpload`), `create()` allocates the
+- A `DescriptorSetLayout` owns the `DescriptorPool`s of all its sets (`pools`, destroyed in `destroy()`). `addDescriptorSetLayout` has no set count: each pool is sized for `setsPerPool_` sets (optional parameter, default `DescriptorSetsPerPool` = 16 in `Utilities.h`, throws on 0), per (type, dynamic) kind descriptor layouts x `setsPerPool` x `framesAtFlightCount` (the worst case of a set whose descriptors are per frame). Pools are added lazily by `DescriptorSetLayout::allocateSets`, which tries every pool in order and adds one when all report `VK_ERROR_OUT_OF_POOL_MEMORY` / `VK_ERROR_FRAGMENTED_POOL`; the set remembers its pool in `DescriptorSet::poolId`. Pools are `FREE_DESCRIPTOR_SET_BIT`, `removeDescriptorSet` frees the set's `VkDescriptorSet`s (`vkFreeDescriptorSets`) into that pool. The device has no limit on the number of sets; `allocateDescriptorsMemory` throws when a set exceeds the per-set uniform / storage (and dynamic) descriptor limits. The set holds `vkHandles`: one `VkDescriptorSet` per frame in flight if any descriptor `isPerFrame()` (`!readOnly && CPU_SHARED`), otherwise one; `get()` returns the copy of `currentFrame` (or the only one). Two phases: `allocateDescriptorsMemory()` calls `allocateMemoryEntry` per descriptor and copy (`Descriptor::memoryEntryIds`: one entry per frame in flight if `isPerFrame()`, otherwise one; `getEntryId(frame)` picks; size = `DescriptorShape::getSize()` (the block shape, still one descriptor, only the entry grows), `Descriptor::readOnly` passed as `readOnly_`; `setDescriptorReadOnly(descriptorLayoutId, readOnly_)` sets it and throws once the memory was allocated; static entries have to be added before `StaticAllocator::allocateAndUpload`), `create()` allocates the
   `VkDescriptorSet` copies and writes every binding of every copy with one `vkUpdateDescriptorSets` (copy f points at `getEntryId(f)`) (offset 0 for dynamic entries,
   `inBufferFirstByte` for static ones). `MemoryEntry::descriptorSet` points back at the set (on every copy's entry).
-- `DescriptorSet::setDescriptorMemberValue<T>(blueprintId, memberId, value)` (plus `setDescriptorMemberArrayElement`, `setDescriptorMemberMatrixElement`, `setDescriptorMemberMatrixRow` / `Column`, with `Array<T>` or `Matrix<T>` sources; a `GPU_LOCAL` write covers only the bytes it replaces, a column is written element by element) writes through
+- Block shape: a descriptor holds one block (or `dynamicCount` of them, see below) of its descriptor layout's members (one descriptor, one entry). `DescriptorLayout::makeShape` (called by `allocateDescriptorsMemory`) places the members in declaration order into a `DescriptorShape` (`Backend/Descriptor/DescriptorShape.h`): a variable at its next multiple of its `alignmentRule`, a struct member at a multiple of its layout's `structAlignment` (the largest variable rule, at least 16 for `STD140`) taking `repeatCountPerDimension` copies of the struct (a `RepeatShape`, `Reflection/RepeatShape.h`: per layer a count and a stride, innermost stride = the struct's `ReflectionLayout::size`, outer stride = inner stride x inner count, offset of an element = sum of id x stride over the layers, bounds checked per layer; `repeatCountPerDimension` is outermost layer first, e.g. `{2, 3}` = `states[2][3]`, `{1}` = one struct, throws on an empty list or a 0 count), then the block size padded to the largest alignment (at least 16 for uniform). This is the std140 / std430 layout of the shader's block, so the declaration order has to match the shader. The entry size, the per-frame shadow size and the dynamic `.range` all come from the shape. A plain uniform binding sees the whole entry, which has to fit `maxUniformBufferRange` (checked in `validateShape`, storage buffers have no such limit). `DescriptorSet::writeMemberRange` works out the byte offset of a variable (dynamic unit x stride + the member's `firstByteId` + the struct element picked by its ids + the variable's own instance, `getRepeatOffset`) and writes through containers with `repeatCount = 1`, `repeatStride` and `repeatBaseOffset` (= the struct element's byte offset): `getRepeatUnitOffset` returns `repeatBaseOffset + repeatUnitId x repeatStride`, so `Mesh` (base 0) is unchanged. A variable of a struct member takes one id per layer of its struct, a variable directly in the block none. Every plain setter has an overload taking `std::vector<uint32_t> idsPerLayer_`, `repeatUnitId_` is the one-layer case (it has to be 0 for a variable directly in the block, `makeSingleLayerIds`).
+- Dynamic descriptors: `addBufferDynamicDescriptorLayout(name, type, dynamicCount)` makes a dynamic descriptor layout: the whole block is repeated `dynamicCount` (at least 1) times, one of them is picked per bind (`DescriptorLayout::dynamicCount`; buffers only, fixed when it is added; `DescriptorSetLayout::dynamic` is true while any live descriptor layout is, recomputed on remove). Dynamic is a property of the block, not of the set: a set can mix dynamic and plain bindings. The binding becomes `VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC` (or `STORAGE_BUFFER_DYNAMIC`; `getVkDescriptorType(type, dynamic)`, there is no dynamic `DescriptorTypeEnum` value) and the pool counts every (type, dynamic) kind separately. The dynamic stride (`DescriptorShape::dynamicLayer`) is the block size rounded up with `alignUp` to `minUniformBufferOffsetAlignment` (uniform) or `minStorageBufferOffsetAlignment` (storage), the binding's `.range` is one unpadded block (`shape.blockSize`), and `allocateDescriptorsMemory` throws when a set has more dynamic uniform / storage descriptors than `maxDescriptorSetUniformBuffersDynamic` / `maxDescriptorSetStorageBuffersDynamic`. Entry starts are aligned (own buffer at offset 0 for dynamic entries, `StaticAllocator::addEntry` for static ones), `create` throws if a dynamic entry's `bufferInfo.offset` isn't, so offset + dynamic offset is always a multiple. Writing: the plain setters throw on a dynamic descriptor, `setDynamicDescriptorMember...` (same 7 variants) take `dynamicUnitId_` (the block) and optional `innerIdsPerLayer_` (the struct's layers). Binding: `bindDescriptorSet(..., dynamicUnitIds_)` takes one unit id per dynamic descriptor in binding order (empty = unit 0); `DescriptorSet::getDynamicOffsets` turns them into `id x dynamic stride` byte offsets for `vkCmdBindDescriptorSets` (Vulkan orders dynamic offsets by binding) and throws on a wrong count or an id >= `dynamicCount`.
+- `DescriptorSet::setDescriptorMemberValue<T>(descriptorLayoutId, variableId, value)` (every setter takes a trailing `repeatUnitId_ = 0` that selects the repeat unit, offset `repeatUnitId_ * layout.size`, throws if >= `repeatCount`; plus `setDescriptorMemberMatrixElement`, `setDescriptorMemberMatrixRow` / `Column`, with `Array<T>` or `Matrix<T>` sources; every setter also takes a trailing `repeatIdPerDimension_` (one id per dimension of the variable, outermost first, empty for a variable that isn't repeated); a `GPU_LOCAL` write covers only the bytes it replaces, a column is written element by element) writes through
   `getStagingContainer` (`GPU_LOCAL`) or `getSharedContainer` (`CPU_SHARED`, readOnly descriptors) and `ReflectionLayout::setMemberScalar`, like `Mesh`.
-  A per-frame descriptor (`isPerFrame()`) instead writes `Descriptor::shadow` (a `CPUDataContainer`, one repeat unit, zeroed in `allocateDescriptorsMemory`) and bumps `Descriptor::version` (starts at 1);
+  A per-frame descriptor (`isPerFrame()`) instead writes `Descriptor::shadow` (a `CPUDataContainer`, `layout.size * repeatCount` bytes, zeroed in `allocateDescriptorsMemory`) and bumps `Descriptor::version` (starts at 1);
   `Descriptor::copyVersions[frame]` (starts at 0) is the version frame's entry holds.
 - `Renderer::setup` calls `allocateAllDescriptorsMemory()` before the static upload and `createAll()` (layouts, then sets) after it and
   before `createAllPipelines()`. `Renderer::shutdown` calls `descriptorsManager.destroy()` (sets, then layouts) after the pipelines.
 - Pipelines: `PipelinesManager::pipelineLayouts` (`Pool<PipelineLayout>`) owns the pipeline layouts. The user never creates one: `addGraphicsPipeline` calls `getOrAddPipelineLayout`, which builds the ordered
   set layout list from the descriptors the vertex and fragment shader declared (`ShaderDescriptorUse::setLayoutId` at `setIndex`; the shaders must agree on a shared set, otherwise it throws; an index nobody declared stays `UninitializedPoolId` and `PipelineLayout::create` fills it with `PipelinesManager::getEmptySetLayout()`, a zero-binding set layout, because a pipeline layout can't have a null set layout without the graphics pipeline library feature) and reuses an existing
-  layout with the same list, so pipelines with the same set layouts share one `VkPipelineLayout`. Shaders have to declare their descriptors before the pipeline is added. A `GraphicsPipeline`
+  layout with the same list, so pipelines with the same set layouts share one `VkPipelineLayout`. `PipelineLayout::create` first runs `validateLimits`, which throws a readable error when the layout's sets break `maxBoundDescriptorSets`, the totals `maxDescriptorSetUniformBuffers` / `StorageBuffers` (and `...Dynamic`) over all its sets, or `maxPerStageDescriptorUniformBuffers` / `StorageBuffers` / `maxPerStageResources` for the vertex, fragment or compute stage (so `recreate` is checked too). Shaders have to declare their descriptors before the pipeline is added. A `GraphicsPipeline`
   holds a `pipelineLayoutId`. `PipelineLayout::usedByGraphicsPipelineIds` and `DescriptorSetLayout::usedByPipelineLayoutIds`
   are filled when a pipeline / a new layout is added.
-  `createAllPipelines` creates the layouts first and skips pipelines and layouts that already exist. `bindDescriptorSet` always records `vkCmdBindDescriptorSets` and remembers the set per index in `Renderer::recordingSetIds` (cleared by `beginCMDsRecording`; `bindGraphicsPipeline` stores the bound pipeline in `Renderer::recordingPipelineId`; recording is single-threaded, one command buffer at a time). A `Shader` lists the descriptors it reads (`Shader::addDescriptor(setIndex, setLayoutId, blueprintId)`, `Api.h` `addDescriptorToShader`; a shader may have none), see the sync paragraph below.
-- Editor-time cascade: adding/removing a blueprint of a created `DescriptorSetLayout` calls `recreate()`: destroy + create the
+  `createAllPipelines` creates the layouts first and skips pipelines and layouts that already exist. `bindDescriptorSet` always records `vkCmdBindDescriptorSets` and remembers the set per index in `Renderer::recordingSetIds` (cleared by `beginCMDsRecording`; `bindGraphicsPipeline` stores the bound pipeline in `Renderer::recordingPipelineId`; recording is single-threaded, one command buffer at a time). A `Shader` lists the descriptors it reads (`Shader::addDescriptor(setIndex, setLayoutId, descriptorLayoutId)`, `Api.h` `addDescriptorsToShader(shaderId, setIndex, setLayoutId, descriptorLayoutIds)`, which calls it once per descriptor layout; a shader may have none), see the sync paragraph below.
+- Editor-time cascade: adding/removing a descriptor layout of a created `DescriptorSetLayout` calls `recreate()`: destroy + create the
   layout, then `PipelineLayout::recreate()` for each layout using it (destroy + create the layout and its graphics pipelines).
   Nothing waits for the GPU, the caller has to
   make sure nothing submitted uses them.
@@ -315,31 +321,31 @@ Uniform and storage buffer descriptors only. No dynamic buffers, bindless, image
   `DescriptorsManager::syncToFrame(currentFrame)` runs in `Renderer::draw` right after `waitForFrame(currentFrame)` and, per set, copies every shadow whose
   `version` differs from `copyVersions[frame]` into that frame's entry (whole entry, `MemoryManager::writeShared`) and records the version. The fence wait is the write-after-read
   dependency (the frame's previous submission read that copy), the memory is coherent so no flush, and the host write before `vkQueueSubmit` is visible to the submission. Other frames' copies are never touched.
-  Non-per-frame `CPU_SHARED` descriptors (readOnly) are written straight into their single entry and don't wait: nothing tracks which frames bind a set anymore, so they are only safe to write before the GPU first reads them. `drawMeshIndexed` looks up the descriptors the vertex and fragment shader of the bound pipeline declared in the sets bound at their indices (`getRecordingSet`; it throws when nothing is bound there) and skips the draw while one of them has a write pending (`DescriptorSet::isDescriptorSettled`: a `GPU_LOCAL` descriptor, readOnly or not, whose first write is still pending (`MemoryManager::hasPendingWrite`, i.e. upload queued or in flight, or an `UPDATE` waiting); once a check saw it settled, `Descriptor::firstDataSettled` stays true and later updates are not waited for), so a draw never reads a descriptor before its first data was copied (the batch barriers above order the later updates). Descriptors the shaders don't declare don't matter, even in the same set, and the set is bound anyway (the declaration is what lets the draw wait for the descriptors, so it is a contract: nothing checks the SPIR-V, so a shader reading an undeclared descriptor can read it before its data was copied): every binding was written by `create` and a shader only reads the bindings it uses. A skipped draw is recorded again on a later frame, since the command buffer is re-recorded every frame. For a recorded draw `drawMeshIndexed` queues the declared descriptors (`DescriptorsManager::queueLockOnSubmit`) and `Renderer::draw` calls `DescriptorsManager::lockBoundDescriptors` right after `resolveSync_SubmitToGPU`, which runs `DescriptorSet::lockReadOnlyDescriptor` (once per descriptor, `Descriptor::readOnlyLocked`): it `lockEntry`s every copy of the descriptor if it is readOnly, so a write after the submit that first recorded a draw reading it throws (also `GPU_LOCAL`); descriptors no draw read stay writable. `GPU_LOCAL` writes go through
+  Non-per-frame `CPU_SHARED` descriptors (readOnly) are written straight into their single entry and don't wait: nothing tracks which frames bind a set anymore, so they are only safe to write before the GPU first reads them. `drawMeshIndexed(meshId, instanceCount, cmd, firstInstance = 0)` passes the optional `firstInstance` to `vkCmdDrawIndexed`, so `gl_InstanceIndex` starts there and a draw can pick its repeat unit(s) of an SSBO descriptor (`objects[gl_InstanceIndex]`). It looks up the descriptors the vertex and fragment shader of the bound pipeline declared in the sets bound at their indices (`getRecordingSet`; it throws when nothing is bound there) and skips the draw while one of them has a write pending (`DescriptorSet::isDescriptorSettled`: a `GPU_LOCAL` descriptor, readOnly or not, whose first write is still pending (`MemoryManager::hasPendingWrite`, i.e. upload queued or in flight, or an `UPDATE` waiting); once a check saw it settled, `Descriptor::firstDataSettled` stays true and later updates are not waited for), so a draw never reads a descriptor before its first data was copied (the batch barriers above order the later updates). Descriptors the shaders don't declare don't matter, even in the same set, and the set is bound anyway (the declaration is what lets the draw wait for the descriptors, so it is a contract: nothing checks the SPIR-V, so a shader reading an undeclared descriptor can read it before its data was copied): every binding was written by `create` and a shader only reads the bindings it uses. A skipped draw is recorded again on a later frame, since the command buffer is re-recorded every frame. For a recorded draw `drawMeshIndexed` queues the declared descriptors (`DescriptorsManager::queueLockOnSubmit`) and `Renderer::draw` calls `DescriptorsManager::lockBoundDescriptors` right after `resolveSync_SubmitToGPU`, which runs `DescriptorSet::lockReadOnlyDescriptor` (once per descriptor, `Descriptor::readOnlyLocked`): it `lockEntry`s every copy of the descriptor if it is readOnly, so a write after the submit that first recorded a draw reading it throws (also `GPU_LOCAL`); descriptors no draw read stay writable. `GPU_LOCAL` writes go through
   staging and don't wait.
-- Removing (`removeDescriptorBlueprint`, `removeDescriptorSet`, `removeDescriptorSetLayout`, forwarded by `Api.h`): a blueprint can only be
-  removed while no set is derived from its layout (it also removes the blueprint's `ReflectionLayout`). `removeDescriptorSet` waits (`PassesGraph::waitForFrame`) for
-  every frame in flight, removes all entries (every copy) of a `DYNAMIC` set (`GPU_LOCAL` ones through the deferred `REMOVE` operation), unregisters the set from its blueprints and destroys it (its pool).
-  Entries of a `STATIC` set can't be removed and stay in the static heap until shutdown. Like writes, it must not be called while recording.
+- Removing (`removeDescriptorLayout`, `removeDescriptorSet`, `removeDescriptorSetLayout`, forwarded by `Api.h`): a descriptor layout can only be
+  removed while no set is derived from its layout. `removeDescriptorSet` waits (`PassesGraph::waitForFrame`) for
+  every frame in flight, removes all entries (every copy) of a `DYNAMIC_ALLOCATOR` set (`GPU_LOCAL` ones through the deferred `REMOVE` operation), unregisters the set from its descriptor layouts and destroys it (its pool).
+  Entries of a `STATIC_ALLOCATOR` set can't be removed and stay in the static heap until shutdown. Like writes, it must not be called while recording.
   `removeDescriptorSetLayout` throws if sets are derived or a `PipelineLayout` still uses the layout (nothing detaches a layout from a pipeline layout yet), otherwise it
-  destroys the layout and removes its blueprints.
-- Scene change: `Renderer::draw`'s re-define branch calls `allocateAllDescriptorsMemory`, `createAll` and `createAllPipelines` after `define*`. All three skip what already exists (a set counts as created once it has `vkHandles`, with all its per-frame copies). A new `STATIC` set
-  throws there (static entries have to be added before `StaticAllocator::allocateAndUpload`), so sets defined by a scene have to be `DYNAMIC`. Passes defined by the scene
+  destroys the layout and removes its descriptor layouts.
+- Scene change: `Renderer::draw`'s re-define branch calls `allocateAllDescriptorsMemory`, `createAll` and `createAllPipelines` after `define*`. All three skip what already exists (a set counts as created once it has `vkHandles`, with all its per-frame copies). A new `STATIC_ALLOCATOR` set
+  throws there (static entries have to be added before `StaticAllocator::allocateAndUpload`), so sets defined by a scene have to be `DYNAMIC_ALLOCATOR`. Passes defined by the scene
   have the limits described in `docs/OptionalPolishNotes.md`.
-- `ReflectionLayout` pads members to its `alignment` (`NONE`/`STD140`/`STD430`): `MemberBlueprint` aligns `firstByteId` up to `alignmentRule`, `size` includes column/element/row padding, and `ReflectionLayout::size` ends at the last member rounded up to the layout's alignment (`structAlignment`: the largest member rule, at least 16 for `STD140`), so repeat unit N starts at `N * size`. `DescriptorSetLayout::addDescriptorBlueprint` creates uniform layouts as `STD140` and storage layouts as `STD430`; vertex layouts stay `NONE` (the pipeline's stride and offsets are the packed sizes). A matrix aligns like a column in `STD430` (8 for 2-row matrices) and to 16 in `STD140` (`resolveSTDPaddingRule`).
-  `DescriptorBlueprint::addMember` (and `Api.h` `addMemberToDescriptorBlueprint` / `addMemberToVerticeLayout`) have a scalar, an array (`elementCount_`) and a matrix (`rowCount_`, `columnCount_`) overload, forwarded to `ReflectionLayout::addMemberBlueprint`.
+- `ReflectionLayout` pads members to its `alignment` (`NONE`/`STD140`/`STD430`): `VariableBlueprint` aligns `firstByteId` up to `alignmentRule`, `size` includes column/element/row padding, and `ReflectionLayout::size` ends at the last member rounded up to the layout's alignment (`structAlignment`: the largest member rule, at least 16 for `STD140`), so repeat unit N starts at `N * size`. `DescriptorLayout` creates the layouts of its members as `STD140` (uniform) or `STD430` (storage); vertex layouts stay `NONE` (the pipeline's stride and offsets are the packed sizes). A matrix aligns like a column in `STD430` (8 for 2-row matrices) and to 16 in `STD140` (`resolveSTDPaddingRule`).
+  `DescriptorLayout::addMemberBlueprint` / `addVariable` (and `Api.h` `addMemberToDescriptorLayout` / `addVariableToDescriptorLayout` / `addVariableToVerticeLayout`) have a scalar and a matrix (`rowCount_`, `columnCount_`) overload, each with `repeatCountPerDimension_` (see below), forwarded to `ReflectionLayout::addVariableBlueprint`.
 
 ## Reflection
 
 `ReflectionSystem::layoutsPerBufferType[bufferType - 1]` (no INDEX layout) holds
-`ReflectionLayout`s. A layout is a pure blueprint: `MemberBlueprint`s (type, offset,
+`ReflectionLayout`s. A layout is a pure blueprint: `VariableBlueprint`s (type, offset,
 size) and the total `size`; it holds no data. A `CPUDataContainer` (byte vector ×
 `repeatCount`, e.g. vertices) is owned by the instance that uses it.
 `ReflectionLayout::setMemberScalar<T>` / `getMemberScalar<T>` take the container, a member id and
-a repeat unit id, check `T` against the member's type and shape (`SCALAR`/`ARRAY`/`MATRIX`) through `GPUTypeMap<T>`, and
-throw on mismatch or out-of-range repeat index. They write/read `sizeof(T)` bytes (matrix types such as `Mat3` column by column, each column at a multiple of the alignment rule; the element setters below do the same through `writeTyped`). `setElementInMemberArray`, `setElementInMemberMatrix`,
-`setRowInMemberMatrix` and `setColumnInMemberMatrix` (plus the getters `getElementInMemberArray` / `getElementInMemberMatrix`, which read through `readTyped`; rows/columns come from a `Misc/Array.h` `Array<T>`, or from a row/column of a `Misc/Matrix.h` `Matrix<T>` through the overloads that take a source matrix and a source row/column id) write into `ARRAY`/`MATRIX` members at the offsets of
-`MemberBlueprint::getArrayElementOffset` / `getMatrixElementOffset` (element stride = element size rounded up to `alignmentRule`, row stride = row size rounded up to it, same as `Array`/`Matrix`). They are templated on the container
+a repeat unit id, check `T` against the member's type and shape (`SCALAR`/`MATRIX`) through `GPUTypeMap<T>`, and
+throw on mismatch or out-of-range repeat index. They write/read `sizeof(T)` bytes (matrix types such as `Mat3` column by column, each column at a multiple of the alignment rule; the element setters below do the same through `writeTyped`). `setElementInMemberMatrix`,
+`setRowInMemberMatrix` and `setColumnInMemberMatrix` (plus the getters `getElementInMemberMatrix`, which read through `readTyped`; rows/columns come from a `Misc/Array.h` `Array<T>`, or from a row/column of a `Misc/Matrix.h` `Matrix<T>` through the overloads that take a source matrix and a source row/column id) write into `MATRIX` members at the offsets of
+`VariableBlueprint::getMatrixElementOffset` (element stride = element size rounded up to `alignmentRule`, row stride = row size rounded up to it, same as `Array`/`Matrix`). They are templated on the container
 type, constrained by `WritableDataContainer` / `ReadableDataContainer`
 (`DataContainerConcepts.h`): `repeatCount` plus `write`/`read(offset, ptr, size)`.
 `GPUDataContainer<Readable>` owns no bytes and touches no Vulkan memory: it holds ids (a `StagingData` range, or a
@@ -354,9 +360,9 @@ keeps no copy of its vertex bytes; it writes through these containers.
   (`MemoryManager::reserveEntry`, no data yet) and uploads the index entry
   (`vbMemoryUploadId`, `ibMemoryUploadId`). With `readOnly_` both entries are created `readOnly`: the index entry is locked
   at the end of `queueUpload`, the vertex entry at the end of `commitUpload` (`MemoryManager::lockEntry`), so later
-  `setVerticeMember` calls throw. Readbacks still work.
-- `Mesh::setVerticeMember<T>(memberId, verticeId, data)` computes
-  `verticeId * layout.size + member.firstByteId`, gets a container for that range
+  `setVerticeVariable` calls throw. Readbacks still work.
+- `Mesh::setVerticeVariable<T>(variableId, verticeId, data)` computes
+  `verticeId * layout.size + variable.firstByteId`, gets a container for that range
   and writes through `ReflectionLayout::setMemberScalar`. For `GPU_LOCAL` the container is a
   `StagingDataContainer` from `MemoryManager::getStagingContainer`; for `CPU_SHARED`
   it is the entry's `SharedDataContainer`. It throws under `ENGINE_DEBUG` if the mesh
@@ -364,17 +370,38 @@ keeps no copy of its vertex bytes; it writes through these containers.
 - Before `Mesh::commitUpload()` the `GPU_LOCAL` writes fill the entry's whole-entry
   upload staging range, so the initial data goes straight to staging.
   `commitUpload()` calls `MemoryManager::commitEntry`, which queues the copy. After it,
-  every `setVerticeMember` is an update: a fresh staging range sized to the member, and
+  every `setVerticeVariable` is an update: a fresh staging range sized to the variable, and
   an `UPDATE` operation.
 - There is no dirty tracking (`DirtyInMesh`, `verticeToDirtyId`, `markVerticeDirty`,
   `queueUpdate` were removed): each write has its own range, so there is nothing to merge.
-- `setVerticeMember` has the same array/matrix variants as the descriptor set (`setVerticeMemberArrayElement`, `setVerticeMemberMatrixElement`, `setVerticeMemberMatrixRow` / `Column`). A vertex layout may have scalar and array members (a `MAT*` member or array element takes one attribute location per column); `GraphicsPipeline::create` throws for a `MATRIX` shaped member.
-- Reading: `Mesh::requestVerticeMemberReadback(memberId, verticeId)` calls
-  `requestMemoryEntryReadback` for the member's byte range and returns a `ReadbackId`. Once
-  `isReadbackReady` is true, `Mesh::getVerticeMember<T>(readbackId, memberId, verticeId)` (or `getVerticeMemberArrayElement` / `getVerticeMemberMatrixElement`) maps it
+- `setVerticeVariable` has the same matrix variants as the descriptor set (`setVerticeVariableMatrixElement`, `setVerticeVariableMatrixRow` / `Column`). A vertex layout may have scalar variables, repeated or not (a `MAT*` variable or repeated element takes one attribute location per column); `GraphicsPipeline::create` throws for a `MATRIX` shaped variable.
+- Reading: `Mesh::requestVerticeVariableReadback(variableId, verticeId)` calls
+  `requestMemoryEntryReadback` for the variable's byte range and returns a `ReadbackId`. Once
+  `isReadbackReady` is true, `Mesh::getVerticeVariable<T>(readbackId, variableId, verticeId)` (or `getVerticeVariableMatrixElement`; both take the optional `repeatIdPerDimension_`) maps it
   (`mapReadback`) and reads through `ReflectionLayout::getMemberScalar`. `GPU_LOCAL` meshes copy into a
   readback range, `CPU_SHARED` meshes are ready immediately and read the mapped memory. The caller
   calls `releaseReadback` afterwards. There is no synchronous `getVertice`.
+
+### Repeated variables
+
+A `VariableBlueprint` is a scalar (a scalar, vector or GLSL matrix type such as `MAT4`) or a matrix (a grid of elements), and either can be repeated per dimension: `repeatCountPerDimension` (outermost first, `{2, 3}` = `a[2][3]`, empty = not repeated, throws on a 0 count) is a parameter of every `addVariableBlueprint` / `addMemberBlueprint` / `addVariable` / `addVariableTo...Layout` overload. `int a[2]` is a scalar with `{2}`, `mat4 m[2]` a `MAT4` scalar with `{2}`. A repeated variable aligns like an array (16 for std140) and its `repeatLayers` (`RepeatLayer` = count + stride, outermost first) are built with `RepeatShape::fromCounts` from the instance size rounded up to the alignment rule: the innermost stride is that, every outer stride is the inner stride times the inner count. `elementSize` is one instance, `size` all of them. `VariableBlueprint::getRepeatOffset(repeatIdPerDimension)` is the byte offset of an instance (throws on a wrong number of ids or an id out of range), and every `ReflectionLayout` set / get (and the `Mesh` / `DescriptorSet` setters on top of them) takes the ids as `repeatIdPerDimension_`. A struct member's `repeatCountPerDimension` works the same way for the struct array. A vertex layout may repeat variables: the pipeline gives one attribute location per instance (all dimensions, last one fastest) and per column.
+
+### Alignment
+
+Every offset and stride of the reflection and descriptor code comes from one of these levels. The STD140 / STD430 rules are the layout's `STDAlignmentLayoutEnum` (`NONE` = 1, `STD140`, `STD430`, see `resolveSTDPaddingRule`), the third comes from the device.
+
+| Level | Rule used | Job |
+|---|---|---|
+| Variable | STD140 / STD430 rule of the variable (`VariableBlueprint::alignmentRule`) | Lay out its own columns, rows and elements. |
+| Struct | STD140 / STD430 rule of each variable (to place it), then the struct's own alignment (`ReflectionLayout::structAlignment`: the largest variable rule, at least 16 for `STD140`) | Place its variables inside itself, then pad its own size to `structAlignment`. |
+| Block | STD140 / STD430 rule of a variable member, `structAlignment` of a struct member | Place the members, and pad the block size (to the largest alignment, at least 16 for uniform). |
+| Device limit | Dynamic buffer alignment (`minUniformBufferOffsetAlignment` / `minStorageBufferOffsetAlignment`) | Place the blocks: the stride between the blocks of a dynamic descriptor layout (`DescriptorShape::dynamicLayer`, the binding's `.range` stays the unpadded block) and the start of a uniform / storage entry in the static heap (`StaticAllocator::addEntry`), so base offset + dynamic offset is always a multiple. Dynamic entries own their buffer, which starts at 0. |
+
+Which layout gets which rule: a descriptor member's `ReflectionLayout` is `STD140` for uniform and `STD430` for storage descriptor layouts, vertex layouts are `NONE`. The shader has to declare the same block (same order, same types), nothing checks the SPIR-V.
+
+A higher level only decides where the lower one starts and how much room it gets, never what is inside: the device limits place blocks, the block places its members, a struct places its variables and then pads its own size, a variable lays out its own columns, rows and elements.
+
+A repeated variable's `size` includes the padding after its last element (N x stride, as GLSL sizes an array), so the next member starts after it even when its own alignment is smaller. A lone variable has no such tail (`vec3 v; float b;` puts `b` at 12).
 
 ## Error handling
 

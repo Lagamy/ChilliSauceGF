@@ -31,129 +31,112 @@ namespace Graphics
 		MemoryEntryId ibMemoryUploadId;
 
 		/*
-			Writes one member of one vertice. Only valid after queueUpload. Before commitUpload it fills the initial data, after it it's an update (throws if the mesh was queued readOnly).
-			The functions below write a part of an ARRAY / MATRIX member the same way. Each GPU_LOCAL write is its own staging range and update, covering only the bytes it replaces (an element, a row), so a column is written element by element.
+			Writes one variable of one vertice. Only valid after queueUpload. Before commitUpload it fills the initial data, after it it's an update (throws if the mesh was queued readOnly).
+			The functions below write a part of a MATRIX variable the same way. Each GPU_LOCAL write is its own staging range and update, covering only the bytes it replaces (an element, a row), so a column is written element by element.
+			A variable declared with repeatCountPerDimension (int a[2][3]) takes repeatIdPerDimension_ in every function, one id per dimension, outermost first (empty for a variable that isn't repeated).
 		*/
 		template<typename T>
-		void setVerticeMember(PoolId memberId_, uint32_t verticeId_, T data_)
+		void setVerticeVariable(PoolId variableId_, uint32_t verticeId_, T data_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 		{
-			this->writeMemberRange(memberId_, verticeId_, 0, this->getMember(memberId_).size, [&](ReflectionLayout& rLayout_, auto& rContainer_)
+			const VariableBlueprint& rVariable = this->getVariable(variableId_);
+			this->writeVariableRange(variableId_, verticeId_, rVariable.getRepeatOffset(repeatIdPerDimension_), rVariable.elementSize, [&](ReflectionLayout& rLayout_, auto& rContainer_)
 			{
-				rLayout_.setMemberScalar(rContainer_, memberId_, verticeId_, data_);
+				rLayout_.setMemberScalar(rContainer_, variableId_, verticeId_, data_, repeatIdPerDimension_);
 			});
 		}
 
 		template<typename T>
-		void setVerticeMemberArrayElement(PoolId memberId_, uint32_t verticeId_, uint32_t elementId_, T data_)
+		void setVerticeVariableMatrixElement(PoolId variableId_, uint32_t verticeId_, uint32_t rowId_, uint32_t columnId_, T data_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 		{
-			const MemberBlueprint& rMember = this->getMember(memberId_);
-			this->writeMemberRange(memberId_, verticeId_, rMember.getArrayElementOffset(elementId_), rMember.getElementStride(), [&](ReflectionLayout& rLayout_, auto& rContainer_)
+			const VariableBlueprint& rVariable = this->getVariable(variableId_);
+			this->writeVariableRange(variableId_, verticeId_, rVariable.getRepeatOffset(repeatIdPerDimension_) + rVariable.getMatrixElementOffset(rowId_, columnId_), rVariable.getElementStride(), [&](ReflectionLayout& rLayout_, auto& rContainer_)
 			{
-				rLayout_.setElementInMemberArray(rContainer_, memberId_, verticeId_, elementId_, data_);
+				rLayout_.setElementInMemberMatrix(rContainer_, variableId_, verticeId_, rowId_, columnId_, data_, repeatIdPerDimension_);
 			});
 		}
 
+		/* Replaces a whole row. The Array must have one element per column of the variable. */
 		template<typename T>
-		void setVerticeMemberMatrixElement(PoolId memberId_, uint32_t verticeId_, uint32_t rowId_, uint32_t columnId_, T data_)
+		void setVerticeVariableMatrixRow(PoolId variableId_, uint32_t verticeId_, uint32_t rowId_, const Array<T>& rSrcArray_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 		{
-			const MemberBlueprint& rMember = this->getMember(memberId_);
-			this->writeMemberRange(memberId_, verticeId_, rMember.getMatrixElementOffset(rowId_, columnId_), rMember.getElementStride(), [&](ReflectionLayout& rLayout_, auto& rContainer_)
+			const VariableBlueprint& rVariable = this->getVariable(variableId_);
+			this->writeVariableRange(variableId_, verticeId_, rVariable.getRepeatOffset(repeatIdPerDimension_) + rVariable.getMatrixElementOffset(rowId_, 0), rVariable.getRowStride(), [&](ReflectionLayout& rLayout_, auto& rContainer_)
 			{
-				rLayout_.setElementInMemberMatrix(rContainer_, memberId_, verticeId_, rowId_, columnId_, data_);
+				rLayout_.setRowInMemberMatrix(rContainer_, variableId_, verticeId_, rowId_, rSrcArray_, repeatIdPerDimension_);
 			});
 		}
 
-		/* Replaces a whole row. The Array must have one element per column of the member. */
+		/* Replaces a whole row with row srcRowId_ of a Matrix. The Matrix must have as many columns as the variable. */
 		template<typename T>
-		void setVerticeMemberMatrixRow(PoolId memberId_, uint32_t verticeId_, uint32_t rowId_, const Array<T>& rSrcArray_)
+		void setVerticeVariableMatrixRow(PoolId variableId_, uint32_t verticeId_, uint32_t rowId_, const Matrix<T>& rSrcMatrix_, uint32_t srcRowId_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 		{
-			const MemberBlueprint& rMember = this->getMember(memberId_);
-			this->writeMemberRange(memberId_, verticeId_, rMember.getMatrixElementOffset(rowId_, 0), rMember.getRowStride(), [&](ReflectionLayout& rLayout_, auto& rContainer_)
+			const VariableBlueprint& rVariable = this->getVariable(variableId_);
+			this->writeVariableRange(variableId_, verticeId_, rVariable.getRepeatOffset(repeatIdPerDimension_) + rVariable.getMatrixElementOffset(rowId_, 0), rVariable.getRowStride(), [&](ReflectionLayout& rLayout_, auto& rContainer_)
 			{
-				rLayout_.setRowInMemberMatrix(rContainer_, memberId_, verticeId_, rowId_, rSrcArray_);
+				rLayout_.setRowInMemberMatrix(rContainer_, variableId_, verticeId_, rowId_, rSrcMatrix_, srcRowId_, repeatIdPerDimension_);
 			});
 		}
 
-		/* Replaces a whole row with row srcRowId_ of a Matrix. The Matrix must have as many columns as the member. */
+		/* Replaces a whole column. The Array must have one element per row of the variable. */
 		template<typename T>
-		void setVerticeMemberMatrixRow(PoolId memberId_, uint32_t verticeId_, uint32_t rowId_, const Matrix<T>& rSrcMatrix_, uint32_t srcRowId_)
+		void setVerticeVariableMatrixColumn(PoolId variableId_, uint32_t verticeId_, uint32_t columnId_, const Array<T>& rSrcArray_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 		{
-			const MemberBlueprint& rMember = this->getMember(memberId_);
-			this->writeMemberRange(memberId_, verticeId_, rMember.getMatrixElementOffset(rowId_, 0), rMember.getRowStride(), [&](ReflectionLayout& rLayout_, auto& rContainer_)
+			const VariableBlueprint& rVariable = this->getVariable(variableId_);
+			if(rSrcArray_.size() != rVariable.shapeMetadata.rowCount)
 			{
-				rLayout_.setRowInMemberMatrix(rContainer_, memberId_, verticeId_, rowId_, rSrcMatrix_, srcRowId_);
-			});
-		}
-
-		/* Replaces a whole column. The Array must have one element per row of the member. */
-		template<typename T>
-		void setVerticeMemberMatrixColumn(PoolId memberId_, uint32_t verticeId_, uint32_t columnId_, const Array<T>& rSrcArray_)
-		{
-			const MemberBlueprint& rMember = this->getMember(memberId_);
-			if(rSrcArray_.size() != rMember.shapeMetadata.rowCount)
-			{
-				throw std::runtime_error(std::format("Mesh {}: Array with {} elements can't replace a column of {} elements.", this->name, rSrcArray_.size(), rMember.shapeMetadata.rowCount));
+				throw std::runtime_error(std::format("Mesh {}: Array with {} elements can't replace a column of {} elements.", this->name, rSrcArray_.size(), rVariable.shapeMetadata.rowCount));
 			}
 			for(uint32_t rowId = 0; rowId < rSrcArray_.size(); rowId++)
 			{
-				this->setVerticeMemberMatrixElement(memberId_, verticeId_, rowId, columnId_, rSrcArray_.getElement(rowId));
+				this->setVerticeVariableMatrixElement(variableId_, verticeId_, rowId, columnId_, rSrcArray_.getElement(rowId), repeatIdPerDimension_);
 			}
 		}
 
-		/* Replaces a whole column with column srcColumnId_ of a Matrix. The Matrix must have as many rows as the member. */
+		/* Replaces a whole column with column srcColumnId_ of a Matrix. The Matrix must have as many rows as the variable. */
 		template<typename T>
-		void setVerticeMemberMatrixColumn(PoolId memberId_, uint32_t verticeId_, uint32_t columnId_, const Matrix<T>& rSrcMatrix_, uint32_t srcColumnId_)
+		void setVerticeVariableMatrixColumn(PoolId variableId_, uint32_t verticeId_, uint32_t columnId_, const Matrix<T>& rSrcMatrix_, uint32_t srcColumnId_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 		{
-			const MemberBlueprint& rMember = this->getMember(memberId_);
-			if(rSrcMatrix_.getRowCount() != rMember.shapeMetadata.rowCount || srcColumnId_ >= rSrcMatrix_.getColumnCount())
+			const VariableBlueprint& rVariable = this->getVariable(variableId_);
+			if(rSrcMatrix_.getRowCount() != rVariable.shapeMetadata.rowCount || srcColumnId_ >= rSrcMatrix_.getColumnCount())
 			{
-				throw std::runtime_error(std::format("Mesh {}: Column {} of a {}x{} Matrix can't replace a column of {} elements.", this->name, srcColumnId_, rSrcMatrix_.getRowCount(), rSrcMatrix_.getColumnCount(), rMember.shapeMetadata.rowCount));
+				throw std::runtime_error(std::format("Mesh {}: Column {} of a {}x{} Matrix can't replace a column of {} elements.", this->name, srcColumnId_, rSrcMatrix_.getRowCount(), rSrcMatrix_.getColumnCount(), rVariable.shapeMetadata.rowCount));
 			}
 			for(uint32_t rowId = 0; rowId < rSrcMatrix_.getRowCount(); rowId++)
 			{
-				this->setVerticeMemberMatrixElement(memberId_, verticeId_, rowId, columnId_, rSrcMatrix_.getElement(rowId, srcColumnId_));
+				this->setVerticeVariableMatrixElement(variableId_, verticeId_, rowId, columnId_, rSrcMatrix_.getElement(rowId, srcColumnId_), repeatIdPerDimension_);
 			}
 		}
 
 		/*
-			Reading is asynchronous for GPU_LOCAL meshes: the request queues a copy into a readback range, and the member can be read once isReadbackReady(readbackId) is true.
+			Reading is asynchronous for GPU_LOCAL meshes: the request queues a copy into a readback range, and the variable can be read once isReadbackReady(readbackId) is true.
 			For CPU_SHARED meshes the request is ready immediately and reads the mapped memory. The caller releases the request with releaseReadback after reading.
 		*/
-		ReadbackId requestVerticeMemberReadback(PoolId memberId_, uint32_t verticeId_)
+		ReadbackId requestVerticeVariableReadback(PoolId variableId_, uint32_t verticeId_)
 		{
 			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
-			const MemberBlueprint& rMember = rLayout.memberBlueprints[memberId_];
-			uint64_t inEntryOffset = verticeId_ * rLayout.size + rMember.firstByteId;
-			return requestMemoryEntryReadback(this->vbMemoryUploadId, inEntryOffset, rMember.size);
+			const VariableBlueprint& rVariable = rLayout.variableBlueprints[variableId_];
+			uint64_t inEntryOffset = verticeId_ * rLayout.size + rVariable.firstByteId;
+			return requestMemoryEntryReadback(this->vbMemoryUploadId, inEntryOffset, rVariable.size);
 		}
 
-		/* Reads the member a request made with requestVerticeMemberReadback covers. Only valid once the readback is ready. */
+		/* Reads the variable a request made with requestVerticeVariableReadback covers. Only valid once the readback is ready. */
 		template<typename T>
-		T getVerticeMember(ReadbackId readbackId_, PoolId memberId_, uint32_t verticeId_)
+		T getVerticeVariable(ReadbackId readbackId_, PoolId variableId_, uint32_t verticeId_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 		{
 			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
 			ReadbackDataContainer container = mapReadback(readbackId_);
 			container.repeatCount = this->verticesCount;
-			return rLayout.getMemberScalar<T>(container, memberId_, verticeId_);
+			return rLayout.getMemberScalar<T>(container, variableId_, verticeId_, repeatIdPerDimension_);
 		}
 
-		/* Same as getVerticeMember for one element of an ARRAY / MATRIX member (the readback of the whole member covers it). */
+		/* Same as getVerticeVariable for one element of a MATRIX variable (the readback of the whole variable covers it). */
 		template<typename T>
-		T getVerticeMemberArrayElement(ReadbackId readbackId_, PoolId memberId_, uint32_t verticeId_, uint32_t elementId_)
+		T getVerticeVariableMatrixElement(ReadbackId readbackId_, PoolId variableId_, uint32_t verticeId_, uint32_t rowId_, uint32_t columnId_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 		{
 			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
 			ReadbackDataContainer container = mapReadback(readbackId_);
 			container.repeatCount = this->verticesCount;
-			return rLayout.getElementInMemberArray<T>(container, memberId_, verticeId_, elementId_);
-		}
-
-		template<typename T>
-		T getVerticeMemberMatrixElement(ReadbackId readbackId_, PoolId memberId_, uint32_t verticeId_, uint32_t rowId_, uint32_t columnId_)
-		{
-			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
-			ReadbackDataContainer container = mapReadback(readbackId_);
-			container.repeatCount = this->verticesCount;
-			return rLayout.getElementInMemberMatrix<T>(container, memberId_, verticeId_, rowId_, columnId_);
+			return rLayout.getElementInMemberMatrix<T>(container, variableId_, verticeId_, rowId_, columnId_, repeatIdPerDimension_);
 		}
 
 		void queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, bool readOnly_ = false);
@@ -162,9 +145,9 @@ namespace Graphics
 		Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_);
 
 	private:
-		const MemberBlueprint& getMember(PoolId memberId_)
+		const VariableBlueprint& getVariable(PoolId variableId_)
 		{
-			return getVerticeLayout(this->verticeLayoutId).memberBlueprints[memberId_];
+			return getVerticeLayout(this->verticeLayoutId).variableBlueprints[variableId_];
 		}
 
 		/*
@@ -172,10 +155,10 @@ namespace Graphics
 			[firstByteId + inMemberOffset_, + size_) of the member of vertice verticeId_.
 		*/
 		template<typename F>
-		void writeMemberRange(PoolId memberId_, uint32_t verticeId_, uint64_t inMemberOffset_, uint64_t size_, F&& write_)
+		void writeVariableRange(PoolId variableId_, uint32_t verticeId_, uint64_t inMemberOffset_, uint64_t size_, F&& write_)
 		{
 			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
-			uint64_t inEntryOffset = verticeId_ * rLayout.size + rLayout.memberBlueprints[memberId_].firstByteId + inMemberOffset_;
+			uint64_t inEntryOffset = verticeId_ * rLayout.size + rLayout.variableBlueprints[variableId_].firstByteId + inMemberOffset_;
 
 			if(this->memoryVisability == GPU_LOCAL)
 			{

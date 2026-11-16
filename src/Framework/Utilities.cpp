@@ -164,9 +164,26 @@
 			// vkUpdateDescriptorSets(Engine::renderer.mainDevice.logicalDevice, 1, &setWrite, 0, nullptr);
 		// }
 
+		/* Rounds value up to the next multiple of alignment. alignment has to be a power of two (Vulkan alignments, std140/std430 rules and minUniformBufferOffsetAlignment all are), which is what makes the bit mask work. */
 		VkDeviceSize alignUp(VkDeviceSize value, VkDeviceSize alignment)
 		{
-    		return ((value + alignment - 1) / alignment) * alignment;
+			#ifdef ENGINE_DEBUG
+				if(alignment == 0 || (alignment & (alignment - 1)) != 0)
+				{
+					throw std::runtime_error("alignUp: alignment has to be a power of two.");
+				}
+			#endif
+
+			/* All bits that are representing this alignment (and multiples of it). Alignment = 32 -> ...11100000 */
+			VkDeviceSize alignmentBitMask = ~(alignment - 1);
+
+			/*
+				If value is bigger than the last multiple of alignment - adding (alignment - 1) before getting rid of the bits that aren't in the mask
+				carries into the next multiple. So (alignment = 32, value = 57) -> 57 + 31 = 88 -> 88 & mask = 64. An already aligned value stays: 64 + 31 = 95 -> 64.
+			*/
+			VkDeviceSize overflowHandling = alignment - 1;
+
+			return (value + overflowHandling) & alignmentBitMask;
 		}
 
 		uint8_t resolveSTDPaddingRule(STDAlignmentLayoutEnum aligLayout_, DataTypeEnum dataType_, bool isArray_)

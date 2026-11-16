@@ -15,13 +15,11 @@ static VkDeviceSize getEntryAlignment(BufferTypeEnum uploadType_)
 	{
 		return 1;
 	}
-	VkPhysicalDeviceProperties deviceProperties;
-	vkGetPhysicalDeviceProperties(getMainDevice().physicalDevice, &deviceProperties);
 	if(uploadType_ == UNIFORM_BUFFER)
 	{
-		return deviceProperties.limits.minUniformBufferOffsetAlignment;
+		return getMainDevice().properties.limits.minUniformBufferOffsetAlignment;
 	}
-	return deviceProperties.limits.minStorageBufferOffsetAlignment;
+	return getMainDevice().properties.limits.minStorageBufferOffsetAlignment;
 }
 
 PoolId StaticAllocator::addEntry(const char* name_, const void* data_, VkDeviceSize size_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_)

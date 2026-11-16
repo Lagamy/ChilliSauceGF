@@ -272,13 +272,13 @@ void MemoryManager::resolvePendingOperations()
 MemoryEntryId MemoryManager::addEntry(const char* name_, const void* data_, VkDeviceSize size_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, bool readOnly_)
 {
 	MemoryEntryId entryId;
-	if(allocatorType_ == STATIC)
+	if(allocatorType_ == STATIC_ALLOCATOR)
 	{
-		entryId = { STATIC, this->staticAllocator.addEntry(name_, data_, size_, memoryVisability_, uploadType_) };
+		entryId = { STATIC_ALLOCATOR, this->staticAllocator.addEntry(name_, data_, size_, memoryVisability_, uploadType_) };
 	}
 	else
 	{
-		entryId = { DYNAMIC, this->dynamicAllocator.addAndUploadEntry(name_, data_, size_, memoryVisability_, uploadType_) };
+		entryId = { DYNAMIC_ALLOCATOR, this->dynamicAllocator.addAndUploadEntry(name_, data_, size_, memoryVisability_, uploadType_) };
 	}
 	this->getEntry(entryId).readOnly = readOnly_;
 	return entryId;
@@ -316,7 +316,7 @@ bool MemoryManager::hasPendingWrite(MemoryEntryId entryId_)
 
 MemoryEntry& MemoryManager::getEntry(MemoryEntryId entryId_)
 {
-	if(entryId_.allocatorType == DYNAMIC)
+	if(entryId_.allocatorType == DYNAMIC_ALLOCATOR)
 	{
 		return this->dynamicAllocator.memoryEntries[entryId_.id]; 
 	}
@@ -374,13 +374,13 @@ void MemoryManager::updateEntry(MemoryEntryId entryId_, const void* data_, uint6
 MemoryEntryId MemoryManager::allocateEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_)
 {
 	MemoryEntryId entryId;
-	if(allocatorType_ == STATIC)
+	if(allocatorType_ == STATIC_ALLOCATOR)
 	{
-		entryId = { STATIC, this->staticAllocator.addEntry(name_, nullptr, size_, memoryVisability_, bufferType_) };
+		entryId = { STATIC_ALLOCATOR, this->staticAllocator.addEntry(name_, nullptr, size_, memoryVisability_, bufferType_) };
 	}
 	else
 	{
-		entryId = { DYNAMIC, this->dynamicAllocator.allocateEntry(name_, size_, memoryVisability_, bufferType_) };
+		entryId = { DYNAMIC_ALLOCATOR, this->dynamicAllocator.allocateEntry(name_, size_, memoryVisability_, bufferType_) };
 	}
 	this->getEntry(entryId).readOnly = readOnly_;
 	return entryId;
@@ -392,7 +392,7 @@ MemoryEntryId MemoryManager::allocateEntry(const char* name_, AllocatorTypeEnum 
 */
 MemoryEntryId MemoryManager::reserveEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_)
 {
-	if(allocatorType_ == STATIC)
+	if(allocatorType_ == STATIC_ALLOCATOR)
 	{
 		throw std::runtime_error(std::format("Memory Manager: Can't reserve {}. Static entries are uploaded from their data pointer in StaticAllocator::allocateAndUpload.", name_));
 	}
@@ -405,7 +405,7 @@ MemoryEntryId MemoryManager::reserveEntry(const char* name_, AllocatorTypeEnum a
 	{
 		rEntry.uploadBatchId = OpenBatchId;
 	}
-	return { DYNAMIC, id };
+	return { DYNAMIC_ALLOCATOR, id };
 }
 
 void MemoryManager::commitEntry(MemoryEntryId entryId_)
@@ -622,9 +622,7 @@ void MemoryManager::readStaging(const StagingData& rStagingData_, uint64_t inEnt
 	uint64_t position = rStagingData_.stagingOffset + inEntryOffset_ - rStagingData_.inEntryOffset;
 	if(!rHeap.memoryBlock.isCoherent)
 	{
-		VkPhysicalDeviceProperties deviceProperties;
-		vkGetPhysicalDeviceProperties(getMainDevice().physicalDevice, &deviceProperties);
-		VkDeviceSize atomSize = deviceProperties.limits.nonCoherentAtomSize;
+		VkDeviceSize atomSize = getMainDevice().properties.limits.nonCoherentAtomSize;
 
 		VkMappedMemoryRange range = {};
 		range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
@@ -661,7 +659,7 @@ char* MemoryManager::getSharedPointer(const MemoryEntry& rEntry_, uint64_t inEnt
 void MemoryManager::removeDynamicEntry(MemoryEntryId entryId_)
 {
 	#ifdef ENGINE_DEBUG
-		if(entryId_.allocatorType == STATIC)
+		if(entryId_.allocatorType == STATIC_ALLOCATOR)
 		{
 			throw std::runtime_error("Memory Manager: Cant remove statically allocated memory entry."); 	
 		}

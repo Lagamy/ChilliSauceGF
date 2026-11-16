@@ -3,7 +3,7 @@
 
 #include "Utilities.h"
 #include "PassesPack.h"
-#include "Triangle.h"
+#include "Demo.h"
 #include <vector>
 #include <thread>
 

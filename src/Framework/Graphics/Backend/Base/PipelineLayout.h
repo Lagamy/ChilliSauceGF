@@ -13,6 +13,7 @@ struct PipelineLayout {
 	std::vector<PoolId> usedByComputePipelineIds; 
 	std::vector<PoolId> descriptorSetLayoutIds;
 
+	void validateLimits() const; // throws a readable error when the sets of this layout break a device limit, called by create()
 	void create(); // creates pipelineLayout on GPU side.
 	void recreate(); // Note: recreation is expensive(involves dsLayout vector reconstruction, traversal through derived Pipelines to recreate those too). Use it only inside of editors context. And avoid - if possible.  
 	void destroy();

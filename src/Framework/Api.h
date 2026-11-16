@@ -11,6 +11,7 @@
 #include "Utilities.h"
 #include "Globals.h"
 #include "GLFW/glfw3.h"
+#include <span>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -23,6 +24,7 @@ namespace Graphics
 	GLFWwindow* getWindowPointer(); 
 	Instance& getInstance();
 	Device& getMainDevice(); 
+	void switchDevice(uint32_t id_); // rebuilds the renderer on suitableDevices[id_]. Not while recording or inside draw
 	Surface& getSurface();
 	Swapchain& getSwapchain();
 	GPUSceneManager& getGPUSceneManager();
@@ -86,7 +88,7 @@ namespace Graphics
 	PoolId addSemaphore();
 	PoolId addFence(bool createSignaled_);
 	PoolId addShader(const char* name_, const char* path_); 
-	void addDescriptorToShader(PoolId shaderId_, uint32_t setIndex_, PoolId setLayoutId_, PoolId blueprintId_); // declares that the shader reads the descriptor of that blueprint in the set (derived from setLayoutId_) bound at setIndex_. Graphics pipelines build their pipeline layout from these, so declare before adding the pipeline. drawMeshIndexed waits for the data of exactly these. Shaders without descriptors are fine. The declaration is what lets drawMeshIndexed check these descriptors and skip the draw until their first data is copied, so every descriptor the shader reads has to be declared: nothing checks the SPIR-V, an undeclared one can be read before its data was copied
+	void addDescriptorsToShader(PoolId shaderId_, uint32_t setIndex_, PoolId setLayoutId_, const std::vector<PoolId>& descriptorLayoutIds_); // declares that the shader reads the descriptors of those descriptor layouts in the set (derived from setLayoutId_) bound at setIndex_. Graphics pipelines build their pipeline layout from these, so declare before adding the pipeline. drawMeshIndexed waits for the data of exactly these. Shaders without descriptors are fine. The declaration is what lets drawMeshIndexed check these descriptors and skip the draw until their first data is copied, so every descriptor the shader reads has to be declared: nothing checks the SPIR-V, an undeclared one can be read before its data was copied
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_, bool readOnly_ = false);
 	MemoryEntryId allocateMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, PoolId layoutId_, uint32_t repeatCount_, bool readOnly_ = false);
@@ -98,16 +100,20 @@ namespace Graphics
 	void releaseReadback(ReadbackId readbackId_);
 
 	PoolId addVerticeLayout(const char* name_);
-	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_);
-	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t elementCount_); // Array. Only scalar and array members can be vertex attributes
-	PoolId addMemberToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_); // Matrix
-	PoolId addDescriptorSetLayout(const char* name_, DescriptorTypeEnum descriptorType_, VkShaderStageFlags shaderStages_);
-	PoolId addDescriptorBlueprint(const char* layoutName_, const char* blueprintName_);
-	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_);
-	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t elementCount_); // Array
-	PoolId addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_); // Matrix
+	PoolId addVariableToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {});
+	PoolId addVariableToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	PoolId addDescriptorSetLayout(const char* name_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_ = DescriptorSetsPerPool); // the layout adds Descriptor Pools by itself as sets are derived, each one sized for setsPerPool_ sets
+	PoolId getLayoutId(const char* layoutName_); // id of the Descriptor Set Layout added with that name, throws if there is none
+	PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_); // type_: UNIFORM_DESCRIPTOR or STORAGE_DESCRIPTOR, a set can mix both. The members of the block are added with addMemberToDescriptorLayout / addStructMemberToDescriptorLayout + addVariableToDescriptorLayout
+	PoolId addBufferDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_, uint32_t dynamicCount_); // same, but the whole block is repeated dynamicCount_ times and one of them is picked per bind (bindDescriptorSet dynamicUnitIds_) and written with setDynamicDescriptorMember...
+	PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_); // TEXTURE_DESCRIPTOR / SAMPLER_DESCRIPTOR. Not supported yet, throws
+	PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable directly in the block (mat4 model;). Returns the variable id the setters take
+	PoolId addStructMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, const std::vector<uint32_t>& repeatCountPerDimension_); // A struct in the block repeated per layer, outermost first ({2, 3} = states[2][3], {1} = a single struct). Returns the struct member id, its variables are added with addVariableToDescriptorLayout
+	PoolId addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable of a struct member. Returns the variable id the setters take
+	PoolId addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
 	PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_);
-	void removeDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_);
+	void removeDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_);
 	void removeDescriptorSet(PoolId setId_);
 	void removeDescriptorSetLayout(PoolId layoutId_);
 	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 
@@ -140,8 +146,8 @@ namespace Graphics
 	// Commands Recording
 	void beginCMDsRecording(VkCommandBuffer& cmdBuffer_);
 	void bindGraphicsPipeline(PoolId graphicsPipelineId_, VkCommandBuffer& cmdBuffer_); 
-	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, uint32_t setIndex_, VkCommandBuffer& cmdBuffer_);
-	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer& cmdBuffer_);
+	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, uint32_t setIndex_, VkCommandBuffer& cmdBuffer_, std::span<const uint32_t> dynamicUnitIds_ = {}); // dynamicUnitIds_ is optional, see the definition
+	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer& cmdBuffer_, uint32_t firstInstance_ = 0); // firstInstance_ is optional: gl_InstanceIndex runs from firstInstance_ to firstInstance_ + instanceCount_ - 1, so a draw can pick its repeat unit(s) of an SSBO descriptor.
 	void endCMDsRecording(VkCommandBuffer& cmdBuffer_); 
 
 	// Misc/Internal 

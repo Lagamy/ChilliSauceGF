@@ -27,9 +27,9 @@ Shader::~Shader()
 }
 
 /* Declaring the same descriptor twice is harmless, the draw just checks it twice. */
-void Shader::addDescriptor(uint32_t setIndex_, PoolId setLayoutId_, PoolId blueprintId_)
+void Shader::addDescriptor(uint32_t setIndex_, PoolId setLayoutId_, PoolId descriptorLayoutId_)
 {
-	this->descriptors.push_back({setIndex_, setLayoutId_, blueprintId_});
+	this->descriptors.push_back({setIndex_, setLayoutId_, descriptorLayoutId_});
 }
 
 VkShaderModule Shader::get() const 

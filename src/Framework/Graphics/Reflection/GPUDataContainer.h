@@ -26,6 +26,10 @@ namespace Graphics
 		MemoryEntryId entryId;
 		StagingData stagingData;
 		uint32_t repeatCount = 1;
+		/* Bytes between repeat units, 0 = the layout's size (packed). A dynamic uniform's units are padded to the offset alignment. */
+		uint64_t repeatStride = 0;
+		/* Added to every repeat unit offset: the byte offset of a multi layer element (RepeatShape::getOffset), written with unit id 0. */
+		uint64_t repeatBaseOffset = 0;
 		/* The entry byte range write/read may touch. Checked under ENGINE_DEBUG, since a write outside it would corrupt a neighbouring range of the same memory. */
 		uint64_t validFirstOffset = 0;
 		uint64_t validSize = 0;

@@ -98,9 +98,9 @@ namespace Graphics
 	};
 
 	enum AllocatorTypeEnum { 
-		UI,
-		STATIC, 
-		DYNAMIC
+		UI_ALLOCATOR,
+		STATIC_ALLOCATOR, 
+		DYNAMIC_ALLOCATOR
 	};
 
 	const inline uint8_t AllocatorTypesCount = 3; 
@@ -123,14 +123,39 @@ namespace Graphics
 		TEXTURE_DESCRIPTOR = 2,
 		SAMPLER_DESCRIPTOR = 3
 	};
+	constexpr uint32_t DescriptorTypesCount = 4;
+	constexpr uint32_t DescriptorSetsPerPool = 16; // sets of one layout that fit in one VkDescriptorPool, a layout adds another pool when all are full
 
-	inline VkDescriptorType descriptorTypes[4] 
+	/* Buffer type of the memory a descriptor type points at. Indexed by DescriptorTypeEnum. Textures and samplers have no buffer, so they map to their own type. */
+	inline BufferTypeEnum descriptorBufferTypes[DescriptorTypesCount]
+	{
+		UNIFORM_BUFFER,
+		STORAGE_BUFFER,
+		TEXTURE_BUFFER,
+		SAMPLER_BUFFER
+	};
+
+	inline VkDescriptorType descriptorTypes[DescriptorTypesCount] 
 	{
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
     	VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-		VK_DESCRIPTOR_TYPE_SAMPLER 
+		VK_DESCRIPTOR_TYPE_SAMPLER
 	};
+
+	/* Dynamic (offset picked per bind) exists only for buffers, so it is a flag next to the type and not a type of its own. */
+	inline VkDescriptorType getVkDescriptorType(DescriptorTypeEnum type_, bool dynamic_)
+	{
+		if(dynamic_ && type_ == UNIFORM_DESCRIPTOR)
+		{
+			return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		}
+		if(dynamic_ && type_ == STORAGE_DESCRIPTOR)
+		{
+			return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+		}
+		return descriptorTypes[type_];
+	}
 
 	inline VkBufferUsageFlagBits BufferTypeToUsage[4]
 	{
@@ -273,14 +298,12 @@ namespace Graphics
 	enum DataShapeEnum : uint8_t 
 	{
 		SCALAR, 
-		ARRAY, 
 		MATRIX
 	};
 
 	inline constexpr const char* dataShapeToName[]
 	{
 		"Scalar", 
-		"Array",
 		"Matrix"
 	};
 
@@ -344,7 +367,7 @@ namespace Graphics
 		{4, 3} // MAT4X3
 	};
 
-	inline constexpr uint8_t dataTypeToBaseAlignment[] // std430 base alignment in bytes. A matrix aligns like one of its columns (a vector of rowCount floats). std140 rounds matrices and arrays up to 16, see resolveSTDPaddingRule
+	inline constexpr uint8_t dataTypeToBaseAlignment[] // std430 base alignment in bytes. A matrix aligns like one of its columns (a vector of rowCount floats). std140 rounds matrices and repeated variables up to 16, see resolveSTDPaddingRule
 	{
 		4, // INT
 		4, // UINT

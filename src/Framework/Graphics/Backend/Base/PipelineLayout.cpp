@@ -3,8 +3,91 @@
 
 namespace Graphics
 {
+/*
+	The descriptor limits of the spec are per pipeline layout, not per set: the total of uniform (and storage) buffer descriptors over all its sets has to fit maxDescriptorSetUniformBuffers (maxDescriptorSetStorageBuffers), the dynamic ones maxDescriptorSet...Dynamic, and the descriptors visible to one stage have to fit maxPerStageDescriptor...Buffers and maxPerStageResources (buffers are the only descriptor types supported so far). Dynamic descriptors count in both the plain and the dynamic total. Checked here because vkCreatePipelineLayout with a breach is invalid usage, and the validation message doesn't name the set layouts.
+*/
+void PipelineLayout::validateLimits() const
+{
+	const VkPhysicalDeviceLimits& rLimits = getMainDevice().properties.limits;
+	if(this->descriptorSetLayoutIds.size() > rLimits.maxBoundDescriptorSets)
+	{
+		throw std::runtime_error(std::format("Pipeline Layout: {} descriptor sets (set indices up to {}), the device allows {} bound at once.", this->descriptorSetLayoutIds.size(), this->descriptorSetLayoutIds.size() - 1, rLimits.maxBoundDescriptorSets));
+	}
+
+	struct Stage { VkShaderStageFlagBits flag; const char* name; };
+	const Stage stages[] = { { VK_SHADER_STAGE_VERTEX_BIT, "vertex" }, { VK_SHADER_STAGE_FRAGMENT_BIT, "fragment" }, { VK_SHADER_STAGE_COMPUTE_BIT, "compute" } };
+	uint32_t uniformCount = 0;
+	uint32_t storageCount = 0;
+	uint32_t dynamicUniformCount = 0;
+	uint32_t dynamicStorageCount = 0;
+	uint32_t uniformPerStage[std::size(stages)] = {};
+	uint32_t storagePerStage[std::size(stages)] = {};
+	for(const PoolId& layoutId : this->descriptorSetLayoutIds)
+	{
+		if(layoutId == UninitializedPoolId)
+		{
+			continue;
+		}
+		DescriptorSetLayout& rSetLayout = getDescriptorsManager().layouts[layoutId];
+		for(uint32_t i = 0; i < rSetLayout.descriptorLayouts.allocatedSize(); i++)
+		{
+			if(!rSetLayout.descriptorLayouts.alive[i])
+			{
+				continue;
+			}
+			DescriptorLayout& rDescriptorLayout = rSetLayout.descriptorLayouts.objects[i];
+			bool uniform = rDescriptorLayout.type == UNIFORM_DESCRIPTOR;
+			(uniform ? uniformCount : storageCount)++;
+			if(rDescriptorLayout.dynamic)
+			{
+				(uniform ? dynamicUniformCount : dynamicStorageCount)++;
+			}
+			for(uint32_t stage = 0; stage < std::size(stages); stage++)
+			{
+				if(rSetLayout.shaderStages & stages[stage].flag)
+				{
+					(uniform ? uniformPerStage : storagePerStage)[stage]++;
+				}
+			}
+		}
+	}
+
+	if(uniformCount > rLimits.maxDescriptorSetUniformBuffers)
+	{
+		throw std::runtime_error(std::format("Pipeline Layout: {} uniform descriptors over all its sets, the device allows {}.", uniformCount, rLimits.maxDescriptorSetUniformBuffers));
+	}
+	if(storageCount > rLimits.maxDescriptorSetStorageBuffers)
+	{
+		throw std::runtime_error(std::format("Pipeline Layout: {} storage descriptors over all its sets, the device allows {}.", storageCount, rLimits.maxDescriptorSetStorageBuffers));
+	}
+	if(dynamicUniformCount > rLimits.maxDescriptorSetUniformBuffersDynamic)
+	{
+		throw std::runtime_error(std::format("Pipeline Layout: {} dynamic uniform descriptors over all its sets, the device allows {}.", dynamicUniformCount, rLimits.maxDescriptorSetUniformBuffersDynamic));
+	}
+	if(dynamicStorageCount > rLimits.maxDescriptorSetStorageBuffersDynamic)
+	{
+		throw std::runtime_error(std::format("Pipeline Layout: {} dynamic storage descriptors over all its sets, the device allows {}.", dynamicStorageCount, rLimits.maxDescriptorSetStorageBuffersDynamic));
+	}
+	for(uint32_t stage = 0; stage < std::size(stages); stage++)
+	{
+		if(uniformPerStage[stage] > rLimits.maxPerStageDescriptorUniformBuffers)
+		{
+			throw std::runtime_error(std::format("Pipeline Layout: {} uniform descriptors visible to the {} stage, the device allows {}.", uniformPerStage[stage], stages[stage].name, rLimits.maxPerStageDescriptorUniformBuffers));
+		}
+		if(storagePerStage[stage] > rLimits.maxPerStageDescriptorStorageBuffers)
+		{
+			throw std::runtime_error(std::format("Pipeline Layout: {} storage descriptors visible to the {} stage, the device allows {}.", storagePerStage[stage], stages[stage].name, rLimits.maxPerStageDescriptorStorageBuffers));
+		}
+		if(uniformPerStage[stage] + storagePerStage[stage] > rLimits.maxPerStageResources)
+		{
+			throw std::runtime_error(std::format("Pipeline Layout: {} resources visible to the {} stage, the device allows {}.", uniformPerStage[stage] + storagePerStage[stage], stages[stage].name, rLimits.maxPerStageResources));
+		}
+	}
+}
+
 void PipelineLayout::create()
 {
+	this->validateLimits();
 	std::vector<VkDescriptorSetLayout> descriptorLayouts; 
 	descriptorLayouts.reserve(this->descriptorSetLayoutIds.size());
 	for(const PoolId& layoutId : this->descriptorSetLayoutIds)

@@ -1,49 +1,27 @@
 #pragma once 
 #include "PoolId.h"
-#include <vulkan/vulkan_core.h>
+#include "Utilities.h"
 #include <glm/glm.hpp>
+#include <array>
 
 namespace Graphics 
 {
-struct TriangleVertexMemberIds 
+struct TriangleVertexVariableIds 
 {
 	PoolId positionId; 
 	PoolId colorId; 
 }; 
 
-struct TriangleMVPMemberIds
+struct Triangle
 {
-	PoolId projectionId;
-	PoolId viewId;
-	PoolId modelId;
-};
+	PoolId meshId; 
+	TriangleVertexVariableIds vertexVariableIds; 
+	std::array<glm::vec3, 3> positions; 
+	std::array<glm::vec4, 3> colors; 
 
+	Triangle() = default; 
+	Triangle(PoolId vertexLayoutId_, const TriangleVertexVariableIds& vertexVariableIds_); 
 
-namespace Triangle { 
-	inline PoolId vertexShaderId; 
-	inline PoolId fragmentShaderId; 
-	inline PoolId vertexLayoutId; 
-	inline TriangleVertexMemberIds vertexMemberIds; 
-
-	inline PoolId meshId;
-	inline PoolId graphicsPipelineId; 
-
-	inline PoolId dsLayoutId;
-	inline PoolId mvpBlueprintId;
-	inline TriangleMVPMemberIds mvpMemberIds;
-	inline PoolId descriptorSetId;
-
-	inline uint64_t counter = 0; 
-	inline bool descriptorsHaveSet = false; 
-	inline VkExtent2D lastProjectionExtent = {};
-
-	void setupEnvironment(); 
-	void defineLayouts();
-	void defineResources(); 
-	void definePasses(); 
-	void updateResources(); 
-	void recordCMDs(VkCommandBuffer& cmdBuffer_);
-	
-	void setGPUSceneToTriangle();
+	void upload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_); 
 }; 
 }

@@ -1,7 +1,7 @@
 #include "Core.h"
 #include "Api.h"
 #include "Globals.h"
-#include "Triangle.h"
+#include "Demo.h"
 #include <GLFW/glfw3.h>
 
 void Core::setup()

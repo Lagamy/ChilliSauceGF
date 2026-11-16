@@ -7,7 +7,7 @@ namespace Graphics
     The set layouts of the pipeline layout come from the descriptors both shaders declared: the layout declared for set N goes to position N (the position is the set index in Vulkan).
     Both shaders have to agree on a set they both use. An index nobody declared (a hole below the highest one) stays UninitializedPoolId; PipelineLayout::create fills it with the empty set layout.
     A layout with the same ordered list already exists is reused: pipelines with the same set layouts share one VkPipelineLayout, and sets bound for one stay valid for the other.
-    A new layout registers itself on its set layouts, so they can rebuild it when their blueprints change.
+    A new layout registers itself on its set layouts, so they can rebuild it when their descriptor layouts change.
 */
 PoolId PipelinesManager::getOrAddPipelineLayout(PoolId vertexShaderId_, PoolId fragmentShaderId_)
 {

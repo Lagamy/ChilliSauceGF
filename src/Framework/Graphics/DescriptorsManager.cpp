@@ -7,29 +7,54 @@
 
 namespace Graphics
 {
-    PoolId DescriptorsManager::addDescriptorSetLayout(const char* name_, DescriptorTypeEnum descriptorType_, VkShaderStageFlags shaderStages_)
+    PoolId DescriptorsManager::addDescriptorSetLayout(const char* name_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_)
     {
-        return this->layouts.add(name_, name_, descriptorType_, shaderStages_);
+        return this->layouts.add(name_, name_, shaderStages_, setsPerPool_);
     }
 
-    PoolId DescriptorsManager::addDescriptorBlueprint(const char* layoutName_, const char* blueprintName_)
+    PoolId DescriptorsManager::getLayoutId(const char* layoutName_)
     {
-        return this->layouts[this->layouts.getIdByName(layoutName_)].addDescriptorBlueprint(blueprintName_);
+        return this->layouts.getIdByName(layoutName_);
     }
 
-    PoolId DescriptorsManager::addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_)
+    PoolId DescriptorsManager::addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_)
     {
-        return this->layouts[layoutId_].getDescriptorBlueprint(blueprintId_).addMember(name_, dataType_);
+        return this->layouts[layoutId_].addBufferDescriptorLayout(descriptorLayoutName_, type_);
     }
 
-    PoolId DescriptorsManager::addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t elementCount_)
+    PoolId DescriptorsManager::addBufferDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_, uint32_t dynamicCount_)
     {
-        return this->layouts[layoutId_].getDescriptorBlueprint(blueprintId_).addMember(name_, dataType_, elementCount_);
+        return this->layouts[layoutId_].addBufferDynamicDescriptorLayout(descriptorLayoutName_, type_, dynamicCount_);
     }
 
-    PoolId DescriptorsManager::addMemberToDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_)
+    PoolId DescriptorsManager::addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_)
     {
-        return this->layouts[layoutId_].getDescriptorBlueprint(blueprintId_).addMember(name_, dataType_, rowCount_, columnCount_);
+        return this->layouts[layoutId_].addImageDescriptorLayout(descriptorLayoutName_, type_);
+    }
+
+    PoolId DescriptorsManager::addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    {
+        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addMemberBlueprint(name_, dataType_, repeatCountPerDimension_);
+    }
+
+    PoolId DescriptorsManager::addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    {
+        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addMemberBlueprint(name_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+    }
+
+    PoolId DescriptorsManager::addStructMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    {
+        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addStructMemberBlueprint(name_, repeatCountPerDimension_);
+    }
+
+    PoolId DescriptorsManager::addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    {
+        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addVariable(structMemberId_, name_, dataType_, repeatCountPerDimension_);
+    }
+
+    PoolId DescriptorsManager::addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    {
+        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addVariable(structMemberId_, name_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
     }
 
     PoolId DescriptorsManager::addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_)
@@ -37,15 +62,15 @@ namespace Graphics
         return this->layouts[layoutId_].deriveDescriptorSet(layoutId_, allocatorType_, memoryVisability_);
     }
 
-    void DescriptorsManager::removeDescriptorBlueprint(PoolId layoutId_, PoolId blueprintId_)
+    void DescriptorsManager::removeDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_)
     {
-        this->layouts[layoutId_].removeDescriptorBlueprint(blueprintId_);
+        this->layouts[layoutId_].removeDescriptorLayout(descriptorLayoutId_);
     }
 
     /*
-        vkDestroyDescriptorPool requires every submitted command that uses a set of the pool to be complete. The set is not tracked per frame, so every frame in flight is waited on (FRAME passes only, a ONESHOT pass has no frame fence).
+        vkFreeDescriptorSets requires every submitted command that uses the set to be complete. The set is not tracked per frame, so every frame in flight is waited on (FRAME passes only, a ONESHOT pass has no frame fence).
         Dynamic entries are removed (GPU_LOCAL ones through the deferred REMOVE operation). Static entries can't be removed, their bytes stay in the static heap until shutdown.
-        The set is also unregistered from its blueprints, otherwise they could never be changed again.
+        The set is also unregistered from its descriptor layouts, otherwise they could never be changed again.
     */
     void DescriptorsManager::removeDescriptorSet(PoolId setId_)
     {
@@ -55,6 +80,7 @@ namespace Graphics
             Globals::renderer.passesGraph.waitForFrame(frame);
         }
 
+        rSet.destroy();
         for(uint32_t i = 0; i < rSet.descriptors.allocatedSize(); i++)
         {
             if(!rSet.descriptors.alive[i])
@@ -63,21 +89,21 @@ namespace Graphics
             }
 
             Descriptor& rDescriptor = rSet.descriptors.getInternal(i);
-            if(rSet.descriptorsMemoryAllocated && rSet.allocatorType == DYNAMIC)
+            if(rSet.descriptorsMemoryAllocated && rSet.allocatorType == DYNAMIC_ALLOCATOR)
             {
                 for(MemoryEntryId entryId : rDescriptor.memoryEntryIds)
                 {
                     getMemoryManager().removeDynamicEntry(entryId);
                 }
             }
-            std::erase(rDescriptor.getBlueprint().derivedDescriptors, setId_);
+            std::erase(rDescriptor.getDescriptorLayout().derivedDescriptors, setId_);
         }
         this->descriptorSet.remove(setId_);
     }
 
     /*
         A PipelineLayout copies the layout handle and keeps the id, and nothing detaches a layout from it, so a layout that is still used can't go.
-        The VkDescriptorSetLayout is destroyed before the blueprints are removed, otherwise each removal would recreate it. Blueprints go one by one so that their ReflectionLayouts are removed too.
+        The VkDescriptorSetLayout is destroyed before the descriptor layouts are removed, otherwise each removal would recreate it. Descriptor layouts go one by one, each removal checks that no set is derived.
     */
     void DescriptorsManager::removeDescriptorSetLayout(PoolId layoutId_)
     {
@@ -92,11 +118,11 @@ namespace Graphics
         }
 
         rLayout.destroy();
-        for(uint32_t i = 0; i < rLayout.descriptorBlueprints.allocatedSize(); i++)
+        for(uint32_t i = 0; i < rLayout.descriptorLayouts.allocatedSize(); i++)
         {
-            if(rLayout.descriptorBlueprints.alive[i])
+            if(rLayout.descriptorLayouts.alive[i])
             {
-                rLayout.removeDescriptorBlueprint(PoolId(i, rLayout.descriptorBlueprints.generation[i]));
+                rLayout.removeDescriptorLayout(PoolId(i, rLayout.descriptorLayouts.generation[i]));
             }
         }
         this->layouts.remove(layoutId_);
@@ -174,6 +200,13 @@ namespace Graphics
     void DescriptorsManager::destroy()
     {
         this->descriptorSet.clear();
+        for(uint32_t i = 0; i < this->layouts.allocatedSize(); i++)
+        {
+            if(this->layouts.alive[i])
+            {
+                this->layouts.getInternal(i).destroy();
+            }
+        }
         this->layouts.clear();
     }
 }

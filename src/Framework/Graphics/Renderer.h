@@ -63,6 +63,10 @@ struct Renderer {
 	void setup();
 	void draw(); 
 	void shutdown();
+	void createDeviceObjects(); // swapchain to command pools, everything that needs the device
+	void destroyDeviceObjects(); // waits for the GPU, destroys everything createDeviceObjects made
+	void resetDeviceState();
+	void switchDevice(uint32_t id_);
 
 	void initRenderFlow(); // init all command buffer blueprints
 

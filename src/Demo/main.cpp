@@ -1,12 +1,12 @@
 #include <iostream>
 #include "Core.h"
-#include "Triangle.h"
+#include "Demo.h"
 
 int main()
 {
 	try
     {
-	    Graphics::Triangle::setGPUSceneToTriangle();
+	    Graphics::Demo::setGPUSceneToDemo();
         Core graphicsFrameworkCore;
         graphicsFrameworkCore.setup();
         graphicsFrameworkCore.run();

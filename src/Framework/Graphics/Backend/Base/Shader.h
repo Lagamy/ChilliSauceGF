@@ -5,7 +5,7 @@
 
 namespace Graphics
 {
-/* setLayoutId is the DescriptorSetLayout the set bound at setIndex is derived from, descriptorId is the blueprint id of the descriptor in it, the same id setDescriptorMemberValue takes. */
+/* setLayoutId is the DescriptorSetLayout the set bound at setIndex is derived from, descriptorId is the descriptor layout id of the descriptor in it, the same id setDescriptorMemberValue takes. */
 struct ShaderDescriptorUse {
 	uint32_t setIndex;
 	PoolId setLayoutId;
@@ -17,7 +17,7 @@ struct Shader {
 	std::string path;
 	std::vector<ShaderDescriptorUse> descriptors; // the descriptors the shader reads, declared by addDescriptor. Empty is fine. The pipelines using the shader build their pipeline layout from these, so declare before adding the pipeline. The declaration is what lets drawMeshIndexed check the descriptors and skip the draw until their first data is copied, so the shader has to declare every descriptor it reads, nothing checks the SPIR-V
 
-	void addDescriptor(uint32_t setIndex_, PoolId setLayoutId_, PoolId blueprintId_);
+	void addDescriptor(uint32_t setIndex_, PoolId setLayoutId_, PoolId descriptorLayoutId_);
 	void destroy(); 
 	VkShaderModule get() const; 
 	Shader(const std::string shaderPath_);

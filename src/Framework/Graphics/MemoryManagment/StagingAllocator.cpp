@@ -47,9 +47,7 @@ StagingData StagingAllocator::allocate(StagingDirectionEnum direction_, uint64_t
 	*/
 	if(direction_ == READBACK)
 	{
-		VkPhysicalDeviceProperties deviceProperties;
-		vkGetPhysicalDeviceProperties(getMainDevice().physicalDevice, &deviceProperties);
-		size_ = alignUp(size_, deviceProperties.limits.nonCoherentAtomSize);
+		size_ = alignUp(size_, getMainDevice().properties.limits.nonCoherentAtomSize);
 	}
 
 	/* The first page whose upper bound fits the range serves it, so small writes never share heaps with big ones. */

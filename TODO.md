@@ -1,7 +1,7 @@
 # TODO
 
-Three plans, in the order they should be done. Plan 1 is independent. Plan 2 is a
-prerequisite for plan 3. Each step is meant to be a separate small-to-medium task.
+Four plans. Plan 1 is independent. Plan 2 is a prerequisite for plan 3. Plan 4 (descriptor
+repeat layers) is independent of 1-3. Each step is meant to be a separate small-to-medium task.
 Anything marked **needs approval** is a new abstraction or an ownership/API change.
 
 ---
@@ -189,6 +189,55 @@ Depends on plan 1 (steps 1 and 2) and plan 2.
    for `CPU_SHARED`. Update `Api.h` accordingly (`updateMesh<T>`, any getter).
 5. Remove the now-unused container code from `Mesh` / `DescriptorSet`.
 6. Update docs/ARCHITECTURE.md (Reflection and Mesh updates sections).
+
+---
+
+## Plan 4: Descriptor repeat layers (array of structs, dynamic uniform)
+
+Goal: one descriptor holds `objects[]` / `objects[][]` of a blueprint's struct, still ONE
+descriptor. Used by SSBO arrays of structs and by dynamic uniform blueprints.
+Already done: `Descriptor::repeatCount` (entry + shadow sized from it), `repeatUnitId_` on the
+`DescriptorSet` setters, optional `firstInstance_` on `drawMeshIndexed`,
+bit-mask `alignUp`, `.range` of a dynamic binding = `layout.size`.
+
+### Design
+
+- **One `RepeatShape`** on the `Descriptor` (set before `allocateDescriptorsMemory`, like
+  `setDescriptorRepeatCount`): per layer a count and a stride, outermost layer first. Offset math,
+  entry size, shadow size and the dynamic `.range` all read from it, nothing else computes them.
+  Layer stride = (stride of the next inner layer * its count), the innermost layer's stride is
+  `layout.size`. The layer that is dynamic has its stride rounded up with `alignUp(...,
+  minUniformBufferOffsetAlignment)`. Entry size = outermost count * outermost stride.
+- **At most one dynamic layer, and it has to be the outermost.** Vulkan gives one dynamic offset per
+  binding, and it is the leading part of the address. Inner layers are plain strides inside one
+  element. Anything else throws when the shape is set.
+- **The shape lives on the `Descriptor`, not in the data container.** Containers stay a byte window
+  plus a repeat count. They only receive the resolved indices. "Which layer is dynamic" is a
+  descriptor property, set once next to the repeat count.
+- **Only array-of-structs for SSBO and dynamic uniform.** A plain `UNIFORM` descriptor's whole range
+  is capped by `maxUniformBufferRange` (often 64 KB): throw when its total size exceeds the limit.
+  A dynamic uniform's range is one element, so it is not affected (the element still has to fit).
+- **One general form: `std::vector<uint32_t> idsPerLayer_`.** `ReflectionLayout` gets a single offset
+  routine over the layer indices, `getCheckedMember` checks every index against its own layer's count.
+  The existing `repeatUnitId_` is the one-layer case and calls the vector version, no second path.
+  The API gets an optional overload with `idsPerLayer_` for nested access.
+- The plain `uint32_t repeatCount` used by `Mesh` and `allocateMemoryEntry` stays as the one-layer case.
+
+### Steps (one at a time, each needs approval where it changes public API)
+
+1. **DONE** `RepeatShape` + offset routine in `ReflectionLayout` (indices -> byte offset, bounds per layer).
+   No API change. Existing one-layer behaviour identical.
+2. **DONE** `Descriptor` owns a `RepeatShape`: entry size, shadow size and `.range` read from it.
+   `setDescriptorRepeatCount` becomes the one-layer shortcut. Dynamic layer validation
+   (one, outermost) and the plain-uniform range check live here.
+3. **DONE** Dynamic stride: the dynamic layer's stride uses `minUniformBufferOffsetAlignment` via `alignUp`.
+4. `bindDescriptorSet` takes the dynamic offset(s) for dynamic descriptors. **needs approval** **DONE**
+5. `std::vector<uint32_t> idsPerLayer_` overloads on the `DescriptorSet` setters, `repeatUnitId_` **DONE**
+   routed through them. **needs approval**
+6. **Docs DONE** (docs/ARCHITECTURE.md Descriptors section). **Per-blueprint dynamic flag DONE**
+   (`dynamic_` argument of `addBufferDescriptorBlueprint`, replaces the set-level `UNIFORM_DYNAMIC_DESCRIPTOR` layout type; limit
+   check on `maxDescriptorSetUniformBuffersDynamic`; entry alignment check). Still open: a Demo that draws
+   with an SSBO array of structs and with a dynamic uniform (the GPU path is untested).
 
 ---
 

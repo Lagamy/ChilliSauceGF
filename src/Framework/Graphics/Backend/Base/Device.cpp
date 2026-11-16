@@ -3,6 +3,7 @@
 #include "Utilities.h"
 #include <stdexcept>
 #include <set>
+#include <format>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics
@@ -35,14 +36,45 @@ void Device::getPhysicalDevice() {
 	std::vector<VkPhysicalDevice> availablePhysicalDeviceList(deviceCount);
 	vkEnumeratePhysicalDevices(getInstance().get(), &deviceCount, availablePhysicalDeviceList.data());
 
+	this->suitableDevices.clear();
 	for (const auto& device : availablePhysicalDeviceList)
 	{
 		if (checkDeviceSuitable(device))
 		{
-			this->physicalDevice = device;
+			SuitableDevice suitableDevice = {};
+			suitableDevice.physicalDevice = device;
+			vkGetPhysicalDeviceProperties(device, &suitableDevice.properties);
+			this->suitableDevices.emplace_back(suitableDevice);
+		}
+	}
+
+	if (this->suitableDevices.empty())
+	{
+		throw std::runtime_error("Device: no GPU supports the required queues, extensions and swapchain.");
+	}
+
+	// Prefer a discrete GPU, otherwise the first suitable one.
+	uint32_t chosenId = 0;
+	for (uint32_t i = 0; i < this->suitableDevices.size(); i++)
+	{
+		if (this->suitableDevices[i].properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		{
+			chosenId = i;
 			break;
 		}
 	}
+	selectDevice(chosenId);
+}
+
+
+void Device::selectDevice(uint32_t id_) {
+	if (id_ >= this->suitableDevices.size())
+	{
+		throw std::runtime_error(std::format("Device: suitable device id {} is out of range ({} devices).", id_, this->suitableDevices.size()));
+	}
+	this->mainDeviceId = id_;
+	this->physicalDevice = this->suitableDevices[id_].physicalDevice;
+	this->properties = this->suitableDevices[id_].properties;
 }
 
 

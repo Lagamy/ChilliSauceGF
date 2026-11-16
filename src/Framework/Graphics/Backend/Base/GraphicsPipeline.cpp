@@ -43,31 +43,38 @@ void GraphicsPipeline::create()
 	std::vector<VkVertexInputAttributeDescription> attributesDescriptions;
 
 	/*
-		Every attribute location holds at most a vec4. A matrix takes one location per column (a vector of rowCount floats) and an array one location per element, so a member
-		can use several consecutive locations, which is how GLSL numbers the inputs. Arrays of matrices are the same, element by element. A matrix shaped member (an array of arrays) can't be a vertex input.
+		Every attribute location holds at most a vec4. A matrix type takes one location per column (a vector of rowCount floats) and a repeated variable one location per element (all dimensions, last one fastest), so a variable
+		can use several consecutive locations, which is how GLSL numbers the inputs. Arrays of matrices are the same, element by element. A matrix shaped variable (an array of arrays) can't be a vertex input.
 	*/
 	uint32_t location = 0;
-	for(uint32_t i = 0; i < rVerticeLayout.memberBlueprints.allocatedSize(); i++)
+	for(uint32_t i = 0; i < rVerticeLayout.variableBlueprints.allocatedSize(); i++)
 	{
-		MemberBlueprint& rMemberBlueprint = rVerticeLayout.memberBlueprints[{i, 0}]; 
-		if(rMemberBlueprint.shapeMetadata.shapeEnum == MATRIX)
+		VariableBlueprint& rVariableBlueprint = rVerticeLayout.variableBlueprints[{i, 0}]; 
+		if(rVariableBlueprint.shapeMetadata.shapeEnum == MATRIX)
 		{
-			throw std::runtime_error(std::format("Graphics Pipeline: Vertex layout member {} is a matrix of elements, which can't be a vertex attribute.", rVerticeLayout.memberBlueprints.getName({i, 0})));
+			throw std::runtime_error(std::format("Graphics Pipeline: Vertex layout variable {} is a matrix of elements, which can't be a vertex attribute.", rVerticeLayout.variableBlueprints.getName({i, 0})));
 		}
 
-		uint32_t elementCount = (rMemberBlueprint.shapeMetadata.shapeEnum == ARRAY) ? rMemberBlueprint.shapeMetadata.elementCount : 1;
-		uint32_t rowCount = rMemberBlueprint.typeMetadata.rowCount;
-		uint32_t columnCount = (rowCount > 1) ? rMemberBlueprint.typeMetadata.elementCount : 1;
-		DataTypeEnum attributeType = (rowCount > 1) ? static_cast<DataTypeEnum>(VEC2 + rowCount - 2) : rMemberBlueprint.typeMetadata.typeEnum;
-		size_t columnStride = alignUp(rowCount * 4, rMemberBlueprint.alignmentRule);
+		uint32_t elementCount = 1;
+		for(const RepeatLayer& rLayer : rVariableBlueprint.repeatLayers)
+		{
+			elementCount *= rLayer.count;
+		}
+		uint32_t rowCount = rVariableBlueprint.typeMetadata.rowCount;
+		uint32_t columnCount = (rowCount > 1) ? rVariableBlueprint.typeMetadata.elementCount : 1;
+		DataTypeEnum attributeType = (rowCount > 1) ? static_cast<DataTypeEnum>(VEC2 + rowCount - 2) : rVariableBlueprint.typeMetadata.typeEnum;
+		size_t columnStride = rVariableBlueprint.getColumnStride();
 
 		for(uint32_t elementId = 0; elementId < elementCount; elementId++)
 		{
-			size_t elementOffset = rMemberBlueprint.firstByteId;
-			if(rMemberBlueprint.shapeMetadata.shapeEnum == ARRAY)
+			std::vector<uint32_t> repeatIdPerDimension(rVariableBlueprint.repeatLayers.size());
+			uint32_t remainingId = elementId;
+			for(size_t layerId = repeatIdPerDimension.size(); layerId-- > 0;)
 			{
-				elementOffset += rMemberBlueprint.getArrayElementOffset(elementId);
+				repeatIdPerDimension[layerId] = remainingId % rVariableBlueprint.repeatLayers[layerId].count;
+				remainingId /= rVariableBlueprint.repeatLayers[layerId].count;
 			}
+			size_t elementOffset = rVariableBlueprint.firstByteId + rVariableBlueprint.getRepeatOffset(repeatIdPerDimension);
 			for(uint32_t columnId = 0; columnId < columnCount; columnId++)
 			{
 				VkVertexInputAttributeDescription attributeDescription = {};

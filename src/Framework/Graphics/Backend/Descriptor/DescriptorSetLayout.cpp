@@ -1,16 +1,17 @@
 #include "DescriptorSetLayout.h"
 #include "Api.h"
+#include <array>
 #include <format>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics 
 {
-	DescriptorSetLayout::DescriptorSetLayout(const char* name_, DescriptorTypeEnum descriptorType_, VkShaderStageFlags shaderStages_) : name(name_), descriptorType(descriptorType_), shaderStages(shaderStages_)
+	DescriptorSetLayout::DescriptorSetLayout(const char* name_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_) : name(name_), shaderStages(shaderStages_), setsPerPool(setsPerPool_)
 	{
-		if(descriptorType_ > STORAGE_DESCRIPTOR)
+		if(setsPerPool_ == 0)
 		{
-			throw std::runtime_error("Descriptor Set Layout: Only UNIFORM_DESCRIPTOR and STORAGE_DESCRIPTOR are supported.");
+			throw std::runtime_error(std::format("Descriptor Set Layout {}: setsPerPool_ has to be at least 1.", name_));
 		}
 	}
 
@@ -19,53 +20,79 @@ namespace Graphics
 		return this->vkHandle;
 	}
 
-    DescriptorBlueprint& DescriptorSetLayout::getDescriptorBlueprint(PoolId id_)
+    DescriptorLayout& DescriptorSetLayout::getDescriptorLayout(PoolId id_)
     {
-		return this->descriptorBlueprints[id_];
+		return this->descriptorLayouts[id_];
     } 
 
-	/* A derived set has one descriptor per blueprint slot and a VkDescriptorSet allocated from this layout's handle, so the blueprints can't change underneath it. */
+	/* A derived set has one descriptor per descriptor layout slot and a VkDescriptorSet allocated from this layout's handle, so the descriptor layouts can't change underneath it. */
 	void DescriptorSetLayout::throwIfSetsDerived(const char* action_) const
 	{
-		for(uint32_t i = 0; i < this->descriptorBlueprints.objects.size(); i++)
+		for(uint32_t i = 0; i < this->descriptorLayouts.objects.size(); i++)
 		{
-			if(this->descriptorBlueprints.alive[i] && !this->descriptorBlueprints.objects[i].derivedDescriptors.empty())
+			if(this->descriptorLayouts.alive[i] && !this->descriptorLayouts.objects[i].derivedDescriptors.empty())
 			{
 				throw std::runtime_error(std::format("Descriptor Set Layout {}: Can't {} a layout that already has derived Descriptor Sets.", this->name, action_));
 			}
 		}
 	}
 	
-	/*
-		The blueprint gets its own uniform / storage ReflectionLayout (the same way addVerticeLayout makes one), the members of the descriptor are added to it through the blueprint.
-		ReflectionSystem keeps one name map per buffer type for all set layouts, so both names are prefixed with the layout name: two layouts can then both have a blueprint called "Camera".
-	*/
-	PoolId DescriptorSetLayout::addDescriptorBlueprint(const char* name_)
-    {
-		this->throwIfSetsDerived("add a blueprint to");
+	PoolId DescriptorSetLayout::addImageDescriptorLayout(const char* name_, DescriptorTypeEnum type_)
+	{
+		throw std::runtime_error(std::format("Descriptor Set Layout {}: Image descriptor layout {} is not supported yet.", this->name, name_));
+	}
 
-		BufferTypeEnum bufferType = static_cast<BufferTypeEnum>(UNIFORM_BUFFER + this->descriptorType);
-		std::string fullName = std::format("{}/{}", this->name, name_);
-		/* Uniform blocks follow std140 and storage blocks std430, which decides the padding of the members of the descriptor. */
-		STDAlignmentLayoutEnum alignment = (bufferType == UNIFORM_BUFFER) ? STD140 : STD430;
-		PoolId reflectionLayoutId = getReflectionSystem().layoutsPerBufferType[bufferType - 1].add(fullName.c_str(), alignment); // - 1 due to INDEX layout not existing
-		PoolId blueprintId = this->descriptorBlueprints.add(fullName.c_str(), bufferType, reflectionLayoutId);
+	PoolId DescriptorSetLayout::addBufferDescriptorLayout(const char* name_, DescriptorTypeEnum type_)
+	{
+		return this->addBufferDescriptorLayoutBody(name_, type_, 0);
+	}
+
+	PoolId DescriptorSetLayout::addBufferDynamicDescriptorLayout(const char* name_, DescriptorTypeEnum type_, uint32_t dynamicCount_)
+	{
+		if(dynamicCount_ == 0)
+		{
+			throw std::runtime_error(std::format("Descriptor Set Layout {}: Dynamic buffer descriptor layout {} needs at least one dynamic unit.", this->name, name_));
+		}
+		return this->addBufferDescriptorLayoutBody(name_, type_, dynamicCount_);
+	}
+
+	/* The members of the block are added afterwards through the DescriptorLayout. */
+	PoolId DescriptorSetLayout::addBufferDescriptorLayoutBody(const char* name_, DescriptorTypeEnum type_, uint32_t dynamicCount_)
+    {
+		if(type_ != UNIFORM_DESCRIPTOR && type_ != STORAGE_DESCRIPTOR)
+		{
+			throw std::runtime_error(std::format("Descriptor Set Layout {}: Buffer descriptor layout {} can only be UNIFORM_DESCRIPTOR or STORAGE_DESCRIPTOR.", this->name, name_));
+		}
+		this->throwIfSetsDerived("add a descriptor layout to");
+
+		BufferTypeEnum bufferType = descriptorBufferTypes[type_];
+		PoolId descriptorLayoutId = this->descriptorLayouts.add(name_, type_, dynamicCount_, bufferType);
+		if(dynamicCount_ > 0)
+		{
+			this->dynamic = true;
+		}
 
         if(this->vkHandle != VK_NULL_HANDLE)
         {
             this->recreate();
         }
-		return blueprintId;
+		return descriptorLayoutId;
     }
 
-	void DescriptorSetLayout::removeDescriptorBlueprint(PoolId id_)
+	void DescriptorSetLayout::removeDescriptorLayout(PoolId id_)
     {
-		this->throwIfSetsDerived("remove a blueprint from");
+		this->throwIfSetsDerived("remove a descriptor layout from");
 
-		/* The blueprint owns its ReflectionLayout, so the layout goes with it. Read the ids before remove(), which invalidates id_. */
-		const DescriptorBlueprint& rBlueprint = this->descriptorBlueprints[id_];
-		getReflectionSystem().layoutsPerBufferType[rBlueprint.bufferType - 1].remove(rBlueprint.layoutId); // - 1 due to INDEX layout not existing
-		this->descriptorBlueprints.remove(id_);
+		this->descriptorLayouts.remove(id_);
+		this->dynamic = false;
+		for(uint32_t i = 0; i < this->descriptorLayouts.allocatedSize(); i++)
+		{
+			if(this->descriptorLayouts.alive[i] && this->descriptorLayouts.objects[i].dynamic)
+			{
+				this->dynamic = true;
+				break;
+			}
+		}
 		if(this->vkHandle != VK_NULL_HANDLE)
         {
             this->recreate();
@@ -73,7 +100,7 @@ namespace Graphics
     } 
 
 	/*
-		Creates the set and one Descriptor per blueprint slot. Descriptor slot i is binding i, so a removed blueprint slot still gets a descriptor.
+		Creates the set and one Descriptor per descriptor layout slot. Descriptor slot i is binding i, so a removed descriptor layout slot still gets a descriptor.
 		Those are removed only after every slot was added: a removed slot goes to the Pool's free list and the next add would take it, shifting the index of every later descriptor.
 	*/
 	PoolId DescriptorSetLayout::deriveDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_)
@@ -83,13 +110,13 @@ namespace Graphics
 		DescriptorSet& rSet = rDescriptorsManager.descriptorSet[setId];
 
 		std::vector<PoolId> deadSlotDescriptorIds;
-		for(uint32_t i = 0; i < this->descriptorBlueprints.allocatedSize(); i++)
+		for(uint32_t i = 0; i < this->descriptorLayouts.allocatedSize(); i++)
 		{
-			PoolId blueprintId = PoolId(i, this->descriptorBlueprints.generation[i]);
-			PoolId descriptorId = rSet.descriptors.add(layoutId_, memoryVisability_, setId, blueprintId);
-			if(this->descriptorBlueprints.alive[i])
+			PoolId descriptorLayoutId = PoolId(i, this->descriptorLayouts.generation[i]);
+			PoolId descriptorId = rSet.descriptors.add(layoutId_, memoryVisability_, setId, descriptorLayoutId);
+			if(this->descriptorLayouts.alive[i])
 			{
-				this->descriptorBlueprints.getInternal(i).derivedDescriptors.emplace_back(setId);
+				this->descriptorLayouts.getInternal(i).derivedDescriptors.emplace_back(setId);
 			}
 			else
 			{
@@ -104,21 +131,21 @@ namespace Graphics
 		return setId;
 	}
 
-	/* Binding numbers are the blueprint slot indices. They may be sparse, Vulkan only needs them to match the shader. One descriptor per binding, so descriptorCount is 1. */
+	/* Binding numbers are the descriptor layout slot indices. They may be sparse, Vulkan only needs them to match the shader. One descriptor per binding, so descriptorCount is 1. */
 	void DescriptorSetLayout::create()
     {
 		std::vector<VkDescriptorSetLayoutBinding> bindings;
-		bindings.reserve(this->descriptorBlueprints.size());
-		for(uint32_t i = 0; i < this->descriptorBlueprints.allocatedSize(); i++)
+		bindings.reserve(this->descriptorLayouts.size());
+		for(uint32_t i = 0; i < this->descriptorLayouts.allocatedSize(); i++)
 		{
-			if(!this->descriptorBlueprints.alive[i])
+			if(!this->descriptorLayouts.alive[i])
 			{
 				continue;
 			}
 
 			VkDescriptorSetLayoutBinding binding = {};
 			binding.binding = i;
-			binding.descriptorType = descriptorTypes[this->descriptorType];
+			binding.descriptorType = this->descriptorLayouts.objects[i].getVkType();
 			binding.descriptorCount = 1;
 			binding.stageFlags = this->shaderStages;
 			binding.pImmutableSamplers = nullptr;
@@ -137,6 +164,70 @@ namespace Graphics
 		}
     }
 
+	/*
+		Adds one pool sized for setsPerPool sets: per (type, dynamic) kind descriptor layouts x setsPerPool x copies of a set. A set has framesAtFlightCount copies when any of its descriptors is per frame, so the pool always assumes that worst case.
+		Free-able, so a removed set gives its place back. Without descriptor layouts there is nothing to size (a set of such a layout can't be created anyway).
+	*/
+	void DescriptorSetLayout::addPool()
+	{
+		DescriptorPool pool;
+		std::array<uint32_t, DescriptorTypesCount * 2> countPerKind = {}; // [type * 2 + dynamic]
+		for(uint32_t i = 0; i < this->descriptorLayouts.allocatedSize(); i++)
+		{
+			if(this->descriptorLayouts.alive[i])
+			{
+				countPerKind[this->descriptorLayouts.objects[i].type * 2 + (this->descriptorLayouts.objects[i].dynamic ? 1 : 0)]++;
+			}
+		}
+
+		uint32_t maxCopies = this->setsPerPool * Globals::renderer.framesAtFlightCount;
+		for(uint32_t kind = 0; kind < countPerKind.size(); kind++)
+		{
+			if(countPerKind[kind] > 0)
+			{
+				pool.setDescriptorCountPerType(static_cast<DescriptorTypeEnum>(kind / 2), kind % 2 == 1, countPerKind[kind] * maxCopies);
+			}
+		}
+		if(pool.poolSizePerType.empty())
+		{
+			throw std::runtime_error(std::format("Descriptor Set Layout {}: Can't allocate a Descriptor Set, the layout has no descriptor layouts.", this->name));
+		}
+		pool.create(maxCopies);
+		this->pools.emplace_back(pool);
+	}
+
+	/*
+		A pool of a fixed size can run out, and that is not an error here: vkAllocateDescriptorSets reports VK_ERROR_OUT_OF_POOL_MEMORY (or VK_ERROR_FRAGMENTED_POOL) when the pool has no room, and the spec guarantees a failed allocation leaves the pool unchanged. So every pool is tried in order (a removed set freed its place in its own pool), and only when none has room a new one is added. Any other failure throws.
+		The device has no limit on the number of sets, so there is nothing else to check. The per-set descriptor limits are checked when the set's memory is allocated.
+	*/
+	uint32_t DescriptorSetLayout::allocateSets(uint32_t count_, VkDescriptorSet* pHandles_)
+	{
+		std::vector<VkDescriptorSetLayout> setLayouts(count_, this->vkHandle);
+		VkDescriptorSetAllocateInfo setAllocInfo = {};
+		setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		setAllocInfo.descriptorSetCount = count_;
+		setAllocInfo.pSetLayouts = setLayouts.data();
+
+		for(uint32_t i = 0; i <= this->pools.size(); i++)
+		{
+			if(i == this->pools.size())
+			{
+				this->addPool();
+			}
+			setAllocInfo.descriptorPool = this->pools[i].vkHandle;
+			VkResult result = vkAllocateDescriptorSets(getMainDevice().logicalDevice, &setAllocInfo, pHandles_);
+			if(result == VK_SUCCESS)
+			{
+				return i;
+			}
+			if(result != VK_ERROR_OUT_OF_POOL_MEMORY && result != VK_ERROR_FRAGMENTED_POOL)
+			{
+				throw std::runtime_error(std::format("Descriptor Set Layout {}: Failed to allocate Descriptor Sets!", this->name));
+			}
+		}
+		throw std::runtime_error(std::format("Descriptor Set Layout {}: A new Descriptor Pool couldn't hold {} Descriptor Sets.", this->name, count_));
+	}
+
 	/* A PipelineLayout copies the set layout handles when it is created, so every layout that uses this one has to be rebuilt (and with it its pipelines). Nothing waits for the GPU here. */
 	void DescriptorSetLayout::recreate()
 	{
@@ -153,6 +244,11 @@ namespace Graphics
 
 	void DescriptorSetLayout::destroy()
     {
+		for(DescriptorPool& rPool : this->pools)
+		{
+			rPool.destroy();
+		}
+		this->pools.clear();
         if(this->vkHandle != VK_NULL_HANDLE)
         {
             vkDestroyDescriptorSetLayout(getMainDevice().logicalDevice, this->vkHandle, nullptr); 
