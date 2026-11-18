@@ -83,22 +83,33 @@ namespace Graphics
 		How many copies of its memory a READ_AND_WRITE entry has (CPU_SHARED or GPU_LOCAL). A READ_ONLY entry has one copy and has to use CopyCountModeEnum::ONE.
 		With more than one copy, writes only touch a CPU shadow (RAM, one per entry) and never wait. Frame f binds and reads copy (f % copy count), which is refreshed from the shadow at the start of the frame, after that frame's fence wait.
 		A CPU_SHARED copy is refreshed with a memcpy. A GPU_LOCAL copy is its own device buffer (VRAM) refreshed with a staging copy that belongs to no frame: it is queued like any GPU_LOCAL update and the transfer barriers order it after earlier draws.
-		A GPU_LOCAL entry with ONE has a single device buffer: writes stage straight into it with no shadow, which costs the least memory, but a frame sees a write only once its copy ran.
-
-		ONE: a single instance, nothing to copy. Scoped (CopyCountModeEnum::ONE), since unscoped names like NONE already exist in other enums.
-
-		FOLLOW_FRAMES_IN_FLIGHT: one copy per frame in flight. A frame's copy is only written once that frame's previous submission finished, so a write can never overlap a GPU read.
-		Costs framesAtFlightCount times the memory (and a whole-entry copy per changed frame), so it suits small data that changes often (uniforms, per-object data), not big meshes.
-
-		CUSTOM_COPY_COUNT: exactly customCopyCount copies, the count is the caller's choice. 1 keeps one buffer written directly with no shadow and no wait: the least memory, but a write can overlap a GPU read of the
-		previous frame, so it is only safe when nothing in flight reads the entry (or the caller waits itself). A count below framesAtFlightCount shares copies between frames, so it has the same overlap risk between those frames.
-		A count above framesAtFlightCount only wastes memory.
+		Scoped (CopyCountModeEnum::ONE), since unscoped names like NONE already exist in other enums.
 	*/
 	enum class CopyCountModeEnum : uint8_t
 	{
+		/*
+			One buffer and no shadow. Frames in flight still overlap: nothing waits, a write goes straight into the buffer (CPU_SHARED) or through staging (GPU_LOCAL).
+			Pros: the least memory, no whole-entry copies, a partial write only moves the bytes it changes, the GPU can write the buffer and be read back.
+			Cons: a CPU_SHARED write can land while an earlier frame still reads the buffer, which shows up as graphical glitches (a warning is printed when such an entry is created).
+			A GPU_LOCAL write can't tear: the transfer barrier makes the copy wait for the draws of earlier frames and later draws wait for the copy. The price is GPU-side serialization of the frames around each write, and a frame sees a write only once its copy ran.
+		*/
 		ONE,
+
+		/*
+			One copy per frame in flight, each refreshed from the shadow once that frame's previous submission finished.
+			Pros: a write never overlaps a GPU read and never waits, so frames in flight stay fully parallel.
+			Cons: framesAtFlightCount times the memory (VRAM for GPU_LOCAL) plus a RAM shadow, and a whole-entry copy per changed frame. Suits small data that changes often (uniforms, per-object data), not big meshes.
+		*/
 		FOLLOW_FRAMES_IN_FLIGHT,
-		CUSTOM_COPY_COUNT
+
+		/*
+			Exactly customCopyCount copies (at least 2), the count is the caller's choice. When it is below framesAtFlightCount, copies are shared between frames and a CPU_SHARED copy is only overwritten
+			after the fences of every frame that uses it were waited on (a GPU_LOCAL copy is ordered by the transfer barriers instead).
+			Pros: you pick the memory / parallelism trade-off, e.g. 2 copies for a big entry with 3 frames in flight, and a write never overlaps a GPU read.
+			Cons: the CPU can stall on a fence when frames share a copy, so those frames don't run fully in parallel. Still costs a RAM shadow and a whole-entry copy per changed frame.
+			A count above framesAtFlightCount throws in MemoryAccessParams::validate, the extra copies would never be read.
+		*/
+		CUSTOM_COPY_COUNT_WITH_WAIT
 	};
 
 	const inline std::array<const char*, 2> MemVisabilityTypeToName = {

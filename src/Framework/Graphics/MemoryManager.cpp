@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cstring>
 #include <format>
+#include <iostream>
 #include <stdexcept>
 #include <sys/types.h>
 #include <vulkan/vulkan_core.h>
@@ -312,6 +313,15 @@ void MemoryManager::createCopies(MemoryEntryId entryId_, const MemoryAccessParam
 	uint32_t copyCount = rAccess_.resolveCopyCount();
 	if(copyCount <= 1)
 	{
+		const MemoryEntry& rSingleEntry = this->getEntry(entryId_);
+		if(!rAccess_.isReadOnly() && rSingleEntry.memoryVisability == GPU_LOCAL)
+		{
+			std::cerr << std::format("Memory Manager warning: Entry {} is READ_AND_WRITE and GPU_LOCAL with CopyCountModeEnum::ONE. Its writes can't tear, but each copy waits for the draws of earlier frames and later draws wait for it, so the GPU serializes the frames around every write.\n", rSingleEntry.name);
+		}
+		if(!rAccess_.isReadOnly() && rSingleEntry.memoryVisability == CPU_SHARED)
+		{
+			std::cerr << std::format("Memory Manager warning: Entry {} is READ_AND_WRITE and CPU_SHARED with CopyCountModeEnum::ONE. Its writes can land while a frame in flight still reads it, which can cause graphical glitches.\n", rSingleEntry.name);
+		}
 		return;
 	}
 
@@ -341,6 +351,7 @@ void MemoryManager::createCopies(MemoryEntryId entryId_, const MemoryAccessParam
 	rCopiedEntry.shadow.assign(size, 0);
 	rCopiedEntry.copyVersions.assign(copyCount, 0);
 	rCopiedEntry.copySettled.assign(copyCount, 0);
+	rCopiedEntry.waitsForSharingFrames = rAccess_.copyCountMode == CopyCountModeEnum::CUSTOM_COPY_COUNT_WITH_WAIT && copyCount < Globals::renderer.framesAtFlightCount && memoryVisability == CPU_SHARED;
 	this->copiedEntryIds.emplace_back(entryId_);
 }
 
@@ -371,6 +382,14 @@ void MemoryManager::syncCopiesToFrame(uint32_t frame_)
 		}
 		else
 		{
+			/* Frames share this copy (CUSTOM_COPY_COUNT_WITH_WAIT): every frame that reads it has to be finished before it is overwritten. frame_ itself was waited on by the caller, waitForFrame is cheap on a signaled fence. */
+			if(rEntry.waitsForSharingFrames)
+			{
+				for(uint32_t frame = copyId; frame < Globals::renderer.framesAtFlightCount; frame += rEntry.copyCount)
+				{
+					Globals::renderer.passesGraph.waitForFrame(frame);
+				}
+			}
 			std::memcpy(this->getSharedPointer(this->getEntry(copyEntryId), 0), rEntry.shadow.data(), rEntry.size);
 		}
 		rEntry.copyVersions[copyId] = rEntry.version;

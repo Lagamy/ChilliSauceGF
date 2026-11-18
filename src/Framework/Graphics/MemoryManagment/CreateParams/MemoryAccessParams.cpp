@@ -16,7 +16,7 @@ namespace Graphics
 		{
 			return Globals::renderer.framesAtFlightCount;
 		}
-		if(this->copyCountMode == CopyCountModeEnum::CUSTOM_COPY_COUNT)
+		if(this->copyCountMode == CopyCountModeEnum::CUSTOM_COPY_COUNT_WITH_WAIT)
 		{
 			return this->customCopyCount;
 		}
@@ -31,24 +31,22 @@ namespace Graphics
 			throw std::runtime_error(std::format("Memory Access Params: Entry {} has no accessMode, set READ_ONLY or READ_AND_WRITE.", entryName_));
 		}
 
-		/* A CPU_SHARED write goes straight into memory the GPU may be reading, so it has to choose how many copies hide that. A GPU_LOCAL write goes through staging and doesn't block, so ONE is legal there (copies trade memory for newer data per frame). */
-		bool needsCopyCountMode = this->accessMode == MemoryAccessModeEnum::READ_AND_WRITE && memoryVisability_ == CPU_SHARED;
-		if(needsCopyCountMode && this->copyCountMode == CopyCountModeEnum::ONE)
-		{
-			throw std::runtime_error(std::format("Memory Access Params: Entry {} is READ_AND_WRITE and CPU_SHARED, it needs a copyCountMode (FOLLOW_FRAMES_IN_FLIGHT or CUSTOM_COPY_COUNT).", entryName_));
-		}
 		if(this->accessMode == MemoryAccessModeEnum::READ_ONLY && this->copyCountMode != CopyCountModeEnum::ONE)
 		{
 			throw std::runtime_error(std::format("Memory Access Params: Entry {} is READ_ONLY, it is one instance every frame reads. Leave copyCountMode at CopyCountModeEnum::ONE.", entryName_));
 		}
 
-		if(this->copyCountMode == CopyCountModeEnum::CUSTOM_COPY_COUNT && this->customCopyCount == 0)
+		if(this->copyCountMode == CopyCountModeEnum::CUSTOM_COPY_COUNT_WITH_WAIT && this->customCopyCount < 2)
 		{
-			throw std::runtime_error(std::format("Memory Access Params: Entry {} uses CUSTOM_COPY_COUNT, customCopyCount has to be at least 1.", entryName_));
+			throw std::runtime_error(std::format("Memory Access Params: Entry {} uses CUSTOM_COPY_COUNT_WITH_WAIT, customCopyCount has to be at least 2 (use ONE for a single buffer).", entryName_));
 		}
-		if(this->copyCountMode != CopyCountModeEnum::CUSTOM_COPY_COUNT && this->customCopyCount != 0)
+		if(this->copyCountMode == CopyCountModeEnum::CUSTOM_COPY_COUNT_WITH_WAIT && this->customCopyCount > Globals::renderer.framesAtFlightCount)
 		{
-			throw std::runtime_error(std::format("Memory Access Params: Entry {} sets customCopyCount, but its copyCountMode is not CUSTOM_COPY_COUNT.", entryName_));
+			throw std::runtime_error(std::format("Memory Access Params: Entry {} has customCopyCount {}, more than the {} frames in flight. The extra copies would never be read, use FOLLOW_FRAMES_IN_FLIGHT or a smaller count.", entryName_, this->customCopyCount, Globals::renderer.framesAtFlightCount));
+		}
+		if(this->copyCountMode != CopyCountModeEnum::CUSTOM_COPY_COUNT_WITH_WAIT && this->customCopyCount != 0)
+		{
+			throw std::runtime_error(std::format("Memory Access Params: Entry {} sets customCopyCount, but its copyCountMode is not CUSTOM_COPY_COUNT_WITH_WAIT.", entryName_));
 		}
 	}
 }

@@ -32,6 +32,7 @@ namespace Graphics {
 		uint64_t version = 1;
 		std::vector<uint64_t> copyVersions;
 		std::vector<uint8_t> copySettled;
+		bool waitsForSharingFrames = false; // CUSTOM_COPY_COUNT_WITH_WAIT with fewer copies than frames: syncCopiesToFrame waits for every frame that uses a copy before overwriting it (CPU_SHARED only)
 
 		// For Uniform / Storage
 		PoolId descriptorSet;
