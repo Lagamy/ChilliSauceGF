@@ -1,6 +1,7 @@
 #pragma once 
 #include "PoolId.h"
 #include "Utilities.h"
+#include "MemoryAccessParams.h"
 #include <glm/glm.hpp>
 #include <array>
 

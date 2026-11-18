@@ -53,7 +53,7 @@ src/Framework/
     Reflection/               ReflectionLayout, VariableBlueprint, CPUDataContainer,
                               GPUDataContainer, DataContainerConcepts
     Resources/                Mesh, Vertex, Texture
-    MemoryManagment/          Static/Dynamic allocators, Heaps/, Pages/ (WIP)
+    MemoryManagment/          Static/Dynamic allocators, Heaps/, Pages/, CreateParams/ (WIP)
 ```
 
 ## Global access and the API
@@ -83,7 +83,7 @@ src/Framework/
 3. `Renderer::draw` per frame (skipped while `Globals::resizing`):
    if `GPUSceneManager::changed`, run `define*` again and reset it → resolve
    pending memory ops → GPUSceneManager `update*` → `passesGraph.waitForFrame(currentFrame)`
-   (waits on the frame's fence of every `FRAME` pass) → `descriptorsManager.syncToFrame(currentFrame)` (copies changed descriptor shadows into the frame's entries) → `vkAcquireNextImageKHR` (signals the frame's
+   (waits on the frame's fence of every `FRAME` pass) → `memoryManager.syncCopiesToFrame(currentFrame)` (copies changed shadows into the frame's copies of every entry with copies, descriptors included) → `vkAcquireNextImageKHR` (signals the frame's
    `imageAcquiredSemaphore`) → re-record enabled command buffers →
    `passesGraph.compileIfDirty()` → `resolveSync_SubmitToGPU()` →
    `presentToScreen()` (waits on the swapchain image's
@@ -98,7 +98,7 @@ src/Framework/
 
 Frames vs images: per-frame-in-flight objects live in `FrameResources`
 (indexed by `currentFrame`); per-swapchain-image objects live on the swapchain
-`Image` (indexed by `imageIndex`). Framebuffers are indexed by `imageIndex`. Per-frame descriptor copies (`Descriptor::memoryEntryIds`, `DescriptorSet::vkHandles`) are indexed by `currentFrame`.
+`Image` (indexed by `imageIndex`). Framebuffers are indexed by `imageIndex`. Per-frame descriptor copies (the copies of `Descriptor::memoryEntryId`, `DescriptorSet::vkHandles`) are indexed by `currentFrame`.
 
 ## Device selection
 
@@ -219,7 +219,7 @@ an earlier draw reads). The extra semaphores live in `SubmissionMetadata::submit
   queues a `READBACK_COPY` operation, so the copy is ordered after earlier `UPDATE`s and waits
   while the entry has an upload in flight; `resolvePendingOperations` then queues a
   `PendingCopy` with `isReadback` (entry buffer -> readback range) into the same batched
-  `ONESHOT` `TRANSFER` pass. `CPU_SHARED` entries need no copy and are ready immediately; their readback is a live view of the mapped memory (no snapshot), so it shows whatever was written when it is read.
+  `ONESHOT` `TRANSFER` pass. `CPU_SHARED` entries need no copy and are ready immediately; their readback is a live view (no snapshot) of the mapped memory, or of the shadow when the entry has copies, so it shows whatever was written when it is read.
   `isReadbackReady` is `isBatchCompleted(batchId)`. `getReadbackContainer` returns a
   readable `ReadbackDataContainer` (`GPUDataContainer<true>` over the readback range; `MemoryManager::readStaging`
   invalidates the range first when the heap is not coherent; for `CPU_SHARED` it is the entry's
@@ -243,6 +243,15 @@ an earlier draw reads). The extra semaphores live in `SubmissionMetadata::submit
   (a `StagingData` range) and `writeShared` / `readShared` (a `CPU_SHARED` entry, via `getSharedPointer`). Offsets are
   entry byte offsets. `MemoryEntry::upload` and `GPUDataContainer` both go through them.
 - `MemoryEntry` holds both static and dynamic fields.
+- Entry creation takes a `MemoryEntryCreateParams` (`MemoryManagment/CreateParams/`, filled field by field like a Vulkan create info, start from `= {}`): `name`, `allocatorType`, `memoryVisability`, `bufferType`, `size`, `data` and
+  `access` (`MemoryAccessParams`: `accessMode`, `copyCountMode`, `customCopyCount`). `validate()` throws (also in release) on a missing or contradicting field: `allocatorType`, `memoryVisability`, `bufferType` and `accessMode` must be set (each starts at its `..._UNSET` value: `ALLOCATOR_TYPE_UNSET`, `MEMORY_VISABILITY_UNSET`, `BUFFER_TYPE_UNSET`, `MemoryAccessModeEnum::UNSET`; the first three sit after the real values so existing indices don't move),
+  `copyCountMode` must be `FOLLOW_FRAMES_IN_FLIGHT` or `CUSTOM_COPY_COUNT` for a `READ_AND_WRITE` `CPU_SHARED` entry, any mode for a `READ_AND_WRITE` `GPU_LOCAL` entry (`ONE` = one device buffer written through staging) and `CopyCountModeEnum::ONE` for a `READ_ONLY` one, `customCopyCount` must be >= 1 for
+  `CUSTOM_COPY_COUNT` and 0 otherwise. `MemoryManager::addEntry` needs `data`, `allocateEntry` / `reserveEntry` need it to be `nullptr`; `Api.h` `allocateMemoryEntry` takes the params plus the layout and repeat count and needs `size` to be 0.
+  `READ_ONLY` sets `MemoryEntry::readOnly`.
+- Copies of `READ_AND_WRITE` entries, `CPU_SHARED` or `GPU_LOCAL` (`CopyCountModeEnum` in `Utilities.h`, the modes and their trade-offs are documented there). A `READ_ONLY` entry is a single instance every frame in flight reads. With more than one copy, `MemoryManager::createCopies`
+  makes copy 0 the entry itself and the others hidden entries of the same allocator (`MemoryEntry::copyEntryIds`; static copies are added like any static entry, so before `allocateAndUpload`). Copies have the visability of the entry (a `GPU_LOCAL` entry gets N device buffers, so N times the VRAM plus one RAM shadow). Writes (`writeShared`, `updateEntry`, and the shared container of `getSharedContainer`, which is also legal for a `GPU_LOCAL` entry with copies) go to
+  `MemoryEntry::shadow` and bump `version`, `readShared` (so readbacks of an entry with copies, which are ready at once and need no readback copy) reads the shadow. A `reserveEntry` of an entry with copies takes no staging range and has nothing pending, `commitEntry` only ends the reserve. `MemoryManager::syncCopiesToFrame(currentFrame)` runs in `Renderer::draw` after `waitForFrame` and copies a changed shadow into the entry's copy `frame % copyCount`
+  (`copyVersions`, whole entry). A `GPU_LOCAL` copy is refreshed through `getStagingContainer` on the copy entry: a whole-entry staging range and an `UPDATE` operation, which belongs to no frame (it is queued once the copy entry has no upload in flight, the batch barriers order it after earlier draws and before later ones). `getFrameCopy(entry)` returns that copy, `drawMeshIndexed` binds it once `isFrameCopyReady` says the copy was filled (later refreshes don't make it unready, it holds the previous bytes until they complete). `removeDynamicEntry` removes the copies too (`GPU_LOCAL` ones through one deferred `REMOVE` each). Per-frame descriptors use it: `allocateDescriptorsMemory` creates the entry of an `isPerFrame()` descriptor with `FOLLOW_FRAMES_IN_FLIGHT`, `MemoryManager::getCopy(entry, f)` picks the copy a set copy points at.
 - `MemoryManager::getBuffer(entry)` returns the `Buffer` an entry lives in: the
   page buffer for dynamic entries (whole buffer), or the static heap buffer for
   the entry's type and visibility (`StaticAllocator::getBuffer`; add
@@ -251,7 +260,7 @@ an earlier draw reads). The extra semaphores live in `SubmissionMetadata::submit
   into a fresh open staging range immediately and queues an `UPDATE` operation
   (`UpdateRequest` = entry id + `StagingData`); `resolvePendingOperations` queues the
   copy once the entry has no upload in flight. `CPU_SHARED` entries are written
-  immediately.
+  immediately. An entry with copies is not staged per write: the write goes to its shadow and `syncCopiesToFrame` stages the copies.
 - Write-through API (`MemoryManager`): `getStagingContainer(entryId, inEntryOffset,
   size)` returns a per-update `StagingDataContainer` over a new range (or the
   whole-entry range of a reserved, uncommitted entry); `getSharedContainer(entryId)`
@@ -262,11 +271,10 @@ an earlier draw reads). The extra semaphores live in `SubmissionMetadata::submit
   nothing is pending and later writes are normal updates (`GPU_LOCAL` bytes are undefined until the first update
   was copied). A dynamic entry's buffer exists right away. A static entry must be allocated before
   `StaticAllocator::allocateAndUpload` (same rule as `addEntry`), and its buffer exists only after that call.
-  `addEntry`, `allocateEntry` and `reserveEntry` (and their `Api.h` forwarders) take `readOnly_` (default false), stored in
-  `MemoryEntry::readOnly`. `MemoryManager::lockEntry` sets `MemoryEntry::locked` (throws if the entry is not `readOnly`). Writes are legal
+  `MemoryAccessParams::accessMode` `READ_ONLY` (see the create params above) is stored in `MemoryEntry::readOnly`. `MemoryManager::lockEntry` sets `MemoryEntry::locked` (throws if the entry is not `readOnly`). Writes are legal
   until then; once locked, `updateEntry`, `getStagingContainer` and `getSharedContainer` throw. Readbacks (`getReadbackContainer`
   builds its shared container without the check) and removal stay allowed. `Mesh` (readOnly meshes) and `DescriptorSet::lockReadOnlyDescriptor` lock entries.
-- `GPU_ONLY` entry updates are batched by `MemoryManager`. `MemoryEntry::upload`
+- `GPU_LOCAL` entry updates are batched by `MemoryManager`. `MemoryEntry::upload`
   writes the staging heap and calls `MemoryManager::queueCopy`, which stores a
   `PendingCopy` in the default upload slot and returns a batch id kept in `MemoryEntry::uploadBatchId`.
   A slot (`UploadBatch`) owns a fence, a `ONESHOT` `TRANSFER` pass, its command buffer and a
@@ -278,7 +286,7 @@ an earlier draw reads). The extra semaphores live in `SubmissionMetadata::submit
   enables the pass. `uploadQueuedCopiesCMDs` finds its slot by command buffer handle and records
   one `vkCmdCopyBuffer` per copy. An entry is pending until `isBatchCompleted(uploadBatchId)`: no slot
   still carries that id (completion is per batch, not a watermark). No semaphore is used.
-- `MemoryVisabilityEnum`: `GPU_ONLY` (device-local, uploaded through staging)
+- `MemoryVisabilityEnum`: `GPU_LOCAL` (device-local, uploaded through staging)
   and `CPU_SHARED` (host-visible|coherent, written with map/memcpy/unmap).
 
 ## Descriptors (static buffer descriptors)
@@ -296,15 +304,14 @@ Uniform and storage buffer descriptors, optionally dynamic. No bindless, images 
 - `deriveDescriptorSet(layoutId, allocatorType, memoryVisability)` creates a `DescriptorSet` with one `Descriptor` per
   descriptor layout slot (same slot index) and adds the set id to each descriptor layout's `derivedDescriptors`. Descriptor layouts can't be
   added, removed or get members after memory of a derived set was allocated, and can't be added/removed once sets are derived.
-- A `DescriptorSetLayout` owns the `DescriptorPool`s of all its sets (`pools`, destroyed in `destroy()`). `addDescriptorSetLayout` has no set count: each pool is sized for `setsPerPool_` sets (optional parameter, default `DescriptorSetsPerPool` = 16 in `Utilities.h`, throws on 0), per (type, dynamic) kind descriptor layouts x `setsPerPool` x `framesAtFlightCount` (the worst case of a set whose descriptors are per frame). Pools are added lazily by `DescriptorSetLayout::allocateSets`, which tries every pool in order and adds one when all report `VK_ERROR_OUT_OF_POOL_MEMORY` / `VK_ERROR_FRAGMENTED_POOL`; the set remembers its pool in `DescriptorSet::poolId`. Pools are `FREE_DESCRIPTOR_SET_BIT`, `removeDescriptorSet` frees the set's `VkDescriptorSet`s (`vkFreeDescriptorSets`) into that pool. The device has no limit on the number of sets; `allocateDescriptorsMemory` throws when a set has more dynamic uniform / storage descriptors than the device allows, the other descriptor limits are checked per pipeline layout (`PipelineLayout::validateLimits`). The set holds `vkHandles`: one `VkDescriptorSet` per frame in flight if any descriptor `isPerFrame()` (`!readOnly && CPU_SHARED`), otherwise one; `get()` returns the copy of `currentFrame` (or the only one). Two phases: `allocateDescriptorsMemory()` calls `allocateMemoryEntry` per descriptor and copy (`Descriptor::memoryEntryIds`: one entry per frame in flight if `isPerFrame()`, otherwise one; `getEntryId(frame)` picks; size = `DescriptorShape::getSize()` (the block shape, still one descriptor, only the entry grows), `Descriptor::readOnly` passed as `readOnly_`; `setDescriptorReadOnly(descriptorLayoutId, readOnly_)` sets it and throws once the memory was allocated; static entries have to be added before `StaticAllocator::allocateAndUpload`), `create()` allocates the
-  `VkDescriptorSet` copies and writes every binding of every copy with one `vkUpdateDescriptorSets` (copy f points at `getEntryId(f)`) (offset 0 for dynamic entries,
-  `inBufferFirstByte` for static ones). `MemoryEntry::descriptorSet` points back at the set (on every copy's entry).
+- A `DescriptorSetLayout` owns the `DescriptorPool`s of all its sets (`pools`, destroyed in `destroy()`). `addDescriptorSetLayout` has no set count: each pool is sized for `setsPerPool_` sets (optional parameter, default `DescriptorSetsPerPool` = 16 in `Utilities.h`, throws on 0), per (type, dynamic) kind descriptor layouts x `setsPerPool` x `framesAtFlightCount` (the worst case of a set whose descriptors are per frame). Pools are added lazily by `DescriptorSetLayout::allocateSets`, which tries every pool in order and adds one when all report `VK_ERROR_OUT_OF_POOL_MEMORY` / `VK_ERROR_FRAGMENTED_POOL`; the set remembers its pool in `DescriptorSet::poolId`. Pools are `FREE_DESCRIPTOR_SET_BIT`, `removeDescriptorSet` frees the set's `VkDescriptorSet`s (`vkFreeDescriptorSets`) into that pool. The device has no limit on the number of sets; `allocateDescriptorsMemory` throws when a set has more dynamic uniform / storage descriptors than the device allows, the other descriptor limits are checked per pipeline layout (`PipelineLayout::validateLimits`). The set holds `vkHandles`: one `VkDescriptorSet` per frame in flight if any descriptor `isPerFrame()` (`!readOnly && CPU_SHARED`), otherwise one; `get()` returns the copy of `currentFrame` (or the only one). Two phases: `allocateDescriptorsMemory()` calls `allocateMemoryEntryRaw` per descriptor (`Descriptor::memoryEntryId`: one entry, with one copy per frame in flight if `isPerFrame()`; size = `DescriptorShape::getSize()` (the block shape, still one descriptor, only the entry grows), `Descriptor::readOnly` passed as `readOnly_`; `setDescriptorReadOnly(descriptorLayoutId, readOnly_)` sets it and throws once the memory was allocated; static entries have to be added before `StaticAllocator::allocateAndUpload`), `create()` allocates the
+  `VkDescriptorSet` copies and writes every binding of every copy with one `vkUpdateDescriptorSets` (copy f points at copy f of the descriptor's entry) (offset 0 for dynamic entries,
+  `inBufferFirstByte` for static ones). `MemoryEntry::descriptorSet` points back at the set (on every copy of the entry).
 - Block shape: a descriptor holds one block (or `dynamicCount` of them, see below) of its descriptor layout's members (one descriptor, one entry). `DescriptorLayout::makeShape` (called by `allocateDescriptorsMemory`) places the members in declaration order into a `DescriptorShape` (`Backend/Descriptor/DescriptorShape.h`): a variable at its next multiple of its `alignmentRule`, a struct member at a multiple of its layout's `structAlignment` (the largest variable rule, at least 16 for `STD140`) taking `repeatCountPerDimension` copies of the struct (a `RepeatShape`, `Reflection/RepeatShape.h`: per layer a count and a stride, innermost stride = the struct's `ReflectionLayout::size`, outer stride = inner stride x inner count, offset of an element = sum of id x stride over the layers, bounds checked per layer; `repeatCountPerDimension` is outermost layer first, e.g. `{2, 3}` = `states[2][3]`, `{1}` = one struct, throws on an empty list or a 0 count), then the block size padded to the largest alignment (at least 16 for uniform). This is the std140 / std430 layout of the shader's block, so the declaration order has to match the shader. The entry size, the per-frame shadow size and the dynamic `.range` all come from the shape. A plain uniform binding sees the whole entry, which has to fit `maxUniformBufferRange` (checked in `validateShape`, storage buffers have no such limit). `DescriptorSet::writeMemberRange` works out the byte offset of a variable (dynamic unit x stride + the member's `firstByteId` + the struct element picked by its ids + the variable's own instance, `getRepeatOffset`) and writes through containers with `repeatCount = 1`, `repeatStride` and `repeatBaseOffset` (= the struct element's byte offset): `getRepeatUnitOffset` returns `repeatBaseOffset + repeatUnitId x repeatStride`, so `Mesh` (base 0) is unchanged. A variable of a struct member takes one id per layer of its struct, a variable directly in the block none. Every plain setter has an overload taking `std::vector<uint32_t> idsPerLayer_`, `repeatUnitId_` is the one-layer case (it has to be 0 for a variable directly in the block, `makeSingleLayerIds`).
 - Dynamic descriptors: `addBufferDynamicDescriptorLayout(name, type, dynamicCount)` makes a dynamic descriptor layout: the whole block is repeated `dynamicCount` (at least 1) times, one of them is picked per bind (`DescriptorLayout::dynamicCount`; buffers only, fixed when it is added; `DescriptorSetLayout::dynamic` is true while any live descriptor layout is, recomputed on remove). Dynamic is a property of the block, not of the set: a set can mix dynamic and plain bindings. The binding becomes `VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC` (or `STORAGE_BUFFER_DYNAMIC`; `getVkDescriptorType(type, dynamic)`, there is no dynamic `DescriptorTypeEnum` value) and the pool counts every (type, dynamic) kind separately. The dynamic stride (`DescriptorShape::dynamicLayer`) is the block size rounded up with `alignUp` to `minUniformBufferOffsetAlignment` (uniform) or `minStorageBufferOffsetAlignment` (storage), the binding's `.range` is one unpadded block (`shape.blockSize`), and `allocateDescriptorsMemory` throws when a set has more dynamic uniform / storage descriptors than `maxDescriptorSetUniformBuffersDynamic` / `maxDescriptorSetStorageBuffersDynamic`. Entry starts are aligned (own buffer at offset 0 for dynamic entries, `StaticAllocator::addEntry` for static ones), `create` throws if a dynamic entry's `bufferInfo.offset` isn't, so offset + dynamic offset is always a multiple. Writing: the plain setters throw on a dynamic descriptor, `setDynamicDescriptorMember...` (same 7 variants) take `dynamicUnitId_` (the block) and optional `innerIdsPerLayer_` (the struct's layers). Binding: `bindDescriptorSet(..., dynamicUnitIds_)` takes one unit id per dynamic descriptor in binding order (empty = unit 0); `DescriptorSet::getDynamicOffsets` turns them into `id x dynamic stride` byte offsets for `vkCmdBindDescriptorSets` (Vulkan orders dynamic offsets by binding) and throws on a wrong count or an id >= `dynamicCount`.
 - `DescriptorSet::setDescriptorMemberValue<T>(descriptorLayoutId, variableId, value)` (every setter takes a trailing `repeatUnitId_ = 0` that selects the repeat unit, offset `repeatUnitId_ * layout.size`, throws if >= `repeatCount`; plus `setDescriptorMemberMatrixElement`, `setDescriptorMemberMatrixRow` / `Column`, with `Array<T>` or `Matrix<T>` sources; every setter also takes a trailing `repeatIdPerDimension_` (one id per dimension of the variable, outermost first, empty for a variable that isn't repeated); a `GPU_LOCAL` write covers only the bytes it replaces, a column is written element by element) writes through
   `getStagingContainer` (`GPU_LOCAL`) or `getSharedContainer` (`CPU_SHARED`, readOnly descriptors) and `ReflectionLayout::setMemberScalar`, like `Mesh`.
-  A per-frame descriptor (`isPerFrame()`) instead writes `Descriptor::shadow` (a `CPUDataContainer`, `layout.size * repeatCount` bytes, zeroed in `allocateDescriptorsMemory`) and bumps `Descriptor::version` (starts at 1);
-  `Descriptor::copyVersions[frame]` (starts at 0) is the version frame's entry holds.
+  A per-frame descriptor (`isPerFrame()`) also writes through `getSharedContainer`: the entry has copies, so the write lands in `MemoryEntry::shadow` (zeroed when the copies are created) and bumps the entry's `version`.
 - `Renderer::setup` calls `allocateAllDescriptorsMemory()` before the static upload and `createAll()` (layouts, then sets) after it and
   before `createAllPipelines()`. `Renderer::shutdown` calls `descriptorsManager.destroy()` (sets, then layouts) after the pipelines.
 - Pipelines: `PipelinesManager::pipelineLayouts` (`Pool<PipelineLayout>`) owns the pipeline layouts. The user never creates one: `addGraphicsPipeline` calls `getOrAddPipelineLayout`, which builds the ordered
@@ -317,9 +324,9 @@ Uniform and storage buffer descriptors, optionally dynamic. No bindless, images 
   layout, then `PipelineLayout::recreate()` for each layout using it (destroy + create the layout and its graphics pipelines).
   Nothing waits for the GPU, the caller has to
   make sure nothing submitted uses them.
-- CPU/GPU sync of `CPU_SHARED` writes: a per-frame descriptor's writes only touch its CPU shadow, so they never wait and are legal at any time (also while recording).
-  `DescriptorsManager::syncToFrame(currentFrame)` runs in `Renderer::draw` right after `waitForFrame(currentFrame)` and, per set, copies every shadow whose
-  `version` differs from `copyVersions[frame]` into that frame's entry (whole entry, `MemoryManager::writeShared`) and records the version. The fence wait is the write-after-read
+- CPU/GPU sync of `CPU_SHARED` writes: a per-frame descriptor's writes only touch the entry's CPU shadow, so they never wait and are legal at any time (also while recording).
+  `MemoryManager::syncCopiesToFrame(currentFrame)` runs in `Renderer::draw` right after `waitForFrame(currentFrame)` and copies every shadow whose
+  `version` differs from `copyVersions[copy]` into that frame's copy (whole entry) and records the version. The fence wait is the write-after-read
   dependency (the frame's previous submission read that copy), the memory is coherent so no flush, and the host write before `vkQueueSubmit` is visible to the submission. Other frames' copies are never touched.
   Non-per-frame `CPU_SHARED` descriptors (readOnly) are written straight into their single entry and don't wait: nothing tracks which frames bind a set anymore, so they are only safe to write before the GPU first reads them. `drawMeshIndexed(meshId, instanceCount, cmd, firstInstance = 0)` passes the optional `firstInstance` to `vkCmdDrawIndexed`, so `gl_InstanceIndex` starts there and a draw can pick its repeat unit(s) of an SSBO descriptor (`objects[gl_InstanceIndex]`). It looks up the descriptors the vertex and fragment shader of the bound pipeline declared in the sets bound at their indices (`getRecordingSet`; it throws when nothing is bound there) and skips the draw while one of them has a write pending (`DescriptorSet::isDescriptorSettled`: a `GPU_LOCAL` descriptor, readOnly or not, whose first write is still pending (`MemoryManager::hasPendingWrite`, i.e. upload queued or in flight, or an `UPDATE` waiting); once a check saw it settled, `Descriptor::firstDataSettled` stays true and later updates are not waited for), so a draw never reads a descriptor before its first data was copied (the batch barriers above order the later updates). Descriptors the shaders don't declare don't matter, even in the same set, and the set is bound anyway (the declaration is what lets the draw wait for the descriptors, so it is a contract: nothing checks the SPIR-V, so a shader reading an undeclared descriptor can read it before its data was copied): every binding was written by `create` and a shader only reads the bindings it uses. A skipped draw is recorded again on a later frame, since the command buffer is re-recorded every frame. For a recorded draw `drawMeshIndexed` queues the declared descriptors (`DescriptorsManager::queueLockOnSubmit`) and `Renderer::draw` calls `DescriptorsManager::lockBoundDescriptors` right after `resolveSync_SubmitToGPU`, which runs `DescriptorSet::lockReadOnlyDescriptor` (once per descriptor, `Descriptor::readOnlyLocked`): it `lockEntry`s every copy of the descriptor if it is readOnly, so a write after the submit that first recorded a draw reading it throws (also `GPU_LOCAL`); descriptors no draw read stay writable. `GPU_LOCAL` writes go through
   staging and don't wait.
@@ -356,9 +363,9 @@ keeps no copy of its vertex bytes; it writes through these containers.
 
 ### Mesh updates
 
-- `Mesh::queueUpload(allocatorType, visibility, readOnly_ = false)` reserves the vertex entry
+- `Mesh::queueUpload(allocatorType, visibility, access)` (`access` is a `MemoryAccessParams`, used for both entries) reserves the vertex entry
   (`MemoryManager::reserveEntry`, no data yet) and uploads the index entry
-  (`vbMemoryUploadId`, `ibMemoryUploadId`). With `readOnly_` both entries are created `readOnly`: the index entry is locked
+  (`vbMemoryUploadId`, `ibMemoryUploadId`). With `READ_ONLY` access both entries are created `readOnly`: the index entry is locked
   at the end of `queueUpload`, the vertex entry at the end of `commitUpload` (`MemoryManager::lockEntry`), so later
   `setVerticeVariable` calls throw. Readbacks still work.
 - `Mesh::setVerticeVariable<T>(variableId, verticeId, data)` computes
@@ -430,7 +437,7 @@ A repeated variable's `size` includes the padding after its last element (N x st
   Invalid id sentinels: `UninitializedId`, `UninitializedPoolId`.
 - Enums are unscoped, named `XxxEnum`, values `UPPER_CASE` (`GRAPHICS`, `FRAME`,
   `GPU_LOCAL`, `VERTEX`). Lookup tables named `xToY` (`BufferTypeToUsage`,
-  `dataTypeToName`); counts `XxxCount` (`BufferTypesCount`).
+  `dataTypeToName`); counts `XxxCount` (`BufferTypesCount`). `CopyCountModeEnum` and `MemoryAccessModeEnum` are `enum class` (the short names `NONE` and `UNSET` would clash with `STDAlignmentLayoutEnum::NONE` and the other enums), used as `CopyCountModeEnum::ONE`, `MemoryAccessModeEnum::READ_ONLY`.
 - Vulkan create-info structs zero-initialized with `= {}` and filled field by
   field.
 - `#pragma once`; everything framework-side in `namespace Graphics` (except

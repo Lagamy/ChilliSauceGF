@@ -91,10 +91,7 @@ namespace Graphics
             Descriptor& rDescriptor = rSet.descriptors.getInternal(i);
             if(rSet.descriptorsMemoryAllocated && rSet.allocatorType == DYNAMIC_ALLOCATOR)
             {
-                for(MemoryEntryId entryId : rDescriptor.memoryEntryIds)
-                {
-                    getMemoryManager().removeDynamicEntry(entryId);
-                }
+                getMemoryManager().removeDynamicEntry(rDescriptor.memoryEntryId);
             }
             std::erase(rDescriptor.getDescriptorLayout().derivedDescriptors, setId_);
         }
@@ -155,17 +152,6 @@ namespace Graphics
             if(this->descriptorSet.alive[i] && this->descriptorSet.getInternal(i).vkHandles.empty())
             {
                 this->descriptorSet.getInternal(i).create();
-            }
-        }
-    }
-
-    void DescriptorsManager::syncToFrame(uint32_t frame_)
-    {
-        for(uint32_t i = 0; i < this->descriptorSet.allocatedSize(); i++)
-        {
-            if(this->descriptorSet.alive[i])
-            {
-                this->descriptorSet.getInternal(i).syncToFrame(frame_);
             }
         }
     }

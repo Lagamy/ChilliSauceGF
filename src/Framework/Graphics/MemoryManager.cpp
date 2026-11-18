@@ -269,21 +269,161 @@ void MemoryManager::resolvePendingOperations()
 }
 
 
-MemoryEntryId MemoryManager::addEntry(const char* name_, const void* data_, VkDeviceSize size_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, bool readOnly_)
+MemoryEntryId MemoryManager::addEntry(const MemoryEntryCreateParams& rParams_)
 {
-	MemoryEntryId entryId;
-	if(allocatorType_ == STATIC_ALLOCATOR)
+	rParams_.validate();
+	if(rParams_.data == nullptr)
 	{
-		entryId = { STATIC_ALLOCATOR, this->staticAllocator.addEntry(name_, data_, size_, memoryVisability_, uploadType_) };
+		throw std::runtime_error(std::format("Memory Manager: Can't add entry {} without data, use allocateEntry or reserveEntry.", rParams_.name));
+	}
+
+	MemoryEntryId entryId;
+	if(rParams_.allocatorType == STATIC_ALLOCATOR)
+	{
+		entryId = { STATIC_ALLOCATOR, this->staticAllocator.addEntry(rParams_.name, rParams_.data, rParams_.size, rParams_.memoryVisability, rParams_.bufferType) };
 	}
 	else
 	{
-		entryId = { DYNAMIC_ALLOCATOR, this->dynamicAllocator.addAndUploadEntry(name_, data_, size_, memoryVisability_, uploadType_) };
+		entryId = { DYNAMIC_ALLOCATOR, this->dynamicAllocator.addAndUploadEntry(rParams_.name, rParams_.data, rParams_.size, rParams_.memoryVisability, rParams_.bufferType) };
 	}
-	this->getEntry(entryId).readOnly = readOnly_;
+	this->getEntry(entryId).readOnly = rParams_.access.isReadOnly();
+	this->createCopies(entryId, rParams_.access);
+
+	/*
+		Copy 0 gets the initial data from the upload (written before the copies existed for a dynamic entry, by allocateAndUpload for a static one). With copies the shadow is the source of truth, so the data goes there too,
+		and copy 0 already counts as filled with that version. The other copies are filled by syncCopiesToFrame.
+	*/
+	if(this->getEntry(entryId).copyCount > 1)
+	{
+		MemoryEntry& rCopiedEntry = this->getEntry(entryId);
+		this->writeShared(rCopiedEntry, 0, rParams_.data, rParams_.size);
+		rCopiedEntry.copyVersions[0] = rCopiedEntry.version;
+	}
 	return entryId;
 }
 
+/*
+	Gives a READ_AND_WRITE entry its copies (see CopyCountModeEnum). Copy 0 is the entry itself, every other copy is a hidden entry of the same allocator and visability that only owns memory (no data, nothing to upload).
+	A copy count of 1 (every other entry, validated by MemoryAccessParams) leaves the entry alone, so its writes stay direct.
+	Static copies have to exist before StaticAllocator::allocateAndUpload like any static entry. Every entry is fetched again after an add, since adding grows the allocator's storage.
+*/
+void MemoryManager::createCopies(MemoryEntryId entryId_, const MemoryAccessParams& rAccess_)
+{
+	uint32_t copyCount = rAccess_.resolveCopyCount();
+	if(copyCount <= 1)
+	{
+		return;
+	}
+
+	const MemoryEntry& rEntry = this->getEntry(entryId_);
+
+	std::string name = rEntry.name;
+	VkDeviceSize size = rEntry.size;
+	BufferTypeEnum bufferType = rEntry.bufferType;
+	MemoryVisabilityEnum memoryVisability = rEntry.memoryVisability;
+	for(uint32_t copy = 1; copy < copyCount; copy++)
+	{
+		std::string copyName = std::format("{} copy {}", name, copy);
+		MemoryEntryId copyId;
+		if(entryId_.allocatorType == STATIC_ALLOCATOR)
+		{
+			copyId = { STATIC_ALLOCATOR, this->staticAllocator.addEntry(copyName.c_str(), nullptr, size, memoryVisability, bufferType) };
+		}
+		else
+		{
+			copyId = { DYNAMIC_ALLOCATOR, this->dynamicAllocator.allocateEntry(copyName.c_str(), size, memoryVisability, bufferType) };
+		}
+		this->getEntry(entryId_).copyEntryIds.emplace_back(copyId);
+	}
+
+	MemoryEntry& rCopiedEntry = this->getEntry(entryId_);
+	rCopiedEntry.copyCount = copyCount;
+	rCopiedEntry.shadow.assign(size, 0);
+	rCopiedEntry.copyVersions.assign(copyCount, 0);
+	rCopiedEntry.copySettled.assign(copyCount, 0);
+	this->copiedEntryIds.emplace_back(entryId_);
+}
+
+/*
+	Runs right after passesGraph.waitForFrame(frame_): the frame's previous submission finished (write after read), so its copy can be overwritten.
+	The copy a frame uses is frame_ % copyCount. It is refreshed only when the shadow changed since that copy was last filled, always the whole entry.
+	CPU_SHARED memory is coherent, so no flush is needed, and a host write before vkQueueSubmit is visible to that submission.
+	A GPU_LOCAL copy is refreshed through a whole-entry staging range and an UPDATE operation, like any GPU_LOCAL write. Nothing in it belongs to a frame: the copy is queued once the copy entry has no upload in flight, and the batch barriers order it after earlier draws
+	(so it never overwrites bytes an earlier frame still reads) and before later ones. The version is recorded when the bytes were staged, so a later change stages again and the updates of one copy run in order.
+	A reserved entry that was not committed yet has nothing to sync.
+*/
+void MemoryManager::syncCopiesToFrame(uint32_t frame_)
+{
+	for(const MemoryEntryId& rEntryId : this->copiedEntryIds)
+	{
+		MemoryEntry& rEntry = this->getEntry(rEntryId);
+		uint32_t copyId = frame_ % rEntry.copyCount;
+		if(rEntry.awaitingCommit || rEntry.copyVersions[copyId] == rEntry.version)
+		{
+			continue;
+		}
+
+		MemoryEntryId copyEntryId = copyId == 0 ? rEntryId : rEntry.copyEntryIds[copyId - 1];
+		if(rEntry.memoryVisability == GPU_LOCAL)
+		{
+			StagingDataContainer container = this->getStagingContainer(copyEntryId, 0, rEntry.size);
+			container.write(0, rEntry.shadow.data(), rEntry.size);
+		}
+		else
+		{
+			std::memcpy(this->getSharedPointer(this->getEntry(copyEntryId), 0), rEntry.shadow.data(), rEntry.size);
+		}
+		rEntry.copyVersions[copyId] = rEntry.version;
+	}
+}
+
+/* Copy 0 is the entry itself, 1..copyCount - 1 are its hidden entries. */
+const MemoryEntry& MemoryManager::getCopy(const MemoryEntry& rEntry_, uint32_t copyId_)
+{
+	uint32_t copyId = copyId_ % rEntry_.copyCount;
+	if(copyId == 0)
+	{
+		return rEntry_;
+	}
+	return this->getEntry(rEntry_.copyEntryIds[copyId - 1]);
+}
+
+/* The copy that currentFrame reads. Bind this one (getBuffer + inBufferFirstByte), the entry itself is only the first copy. */
+const MemoryEntry& MemoryManager::getFrameCopy(const MemoryEntry& rEntry_)
+{
+	uint32_t copyId = Globals::renderer.currentFrame % rEntry_.copyCount;
+	if(copyId == 0)
+	{
+		return rEntry_;
+	}
+	return this->getEntry(rEntry_.copyEntryIds[copyId - 1]);
+}
+
+
+/*
+	An entry with one copy is ready once its upload completed. With copies, the copy of currentFrame is ready once it was filled at least once (syncCopiesToFrame set its version) and that first fill finished
+	(a CPU_SHARED copy is written at once, a GPU_LOCAL one when its UPDATE batch completed). Later refreshes don't make it unready: until they complete the copy still holds the previous, consistent bytes. Once settled it stays settled.
+*/
+bool MemoryManager::isFrameCopyReady(MemoryEntryId entryId_)
+{
+	MemoryEntry& rEntry = this->getEntry(entryId_);
+	if(rEntry.copyCount == 1)
+	{
+		return this->isUploadInGPU(entryId_);
+	}
+
+	uint32_t copyId = Globals::renderer.currentFrame % rEntry.copyCount;
+	if(!rEntry.copySettled[copyId])
+	{
+		MemoryEntryId copyEntryId = copyId == 0 ? entryId_ : rEntry.copyEntryIds[copyId - 1];
+		if(rEntry.copyVersions[copyId] == 0 || this->hasPendingWrite(copyEntryId))
+		{
+			return false;
+		}
+		rEntry.copySettled[copyId] = 1;
+	}
+	return true;
+}
 
 bool MemoryManager::isUploadInGPU(MemoryEntryId entryId_)
 {
@@ -351,10 +491,15 @@ void MemoryManager::updateEntry(MemoryEntryId entryId_, const void* data_, uint6
 	}
 
 	/*
-		Every GPU_LOCAL update goes through a staging range. The bytes are written into the range right away, only the copy is deferred until the entry has no upload in flight (for static entries that includes the initial upload).
+		An entry with copies is only written into its shadow, whatever its visability (syncCopiesToFrame moves it on).
+		Every other GPU_LOCAL update goes through a staging range. The bytes are written into the range right away, only the copy is deferred until the entry has no upload in flight (for static entries that includes the initial upload).
 		CPU_SHARED entries, static or dynamic, are written directly.
 	*/
-	if(rEntry.memoryVisability == GPU_LOCAL)
+	if(rEntry.copyCount > 1)
+	{
+		this->writeShared(rEntry, inEntryOffset_, static_cast<const char*>(data_) + inSrcOffset_, size_);
+	}
+	else if(rEntry.memoryVisability == GPU_LOCAL)
 	{
 		StagingDataContainer container = this->getStagingContainer(entryId_, inEntryOffset_, size_);
 		container.write(inEntryOffset_, static_cast<const char*>(data_) + inSrcOffset_, size_);
@@ -369,20 +514,27 @@ void MemoryManager::updateEntry(MemoryEntryId entryId_, const void* data_, uint6
 	Creates an entry that nothing is uploaded to. Unlike reserveEntry it takes no staging range and needs no commitEntry: the entry has nothing pending, so its buffer can be bound (e.g. into a descriptor set) once it exists.
 	A dynamic entry's buffer exists right away. A static entry only gets its place in the static heap here (it is added before StaticAllocator::allocateAndUpload, which skips it because its data is nullptr), so its buffer exists after that call.
 	A GPU_LOCAL entry's bytes are undefined until the first updateEntry / getStagingContainer write has been copied.
-	readOnly_ declares that the entry can be locked later (lockEntry). Writes stay legal until then.
+	A READ_ONLY entry (access.accessMode) can be locked later (lockEntry). Writes stay legal until then.
 */
-MemoryEntryId MemoryManager::allocateEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_)
+MemoryEntryId MemoryManager::allocateEntry(const MemoryEntryCreateParams& rParams_)
 {
-	MemoryEntryId entryId;
-	if(allocatorType_ == STATIC_ALLOCATOR)
+	rParams_.validate();
+	if(rParams_.data != nullptr)
 	{
-		entryId = { STATIC_ALLOCATOR, this->staticAllocator.addEntry(name_, nullptr, size_, memoryVisability_, bufferType_) };
+		throw std::runtime_error(std::format("Memory Manager: Entry {} has data, allocateEntry uploads nothing. Use addEntry.", rParams_.name));
+	}
+
+	MemoryEntryId entryId;
+	if(rParams_.allocatorType == STATIC_ALLOCATOR)
+	{
+		entryId = { STATIC_ALLOCATOR, this->staticAllocator.addEntry(rParams_.name, nullptr, rParams_.size, rParams_.memoryVisability, rParams_.bufferType) };
 	}
 	else
 	{
-		entryId = { DYNAMIC_ALLOCATOR, this->dynamicAllocator.allocateEntry(name_, size_, memoryVisability_, bufferType_) };
+		entryId = { DYNAMIC_ALLOCATOR, this->dynamicAllocator.allocateEntry(rParams_.name, rParams_.size, rParams_.memoryVisability, rParams_.bufferType) };
 	}
-	this->getEntry(entryId).readOnly = readOnly_;
+	this->getEntry(entryId).readOnly = rParams_.access.isReadOnly();
+	this->createCopies(entryId, rParams_.access);
 	return entryId;
 }
 
@@ -390,21 +542,37 @@ MemoryEntryId MemoryManager::allocateEntry(const char* name_, AllocatorTypeEnum 
 	Creates a dynamic entry without data. The caller writes through getStagingContainer / getSharedContainer and then calls commitEntry.
 	A GPU_LOCAL entry counts as pending (OpenBatchId is bigger than any completed batch) until commitEntry queues its copy, so it isn't drawn with garbage.
 */
-MemoryEntryId MemoryManager::reserveEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_)
+MemoryEntryId MemoryManager::reserveEntry(const MemoryEntryCreateParams& rParams_)
 {
-	if(allocatorType_ == STATIC_ALLOCATOR)
+	rParams_.validate();
+	if(rParams_.data != nullptr)
 	{
-		throw std::runtime_error(std::format("Memory Manager: Can't reserve {}. Static entries are uploaded from their data pointer in StaticAllocator::allocateAndUpload.", name_));
+		throw std::runtime_error(std::format("Memory Manager: Entry {} has data, reserveEntry takes the data through its containers. Use addEntry.", rParams_.name));
+	}
+	if(rParams_.allocatorType == STATIC_ALLOCATOR)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Can't reserve {}. Static entries are uploaded from their data pointer in StaticAllocator::allocateAndUpload.", rParams_.name));
 	}
 
-	PoolId id = this->dynamicAllocator.reserveEntry(name_, size_, memoryVisability_, bufferType_);
+	/* An entry with copies is written into its shadow, so it takes no whole-entry staging range and has no pending copy: its copies are filled by syncCopiesToFrame once it is committed. */
+	bool hasCopies = rParams_.access.resolveCopyCount() > 1;
+	PoolId id;
+	if(hasCopies)
+	{
+		id = this->dynamicAllocator.allocateEntry(rParams_.name, rParams_.size, rParams_.memoryVisability, rParams_.bufferType);
+	}
+	else
+	{
+		id = this->dynamicAllocator.reserveEntry(rParams_.name, rParams_.size, rParams_.memoryVisability, rParams_.bufferType);
+	}
 	MemoryEntry& rEntry = this->dynamicAllocator.memoryEntries[id];
 	rEntry.awaitingCommit = true;
-	rEntry.readOnly = readOnly_;
-	if(memoryVisability_ == GPU_LOCAL)
+	rEntry.readOnly = rParams_.access.isReadOnly();
+	if(rParams_.memoryVisability == GPU_LOCAL && !hasCopies)
 	{
 		rEntry.uploadBatchId = OpenBatchId;
 	}
+	this->createCopies({ DYNAMIC_ALLOCATOR, id }, rParams_.access);
 	return { DYNAMIC_ALLOCATOR, id };
 }
 
@@ -419,7 +587,7 @@ void MemoryManager::commitEntry(MemoryEntryId entryId_)
 	#endif
 
 	rEntry.awaitingCommit = false;
-	if(rEntry.memoryVisability == GPU_LOCAL)
+	if(rEntry.memoryVisability == GPU_LOCAL && rEntry.copyCount == 1)
 	{
 		rEntry.queueStagedCopy(rEntry.stagingData, 0, rEntry.size);
 	}
@@ -454,9 +622,9 @@ StagingDataContainer MemoryManager::getStagingContainer(MemoryEntryId entryId_, 
 		throw std::runtime_error(std::format("Memory Manager: Entry {} is locked (readOnly), it can't be written.", rEntry.name));
 	}
 	#ifdef ENGINE_DEBUG
-		if(rEntry.memoryVisability != GPU_LOCAL)
+		if(rEntry.memoryVisability != GPU_LOCAL || rEntry.copyCount > 1)
 		{
-			throw std::runtime_error(std::format("Memory Manager: Entry {} is CPU_SHARED, use getSharedContainer.", rEntry.name));
+			throw std::runtime_error(std::format("Memory Manager: Entry {} is CPU_SHARED or has copies, use getSharedContainer.", rEntry.name));
 		}
 		if(inEntryOffset_ + size_ > rEntry.size)
 		{
@@ -493,9 +661,9 @@ SharedDataContainer MemoryManager::getSharedContainer(MemoryEntryId entryId_)
 		throw std::runtime_error(std::format("Memory Manager: Entry {} is locked (readOnly), it can't be written.", rEntry.name));
 	}
 	#ifdef ENGINE_DEBUG
-		if(rEntry.memoryVisability != CPU_SHARED)
+		if(rEntry.memoryVisability != CPU_SHARED && rEntry.copyCount == 1)
 		{
-			throw std::runtime_error(std::format("Memory Manager: Entry {} is GPU_LOCAL, use getStagingContainer.", rEntry.name));
+			throw std::runtime_error(std::format("Memory Manager: Entry {} is GPU_LOCAL without copies, use getStagingContainer.", rEntry.name));
 		}
 	#endif
 
@@ -510,6 +678,7 @@ SharedDataContainer MemoryManager::getSharedContainer(MemoryEntryId entryId_)
 /*
 	GPU_LOCAL: allocates a READBACK range and queues a READBACK operation, so the copy is ordered after any earlier UPDATE of the entry and waits for uploads in flight.
 	CPU_SHARED: nothing to copy, the request is ready immediately and reads the mapped memory.
+	An entry with copies: nothing to copy either, the request is ready immediately and reads the shadow (see readShared).
 */
 ReadbackId MemoryManager::requestReadback(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_)
 {
@@ -527,14 +696,15 @@ ReadbackId MemoryManager::requestReadback(MemoryEntryId entryId_, uint64_t inEnt
 
 	StagingData stagingData = {};
 	uint64_t batchId = 0;
-	if(rEntry.memoryVisability == GPU_LOCAL)
+	bool copiesToStaging = rEntry.memoryVisability == GPU_LOCAL && rEntry.copyCount == 1;
+	if(copiesToStaging)
 	{
 		stagingData = this->stagingAllocator.allocate(READBACK, size_);
 		batchId = OpenBatchId;
 	}
 
 	ReadbackId readbackId = this->readbackRequests.add(entryId_, stagingData, batchId, inEntryOffset_, size_);
-	if(rEntry.memoryVisability == GPU_LOCAL)
+	if(copiesToStaging)
 	{
 		this->pendingOperationsInOrder.emplace_back(READBACK_COPY, readbackId);
 	}
@@ -563,7 +733,7 @@ ReadbackDataContainer MemoryManager::getReadbackContainer(ReadbackId readbackId_
 	#endif
 
 	ReadbackDataContainer container;
-	if(rEntry.memoryVisability == CPU_SHARED)
+	if(rEntry.memoryVisability == CPU_SHARED || rEntry.copyCount > 1)
 	{
 		container.isShared = true;
 		container.entryId = rRequest.memoryEntryId;
@@ -589,7 +759,8 @@ void MemoryManager::releaseReadback(ReadbackId readbackId_)
 	#endif
 
 	ReadbackRequest& rRequest = this->readbackRequests[readbackId_];
-	if(this->getEntry(rRequest.memoryEntryId).memoryVisability == GPU_LOCAL)
+	const MemoryEntry& rEntry = this->getEntry(rRequest.memoryEntryId);
+	if(rEntry.memoryVisability == GPU_LOCAL && rEntry.copyCount == 1)
 	{
 		this->stagingAllocator.releaseReadback(rRequest.stagingData);
 	}
@@ -635,13 +806,26 @@ void MemoryManager::readStaging(const StagingData& rStagingData_, uint64_t inEnt
 }
 
 /* CPU_SHARED memory is host-coherent, so writes need no flush and reads no invalidate. */
-void MemoryManager::writeShared(const MemoryEntry& rEntry_, uint64_t inEntryOffset_, const void* pSrc_, uint64_t size_)
+void MemoryManager::writeShared(MemoryEntry& rEntry_, uint64_t inEntryOffset_, const void* pSrc_, uint64_t size_)
 {
+	/* An entry with copies is only written into its shadow, so a write never touches memory a frame in flight reads. syncCopiesToFrame moves it into the frame's copy. */
+	if(rEntry_.copyCount > 1)
+	{
+		std::memcpy(rEntry_.shadow.data() + inEntryOffset_, pSrc_, size_);
+		rEntry_.version++;
+		return;
+	}
 	std::memcpy(this->getSharedPointer(rEntry_, inEntryOffset_), pSrc_, size_);
 }
 
+/* An entry with copies is read from its shadow: the latest written bytes, whichever frame's copy they have reached. */
 void MemoryManager::readShared(const MemoryEntry& rEntry_, uint64_t inEntryOffset_, void* pDst_, uint64_t size_)
 {
+	if(rEntry_.copyCount > 1)
+	{
+		std::memcpy(pDst_, rEntry_.shadow.data() + inEntryOffset_, size_);
+		return;
+	}
 	std::memcpy(pDst_, this->getSharedPointer(rEntry_, inEntryOffset_), size_);
 }
 
@@ -669,14 +853,27 @@ void MemoryManager::removeDynamicEntry(MemoryEntryId entryId_)
 
 	MemoryEntry& rMemoryEntry = this->dynamicAllocator.memoryEntries[entryId_.id]; 
 
-	/* Only GPU_LOCAL entries have uploads in flight that must finish before the buffer is destroyed. CPU_SHARED entries are removed immediately. */
+	/* The copies stop being synced right away. */
+	std::erase_if(this->copiedEntryIds, [&](const MemoryEntryId& rId_) { return rId_.id == entryId_.id; });
+
+	/* Only GPU_LOCAL entries have uploads in flight that must finish before the buffer is destroyed, so each of them (the copies own buffers too) gets its own deferred REMOVE. CPU_SHARED entries are removed immediately. */
 	if(rMemoryEntry.memoryVisability == GPU_LOCAL)
 	{
+		for(const MemoryEntryId& rCopyId : rMemoryEntry.copyEntryIds)
+		{
+			PoolId copyRemovalId = this->entriesPendingForRemoval.add(rCopyId);
+			this->pendingOperationsInOrder.emplace_back(REMOVE, copyRemovalId);
+		}
 		PoolId id = this->entriesPendingForRemoval.add(entryId_);
 		this->pendingOperationsInOrder.emplace_back(REMOVE, id); 
 		return; 
 	}
 
+	/* Like the entry itself the copies are removed immediately, so the caller must make sure no frame in flight reads them. */
+	for(const MemoryEntryId& rCopyId : rMemoryEntry.copyEntryIds)
+	{
+		this->dynamicAllocator.removeCPUSharedEntry(rCopyId.id);
+	}
 	this->dynamicAllocator.removeCPUSharedEntry(entryId_.id);
 }
 

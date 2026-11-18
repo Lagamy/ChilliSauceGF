@@ -10,12 +10,12 @@
 	Offsets are entry byte offsets.
 
 	Lifetime differs by where the memory is:
-	- GPU_ONLY entries: a per-update handle. stagingData is a range of an UPLOAD staging heap, and it exists only from the write until the batch that copies it completes,
+	- GPU_LOCAL entries: a per-update handle. stagingData is a range of an UPLOAD staging heap, and it exists only from the write until the batch that copies it completes,
 	  after which the range is reused. Never store it (not a Mesh member). MemoryManager returns a fresh one for every update.
 	  Upload staging is write-combined, so reading it is very slow. Reads are disabled at compile time for this variant (Readable == false).
-	- Readbacks of GPU_ONLY entries: a handle valid from MemoryManager::getReadbackContainer until releaseReadback. stagingData is a range of a READBACK heap, so it can be read (Readable == true).
+	- Readbacks of GPU_LOCAL entries: a handle valid from MemoryManager::getReadbackContainer until releaseReadback. stagingData is a range of a READBACK heap, so it can be read (Readable == true).
 	  Same rule as the staging variant: never store it, the range is reused after release.
-	- CPU_SHARED entries: a persistent handle. entryId is the entry whose mapped memory is edited, valid as long as the entry exists. It can be read.
+	- CPU_SHARED entries, and GPU_LOCAL entries with copies: a persistent handle. entryId is the entry whose mapped memory (or, with copies, whose shadow) is edited, valid as long as the entry exists. It can be read.
 */
 namespace Graphics
 {

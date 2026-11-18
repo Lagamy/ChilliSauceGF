@@ -95,21 +95,23 @@ void Renderer::draw()
 		this->gpuSceneManager.updatePasses(); 
 
 		this->passesGraph.waitForFrame(this->currentFrame);
-		this->descriptorsManager.syncToFrame(this->currentFrame);
+		this->memoryManager.syncCopiesToFrame(this->currentFrame);
 
 		vkAcquireNextImageKHR(
 			this->mainDevice.logicalDevice, this->swapchain.get(), std::numeric_limits<uint64_t>::max(), 
 			getSemaphore(this->framesResources[currentFrame].imageAcquiredSemaphoreId), VK_NULL_HANDLE, &imageIndex
 		);
-		// Rerecord enabled cmdBuffers
+		// Rerecord enabled cmdBuffers(purely CPU sided. GPU just pulls them when needed)
 		this->oneShotCommandPools.rerecordEnabledCmdBuffers();
 		getCurrentFrameResources().frameCmdPools.rerecordEnabledCmdBuffers();
 
 	
-		// Compile passesGraph 
+		// Compile passesGraph
 		this->passesGraph.compileIfDirty(); 
 		// Resolve dynamic sync and Submit graph to queues
  		this->passesGraph.resolveSync_SubmitToGPU();
+
+		// if Data was 
 		this->descriptorsManager.lockBoundDescriptors();
 		
 		presentToScreen(); 

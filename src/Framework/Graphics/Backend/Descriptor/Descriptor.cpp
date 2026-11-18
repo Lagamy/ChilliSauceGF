@@ -25,9 +25,4 @@ namespace Graphics
 	{
 		return !this->readOnly && this->memoryVisability == CPU_SHARED;
 	}
-
-	MemoryEntryId Descriptor::getEntryId(uint32_t frame_) const
-	{
-		return this->memoryEntryIds[this->isPerFrame() ? frame_ : 0];
-	}
 }

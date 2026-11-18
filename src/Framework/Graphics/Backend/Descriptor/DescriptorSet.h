@@ -36,7 +36,7 @@ struct DescriptorSet
 
 	/* 
 		Writes one variable of the descriptor: variableId_ is the id addMemberBlueprint / addVariable returned. A variable of a struct member (Object states[2]) takes one id per repeat layer of the struct (repeatUnitId_, 0 by default, is the one-layer case, or one id per layer through the std::vector<uint32_t> overloads), a variable directly in the block takes none. Those are for descriptors without a dynamic layer: a dynamic descriptor layout (addBufferDynamicDescriptorLayout) is written through the setDynamicDescriptorMember... variants, which take the dynamic unit id (the block, padded to the offset alignment) and optionally the ids of the struct's layers. descriptorId_ is the id of the descriptor layout the descriptor was derived from (they share the slot). Only valid after allocateDescriptorsMemory.
-		GPU_LOCAL descriptors are written as updates through staging. A per-frame descriptor (Descriptor::isPerFrame) only writes its shadow and bumps its version, so it never waits and may be called at any time, even while recording: syncToFrame copies it into the frame's entry. Other CPU_SHARED descriptors (readOnly) are written directly into the mapped memory without waiting: they are only legal until the submit that first recorded a draw reading them (lockReadOnlyDescriptor), a write to a readOnly descriptor after that throws.
+		GPU_LOCAL descriptors are written as updates through staging. A per-frame descriptor (Descriptor::isPerFrame) writes its entry's shadow (MemoryManager::writeShared), so it never waits and may be called at any time, even while recording: MemoryManager::syncCopiesToFrame copies it into the frame's copy. Other CPU_SHARED descriptors (readOnly) are written directly into the mapped memory without waiting: they are only legal until the submit that first recorded a draw reading them (lockReadOnlyDescriptor), a write to a readOnly descriptor after that throws.
 		A variable declared with repeatCountPerDimension (int a[2][3]) takes repeatIdPerDimension_ in every setter, one id per dimension, outermost first (empty for a variable that isn't repeated), after the struct ids.
 		The functions below write a part of a MATRIX variable the same way. Each GPU_LOCAL write is its own staging range and update, covering only the bytes it replaces (an element, a row), so a column is written element by element.
 	*/
@@ -223,7 +223,6 @@ struct DescriptorSet
 	void destroy();
 	void lockReadOnlyDescriptor(PoolId descriptorId_); // locks the entries of the descriptor if it is readOnly, once. Called by DescriptorsManager::lockBoundDescriptors after the submit that first recorded a draw reading it
 	bool isDescriptorSettled(PoolId descriptorId_); // true unless the descriptor is GPU_LOCAL and its first write is still pending, so a draw may read it. drawMeshIndexed skips the draws of shaders that use it otherwise
-	void syncToFrame(uint32_t frame_); // copies the shadows that changed into frame_'s entries, see the .cpp
 
 	private:
 	Descriptor& getDescriptor(PoolId descriptorId_);
@@ -269,23 +268,15 @@ struct DescriptorSet
 		if(rDescriptor.memoryVisability == GPU_LOCAL)
 		{
 			rDescriptor.gpuWritten = true;
-			StagingDataContainer container = this->getStagingContainer(rDescriptor.memoryEntryIds[0], inEntryOffset, size_);
+			StagingDataContainer container = this->getStagingContainer(rDescriptor.memoryEntryId, inEntryOffset, size_);
 			container.repeatCount = 1;
 			container.repeatStride = rLayout.size;
 			container.repeatBaseOffset = repeatOffset;
 			write_(rLayout, rVariableRef.variableId, container);
 		}
-		else if(rDescriptor.isPerFrame())
-		{
-			rDescriptor.shadow.repeatCount = 1;
-			rDescriptor.shadow.repeatStride = rLayout.size;
-			rDescriptor.shadow.repeatBaseOffset = repeatOffset;
-			write_(rLayout, rVariableRef.variableId, rDescriptor.shadow);
-			rDescriptor.version++;
-		}
 		else
 		{
-			SharedDataContainer container = this->getSharedContainer(rDescriptor.memoryEntryIds[0]);
+			SharedDataContainer container = this->getSharedContainer(rDescriptor.memoryEntryId);
 			container.validFirstOffset = inEntryOffset;
 			container.validSize = size_;
 			container.repeatCount = 1;

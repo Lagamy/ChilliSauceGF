@@ -1,10 +1,12 @@
 #pragma once 
 #include "PoolId.h"
+#include "MemoryEntryId.h"
 #include "StagingData.h"
 #include "Utilities.h"
 #include "Semaphore.h"
 #include "PassId.h"
 #include <string>
+#include <vector>
 #include <vulkan/vulkan.h>
 
 namespace Graphics {
@@ -19,7 +21,19 @@ namespace Graphics {
 		bool readOnly = false; // Declared at creation. A readOnly entry can be locked with MemoryManager::lockEntry.
 		bool locked = false; // Set by MemoryManager::lockEntry. Writes (updates, staging and shared containers) throw from then on. Readbacks and removal stay allowed.
 
-		// For Uniform / Storage 
+		/*
+			Copies of a READ_AND_WRITE entry (see CopyCountModeEnum), CPU_SHARED or GPU_LOCAL. This entry is copy 0, copyEntryIds hold copies 1..copyCount - 1 (hidden entries of the same allocator and visability that have copyCount 1).
+			With copyCount > 1 writes go to shadow and bump version, MemoryManager::syncCopiesToFrame copies the shadow into a frame's copy (directly for CPU_SHARED, through staging for GPU_LOCAL) when copyVersions[copy] differs from version.
+			copySettled[copy] is set once MemoryManager::isFrameCopyReady saw the copy's first fill complete.
+		*/
+		uint32_t copyCount = 1;
+		std::vector<MemoryEntryId> copyEntryIds;
+		std::vector<char> shadow;
+		uint64_t version = 1;
+		std::vector<uint64_t> copyVersions;
+		std::vector<uint8_t> copySettled;
+
+		// For Uniform / Storage
 		PoolId descriptorSet;
 
 		// For Upload(only for Update when static)

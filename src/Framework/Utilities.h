@@ -63,11 +63,43 @@ namespace Graphics
 
 	const inline uint8_t StagingDirectionsCount = 2;
 
-	enum MemoryVisabilityEnum : bool 
+	/* MEMORY_VISABILITY_UNSET is only a "not chosen" marker for create params (MemoryEntryCreateParams::validate throws on it). It sits after the real values, so they still index arrays of 2. */
+	enum MemoryVisabilityEnum : uint8_t 
 	{
 		GPU_LOCAL,
-		CPU_SHARED
-	}; 
+		CPU_SHARED,
+		MEMORY_VISABILITY_UNSET
+	};
+
+	/* How an entry is accessed after creation (MemoryAccessParams). UNSET is the zero value, so a forgotten field is caught by MemoryAccessParams::validate. */
+	enum class MemoryAccessModeEnum : uint8_t
+	{
+		UNSET,
+		READ_ONLY,
+		READ_AND_WRITE
+	};
+
+	/*
+		How many copies of its memory a READ_AND_WRITE entry has (CPU_SHARED or GPU_LOCAL). A READ_ONLY entry has one copy and has to use CopyCountModeEnum::ONE.
+		With more than one copy, writes only touch a CPU shadow (RAM, one per entry) and never wait. Frame f binds and reads copy (f % copy count), which is refreshed from the shadow at the start of the frame, after that frame's fence wait.
+		A CPU_SHARED copy is refreshed with a memcpy. A GPU_LOCAL copy is its own device buffer (VRAM) refreshed with a staging copy that belongs to no frame: it is queued like any GPU_LOCAL update and the transfer barriers order it after earlier draws.
+		A GPU_LOCAL entry with ONE has a single device buffer: writes stage straight into it with no shadow, which costs the least memory, but a frame sees a write only once its copy ran.
+
+		ONE: a single instance, nothing to copy. Scoped (CopyCountModeEnum::ONE), since unscoped names like NONE already exist in other enums.
+
+		FOLLOW_FRAMES_IN_FLIGHT: one copy per frame in flight. A frame's copy is only written once that frame's previous submission finished, so a write can never overlap a GPU read.
+		Costs framesAtFlightCount times the memory (and a whole-entry copy per changed frame), so it suits small data that changes often (uniforms, per-object data), not big meshes.
+
+		CUSTOM_COPY_COUNT: exactly customCopyCount copies, the count is the caller's choice. 1 keeps one buffer written directly with no shadow and no wait: the least memory, but a write can overlap a GPU read of the
+		previous frame, so it is only safe when nothing in flight reads the entry (or the caller waits itself). A count below framesAtFlightCount shares copies between frames, so it has the same overlap risk between those frames.
+		A count above framesAtFlightCount only wastes memory.
+	*/
+	enum class CopyCountModeEnum : uint8_t
+	{
+		ONE,
+		FOLLOW_FRAMES_IN_FLIGHT,
+		CUSTOM_COPY_COUNT
+	};
 
 	const inline std::array<const char*, 2> MemVisabilityTypeToName = {
 		"GPU Local", 
@@ -97,10 +129,12 @@ namespace Graphics
 		RESOLVE
 	};
 
+	/* ALLOCATOR_TYPE_UNSET is only a "not chosen" marker for create params, after the real values (AllocatorTypesCount doesn't count it). */
 	enum AllocatorTypeEnum { 
 		UI_ALLOCATOR,
 		STATIC_ALLOCATOR, 
-		DYNAMIC_ALLOCATOR
+		DYNAMIC_ALLOCATOR,
+		ALLOCATOR_TYPE_UNSET
 	};
 
 	const inline uint8_t AllocatorTypesCount = 3; 
@@ -112,7 +146,8 @@ namespace Graphics
 		UNIFORM_BUFFER = 2,
 		STORAGE_BUFFER = 3,
 		TEXTURE_BUFFER = 4,
-		SAMPLER_BUFFER = 5
+		SAMPLER_BUFFER = 5,
+		BUFFER_TYPE_UNSET = 6 // only a "not chosen" marker for create params, after the real values
 	};
 
 	

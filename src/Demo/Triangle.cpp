@@ -20,7 +20,9 @@ namespace Graphics
 	void Triangle::upload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_)
 	{
 		Mesh& rMesh = getMesh(this->meshId); 
-		rMesh.queueUpload(allocatorType_, memoryVisability_); 
+		MemoryAccessParams triangleAccess = {};
+		triangleAccess.accessMode = MemoryAccessModeEnum::READ_ONLY;
+		rMesh.queueUpload(allocatorType_, memoryVisability_, triangleAccess); 
 
 		for(uint32_t verticeId = 0; verticeId < 3; verticeId++)
 		{

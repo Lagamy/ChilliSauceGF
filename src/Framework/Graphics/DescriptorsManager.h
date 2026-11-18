@@ -37,7 +37,6 @@ struct DescriptorsManager
 
     void allocateAllDescriptorsMemory(); // sets that weren't allocated yet. Before StaticAllocator::allocateAndUpload
     void createAll(); // layouts and sets that weren't created yet. After StaticAllocator::allocateAndUpload, before pipelines
-    void syncToFrame(uint32_t frame_); // after PassesGraph::waitForFrame(frame_), before this frame's submit
     void queueLockOnSubmit(PoolId setId_, PoolId descriptorId_); // called by drawMeshIndexed for the descriptors its shaders declared
     void lockBoundDescriptors(); // right after the frame's submit
     void destroy();

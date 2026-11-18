@@ -2,6 +2,7 @@
 #pragma once 
 #include "DynamicAllocator.h"
 #include "MemoryEntryId.h"
+#include "MemoryEntryCreateParams.h"
 #include "StaticAllocator.h"
 #include "StagingAllocator.h"
 #include "QueueTransferSync.h"
@@ -35,6 +36,7 @@ struct MemoryManager
 	Pool<ReadbackRequest> readbackRequests; // Alive from requestReadback until releaseReadback.
 
 	std::vector<Operation> pendingOperationsInOrder;
+	std::vector<MemoryEntryId> copiedEntryIds; // Entries with copyCount > 1 (CPU_SHARED or GPU_LOCAL), the ones syncCopiesToFrame walks.
 	
 	/*
 		GPU Local uploads are batched. Entries only queue a copy, and a ONESHOT TRANSFER pass records every copy queued in a slot into its command buffer.
@@ -46,15 +48,19 @@ struct MemoryManager
 
 	void resolvePendingOperations(); // Checks every cycle -> isUploadPending for each entry. If true -> operation happens, false -> skip
 
-	MemoryEntryId addEntry(const char* name_, const void* data_, VkDeviceSize size_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, bool readOnly_ = false);
+	MemoryEntryId addEntry(const MemoryEntryCreateParams& rParams_); // params.data has to be set
 	MemoryEntry& getEntry(MemoryEntryId memoryEntryId_);
 	Buffer& getBuffer(const MemoryEntry& rEntry_);
+	const MemoryEntry& getCopy(const MemoryEntry& rEntry_, uint32_t copyId_); // copy 0 is the entry itself, copyId_ is taken modulo copyCount
+	const MemoryEntry& getFrameCopy(const MemoryEntry& rEntry_); // the copy of currentFrame (the entry itself when it has one copy). Bind this one: getBuffer + inBufferFirstByte
+	void syncCopiesToFrame(uint32_t frame_); // copies every changed shadow into the frame's copy, runs in Renderer::draw right after the frame's fence wait
+	bool isFrameCopyReady(MemoryEntryId memoryEntryId_); // an entry with copies: the copy of currentFrame was filled. One copy: its upload completed. drawMeshIndexed checks this
 	bool isUploadInGPU(MemoryEntryId memoryEntryId_);
 	bool hasPendingWrite(MemoryEntryId memoryEntryId_); // an upload is queued or in flight, or an UPDATE waits to be queued
 	void updateEntry(MemoryEntryId entryId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 	void removeDynamicEntry(MemoryEntryId entryId_); 
-	MemoryEntryId allocateEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_ = false);
-	MemoryEntryId reserveEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_ = false);
+	MemoryEntryId allocateEntry(const MemoryEntryCreateParams& rParams_); // params.data has to be nullptr
+	MemoryEntryId reserveEntry(const MemoryEntryCreateParams& rParams_); // params.data has to be nullptr
 	void commitEntry(MemoryEntryId entryId_);
 	void lockEntry(MemoryEntryId entryId_);
 	StagingDataContainer getStagingContainer(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_);
@@ -68,7 +74,7 @@ struct MemoryManager
 	/* The only place that copies bytes in or out of host-visible memory. Offsets are entry byte offsets. */
 	void writeStaging(const StagingData& rStagingData_, uint64_t inEntryOffset_, const void* pSrc_, uint64_t size_);
 	void readStaging(const StagingData& rStagingData_, uint64_t inEntryOffset_, void* pDst_, uint64_t size_);
-	void writeShared(const MemoryEntry& rEntry_, uint64_t inEntryOffset_, const void* pSrc_, uint64_t size_);
+	void writeShared(MemoryEntry& rEntry_, uint64_t inEntryOffset_, const void* pSrc_, uint64_t size_);
 	void readShared(const MemoryEntry& rEntry_, uint64_t inEntryOffset_, void* pDst_, uint64_t size_);
 	char* getSharedPointer(const MemoryEntry& rEntry_, uint64_t inEntryOffset_);
 	uint64_t queueCopy(const PendingCopy& rCopy_);
@@ -76,6 +82,8 @@ struct MemoryManager
 	void startUploadBatch(uint32_t slotId_);
 	void completeUploadBatch(uint32_t slotId_);
 	bool isBatchCompleted(uint64_t batchId_);
+
+	void createCopies(MemoryEntryId entryId_, const MemoryAccessParams& rAccess_);
 
 	void setup();
 	void destroy();

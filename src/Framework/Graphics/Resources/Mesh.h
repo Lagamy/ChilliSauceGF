@@ -6,6 +6,7 @@
 #include "GPUDataContainer.h"
 #include "ReadbackRequest.h"
 #include "Layout.h"
+#include "MemoryAccessParams.h"
 #include <cstdint>
 #include <format>
 #include <stdexcept>
@@ -139,7 +140,7 @@ namespace Graphics
 			return rLayout.getElementInMemberMatrix<T>(container, variableId_, verticeId_, rowId_, columnId_, repeatIdPerDimension_);
 		}
 
-		void queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, bool readOnly_ = false);
+		void queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, const MemoryAccessParams& access_);
 		void commitUpload();
 
 		Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_);
@@ -160,7 +161,8 @@ namespace Graphics
 			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
 			uint64_t inEntryOffset = verticeId_ * rLayout.size + rLayout.variableBlueprints[variableId_].firstByteId + inMemberOffset_;
 
-			if(this->memoryVisability == GPU_LOCAL)
+			/* A vertex entry with copies is written through its shadow (the shared container), also when it is GPU_LOCAL. */
+			if(this->memoryVisability == GPU_LOCAL && !this->hasCopies())
 			{
 				StagingDataContainer container = this->getStagingContainer(inEntryOffset, size_);
 				container.repeatCount = this->verticesCount;
@@ -176,6 +178,7 @@ namespace Graphics
 			}
 		}
 
+		bool hasCopies();
 		StagingDataContainer getStagingContainer(uint64_t inEntryOffset_, uint64_t size_);
 		SharedDataContainer getSharedContainer();
 	};

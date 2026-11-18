@@ -16,16 +16,39 @@ Mesh::Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_)
 /*
     The vertex entry is only reserved: it has its place in the GPU buffer but no data yet. For GPU_LOCAL its whole-entry staging range is handed out by
     setVerticeVariable, so the initial data is written straight into upload staging. commitUpload queues the copy once every variable is set.
-    With readOnly_ the index entry is already complete here, so it is locked right away. The vertex entry is locked in commitUpload, after the last initial write.
+    With READ_ONLY access the index entry is already complete here, so it is locked right away. The vertex entry is locked in commitUpload, after the last initial write.
 */
-void Mesh::queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, bool readOnly_)
+void Mesh::queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, const MemoryAccessParams& access_)
 {
     this->memoryVisability = memoryVisability_;
-    this->readOnly = readOnly_;
-    this->vbMemoryUploadId = getMemoryManager().reserveEntry(std::format("{} Vertex data", this->name).c_str(), allocatorType_, memoryVisability_, VERTEX_BUFFER, getVerticeLayout(this->verticeLayoutId).size * this->verticesCount, readOnly_);
+    this->readOnly = access_.isReadOnly();
+
+    std::string vertexName = std::format("{} Vertex data", this->name);
+    
+    MemoryEntryCreateParams vertexParams = {};
+    vertexParams.name = vertexName.c_str();
+    vertexParams.allocatorType = allocatorType_;
+    vertexParams.memoryVisability = memoryVisability_;
+    vertexParams.bufferType = VERTEX_BUFFER;
+    vertexParams.size = getVerticeLayout(this->verticeLayoutId).size * this->verticesCount;
+    vertexParams.access = access_;
+    
+    this->vbMemoryUploadId = getMemoryManager().reserveEntry(vertexParams);
+
     // Create Index Buffer and fill it with data.
-	this->ibMemoryUploadId = addAndUploadMemoryEntry(std::format("{} Index data", this->name).c_str(), allocatorType_, memoryVisability_, INDEX_BUFFER, this->indices.data(), this->indices.size() * sizeof(uint32_t), readOnly_);
-    if(readOnly_)
+    std::string indexName = std::format("{} Index data", this->name);
+    
+    MemoryEntryCreateParams indexParams = {};
+    indexParams.name = indexName.c_str();
+    indexParams.allocatorType = allocatorType_;
+    indexParams.memoryVisability = memoryVisability_;
+    indexParams.bufferType = INDEX_BUFFER;
+    indexParams.size = this->indices.size() * sizeof(uint32_t);
+    indexParams.data = this->indices.data();
+    indexParams.access = access_;
+    
+    this->ibMemoryUploadId = addAndUploadMemoryEntry(indexParams);
+    if(this->readOnly)
     {
         getMemoryManager().lockEntry(this->ibMemoryUploadId);
     }
@@ -38,6 +61,11 @@ void Mesh::commitUpload()
     {
         getMemoryManager().lockEntry(this->vbMemoryUploadId);
     }
+}
+
+bool Mesh::hasCopies()
+{
+    return getMemoryManager().getEntry(this->vbMemoryUploadId).copyCount > 1;
 }
 
 StagingDataContainer Mesh::getStagingContainer(uint64_t inEntryOffset_, uint64_t size_)

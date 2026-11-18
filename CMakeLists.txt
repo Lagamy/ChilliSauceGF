@@ -74,7 +74,7 @@ add_executable(ChilliSauceGF
 
 	#Memory Managment 
 	"src/Framework/Graphics/MemoryManagment/DynamicAllocator.cpp" "src/Framework/Graphics/MemoryManagment/StaticAllocator.cpp"
-	"src/Framework/Graphics/MemoryManagment/MemoryEntry.cpp" "src/Framework/Graphics/MemoryManagment/QueueTransferSync.cpp"
+	"src/Framework/Graphics/MemoryManagment/MemoryEntry.cpp" "src/Framework/Graphics/MemoryManagment/CreateParams/MemoryAccessParams.cpp" "src/Framework/Graphics/MemoryManagment/CreateParams/MemoryEntryCreateParams.cpp" "src/Framework/Graphics/MemoryManagment/QueueTransferSync.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/GPULocalPage.cpp" "src/Framework/Graphics/MemoryManagment/Pages/CPUSharedPage.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/BasePage.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/StagingHeap.cpp"
  	"src/Framework/Graphics/MemoryManagment/StagingAllocator.cpp" "src/Framework/Graphics/MemoryManagment/Pages/StagingPage.cpp"
@@ -114,6 +114,7 @@ set(REFLECTION_DIR "${GRAPHICS_DIR}/Reflection")
 #Memory Managment 
 set(HEAPS_DIR "${MEMORY_MANAGMENT_DIR}/Heaps")
 set(PAGES_DIR "${MEMORY_MANAGMENT_DIR}/Pages")
+set(CREATE_PARAMS_DIR "${MEMORY_MANAGMENT_DIR}/CreateParams")
 
 # Link dependencies
 target_link_libraries(ChilliSauceGF
@@ -143,7 +144,7 @@ target_include_directories(ChilliSauceGF PRIVATE
 	${REFLECTION_DIR}
 
 	# Memory Managment 
-	${HEAPS_DIR} ${PAGES_DIR}
+	${HEAPS_DIR} ${PAGES_DIR} ${CREATE_PARAMS_DIR}
 )
 
 # Put the executable into /bin

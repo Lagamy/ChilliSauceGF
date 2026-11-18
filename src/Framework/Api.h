@@ -7,6 +7,7 @@
 #include "PassId.h"
 #include "Pass.h"
 #include "MemoryEntryId.h"
+#include "MemoryEntryCreateParams.h"
 #include "ProjectManager.h"
 #include "Utilities.h"
 #include "Globals.h"
@@ -90,9 +91,11 @@ namespace Graphics
 	PoolId addShader(const char* name_, const char* path_); 
 	void addDescriptorsToShader(PoolId shaderId_, uint32_t setIndex_, PoolId setLayoutId_, const std::vector<PoolId>& descriptorLayoutIds_); // declares that the shader reads the descriptors of those descriptor layouts in the set (derived from setLayoutId_) bound at setIndex_. Graphics pipelines build their pipeline layout from these, so declare before adding the pipeline. drawMeshIndexed waits for the data of exactly these. Shaders without descriptors are fine. The declaration is what lets drawMeshIndexed check these descriptors and skip the draw until their first data is copied, so every descriptor the shader reads has to be declared: nothing checks the SPIR-V, an undeclared one can be read before its data was copied
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
-	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_, bool readOnly_ = false);
-	MemoryEntryId allocateMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, PoolId layoutId_, uint32_t repeatCount_, bool readOnly_ = false);
-	MemoryEntryId allocateMemoryEntryRaw(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_ = false);
+	MemoryEntryId addAndUploadMemoryEntry(const MemoryEntryCreateParams& rParams_); // params.data and params.size describe the bytes to upload
+
+	MemoryEntryId allocateMemoryEntry(MemoryEntryCreateParams params_, PoolId layoutId_, uint32_t repeatCount_); // the size comes from the layout, so params.size has to stay 0
+
+	MemoryEntryId allocateMemoryEntryRaw(const MemoryEntryCreateParams& rParams_);
 	void updateMemoryEntry(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 	ReadbackId requestMemoryEntryReadback(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_);
 	bool isReadbackReady(ReadbackId readbackId_);

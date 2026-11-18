@@ -290,28 +290,32 @@ namespace Graphics
 
 
 
-	MemoryEntryId addAndUploadMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum uploadType_, const void* data_, VkDeviceSize size_, bool readOnly_)
+	MemoryEntryId addAndUploadMemoryEntry(const MemoryEntryCreateParams& rParams_)
 	{
-		return Globals::renderer.memoryManager.addEntry(name_, data_, size_, allocatorType_, memoryVisability_, uploadType_, readOnly_);
+		return Globals::renderer.memoryManager.addEntry(rParams_);
 	}
 
 	/* The layout is looked up in the bufferType_ list. The INDEX layout doesn't exist, and the TEXTURE and SAMPLER lists aren't there yet. */
-	MemoryEntryId allocateMemoryEntry(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, PoolId layoutId_, uint32_t repeatCount_, bool readOnly_)
+	MemoryEntryId allocateMemoryEntry(MemoryEntryCreateParams params_, PoolId layoutId_, uint32_t repeatCount_)
 	{
+		if(params_.size != 0)
+		{
+			throw std::runtime_error(std::format("Api: Entry {} sets a size, allocateMemoryEntry takes it from the layout. Use allocateMemoryEntryRaw.", params_.name == nullptr ? "" : params_.name));
+		}
 		#ifdef ENGINE_DEBUG
-			if(bufferType_ < VERTEX_BUFFER || bufferType_ > STORAGE_BUFFER)
+			if(params_.bufferType < VERTEX_BUFFER || params_.bufferType > STORAGE_BUFFER)
 			{
-				throw std::runtime_error(std::format("Api: Can't allocate {} from a layout, buffer type {} has no layouts. Use allocateMemoryEntryRaw.", name_, static_cast<uint32_t>(bufferType_)));
+				throw std::runtime_error(std::format("Api: Can't allocate {} from a layout, buffer type {} has no layouts. Use allocateMemoryEntryRaw.", params_.name == nullptr ? "" : params_.name, static_cast<uint32_t>(params_.bufferType)));
 			}
 		#endif
 
-		VkDeviceSize size = Globals::renderer.reflectionSystem.layoutsPerBufferType[bufferType_ - 1][layoutId_].size * repeatCount_; // - 1 due to INDEX layout not existing
-		return Globals::renderer.memoryManager.allocateEntry(name_, allocatorType_, memoryVisability_, bufferType_, size, readOnly_);
+		params_.size = Globals::renderer.reflectionSystem.layoutsPerBufferType[params_.bufferType - 1][layoutId_].size * repeatCount_; // - 1 due to INDEX layout not existing
+		return Globals::renderer.memoryManager.allocateEntry(params_);
 	}
 
-	MemoryEntryId allocateMemoryEntryRaw(const char* name_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, BufferTypeEnum bufferType_, VkDeviceSize size_, bool readOnly_)
+	MemoryEntryId allocateMemoryEntryRaw(const MemoryEntryCreateParams& rParams_)
 	{
-		return Globals::renderer.memoryManager.allocateEntry(name_, allocatorType_, memoryVisability_, bufferType_, size_, readOnly_);
+		return Globals::renderer.memoryManager.allocateEntry(rParams_);
 	}
 
 	void updateMemoryEntry(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_)
@@ -620,21 +624,25 @@ namespace Graphics
 		{
 			return;
 		}
-		if(isUploadInGPU(rMesh.vbMemoryUploadId) && isUploadInGPU(rMesh.ibMemoryUploadId))
+		MemoryManager& rMemoryManager = Globals::renderer.memoryManager;
+		if(rMemoryManager.isFrameCopyReady(rMesh.vbMemoryUploadId) && rMemoryManager.isFrameCopyReady(rMesh.ibMemoryUploadId))
 		{
 			queueShaderDescriptorLocks(rVertexShader);
 			queueShaderDescriptorLocks(rFragmentShader);
 
 			const MemoryEntry& indexUpload = getMemoryEntry(rMesh.ibMemoryUploadId); 
 			const MemoryEntry& vertexUpload = getMemoryEntry(rMesh.vbMemoryUploadId);
-			MemoryManager& rMemoryManager = Globals::renderer.memoryManager;
 
-			VkBuffer vertexBuffers[] = { rMemoryManager.getBuffer(vertexUpload).get() };
-			VkDeviceSize vOffsets[] = { vertexUpload.inBufferFirstByte };
+			/* A mesh with copies (READ_AND_WRITE with a copyCountMode) binds the copy of this frame: it is the one syncCopiesToFrame refreshed after the frame's fence wait. */
+			const MemoryEntry& vertexCopy = rMemoryManager.getFrameCopy(vertexUpload);
+			const MemoryEntry& indexCopy = rMemoryManager.getFrameCopy(indexUpload);
+
+			VkBuffer vertexBuffers[] = { rMemoryManager.getBuffer(vertexCopy).get() };
+			VkDeviceSize vOffsets[] = { vertexCopy.inBufferFirstByte };
 			vkCmdBindVertexBuffers(cmdBuffer_, 0, 1, vertexBuffers, vOffsets);
 
 			// Bind index buffer
-			vkCmdBindIndexBuffer(cmdBuffer_, rMemoryManager.getBuffer(indexUpload).get(), indexUpload.inBufferFirstByte, VK_INDEX_TYPE_UINT32);
+			vkCmdBindIndexBuffer(cmdBuffer_, rMemoryManager.getBuffer(indexCopy).get(), indexCopy.inBufferFirstByte, VK_INDEX_TYPE_UINT32);
 		
 			// Draw indexed 
 			vkCmdDrawIndexed(cmdBuffer_, getMesh(meshId_).indices.size(), instanceCount_, 0, 0, firstInstance_); 

@@ -178,7 +178,7 @@ namespace Graphics
 	}
 
 	/*
-		Allocates one MemoryEntry per descriptor (one per frame in flight and a zeroed shadow for a per-frame descriptor, see Descriptor::isPerFrame), sized from its descriptor layout's block (DescriptorLayout::makeShape). Nothing is uploaded: a GPU_LOCAL entry's bytes are undefined until the first setDescriptorMemberValue was copied.
+		Allocates one MemoryEntry per descriptor (with one copy per frame in flight for a per-frame descriptor, see Descriptor::isPerFrame), sized from its descriptor layout's block (DescriptorLayout::makeShape). Nothing is uploaded: a GPU_LOCAL entry's bytes are undefined until the first setDescriptorMemberValue was copied.
 		Static entries have to be added before StaticAllocator::allocateAndUpload, which is why this is separate from create.
 	*/
 	void DescriptorSet::allocateDescriptorsMemory()
@@ -202,18 +202,24 @@ namespace Graphics
 				(rDescriptor.getType() == UNIFORM_DESCRIPTOR ? dynamicUniformCount : dynamicStorageCount)++;
 			}
 
-			uint32_t copiesCount = rDescriptor.isPerFrame() ? Globals::renderer.framesAtFlightCount : 1;
-			rDescriptor.memoryEntryIds.reserve(copiesCount);
-			for(uint32_t copy = 0; copy < copiesCount; copy++)
-			{
-				MemoryEntryId entryId = allocateMemoryEntryRaw(rDescriptorLayout.name.c_str(), this->allocatorType, rDescriptor.memoryVisability, rDescriptorLayout.bufferType, rDescriptor.shape.getSize(), rDescriptor.readOnly);
-				getMemoryManager().getEntry(entryId).descriptorSet = rDescriptor.setId;
-				rDescriptor.memoryEntryIds.emplace_back(entryId);
-			}
+			/* A per frame descriptor's entry has one copy per frame in flight, kept by the MemoryManager (shadow, versions, sync). */
+			MemoryEntryCreateParams entryParams = {};
+			entryParams.name = rDescriptorLayout.name.c_str();
+			entryParams.allocatorType = this->allocatorType;
+			entryParams.memoryVisability = rDescriptor.memoryVisability;
+			entryParams.bufferType = rDescriptorLayout.bufferType;
+			entryParams.size = rDescriptor.shape.getSize();
+			entryParams.access.accessMode = rDescriptor.readOnly ? MemoryAccessModeEnum::READ_ONLY : MemoryAccessModeEnum::READ_AND_WRITE;
 			if(rDescriptor.isPerFrame())
 			{
-				rDescriptor.shadow.data.assign(rDescriptor.shape.getSize(), 0);
-				rDescriptor.copyVersions.assign(copiesCount, 0);
+				entryParams.access.copyCountMode = CopyCountModeEnum::FOLLOW_FRAMES_IN_FLIGHT;
+			}
+			rDescriptor.memoryEntryId = allocateMemoryEntryRaw(entryParams);
+			MemoryEntry& rEntry = getMemoryManager().getEntry(rDescriptor.memoryEntryId);
+			rEntry.descriptorSet = rDescriptor.setId;
+			for(const MemoryEntryId& copyId : rEntry.copyEntryIds)
+			{
+				getMemoryManager().getEntry(copyId).descriptorSet = rDescriptor.setId;
 			}
 		}
 		const VkPhysicalDeviceLimits& rLimits = getMainDevice().properties.limits;
@@ -269,7 +275,7 @@ namespace Graphics
 		this->vkHandles.resize(copiesCount);
 		this->poolId = rLayout.allocateSets(copiesCount, this->vkHandles.data());
 
-		/* The writes keep pointers into bufferInfos, so it is reserved up front and never reallocates. Copy f of the set points every binding at getEntryId(f): a per-frame descriptor gets its own entry per copy, the others share one. */
+		/* The writes keep pointers into bufferInfos, so it is reserved up front and never reallocates. Copy f of the set points every binding at copy f of the descriptor's entry (MemoryManager::getCopy): a per-frame descriptor has one per frame in flight, the others only one. */
 		MemoryManager& rMemoryManager = getMemoryManager(); 
 		std::vector<VkDescriptorBufferInfo> bufferInfos;
 		bufferInfos.reserve(descriptorsCount * copiesCount);
@@ -285,7 +291,7 @@ namespace Graphics
 				}
 
 				Descriptor& rDescriptor = this->descriptors.getInternal(i);
-				MemoryEntry& rMemoryEntry = rMemoryManager.getEntry(rDescriptor.getEntryId(copy)); 
+				const MemoryEntry& rMemoryEntry = rMemoryManager.getCopy(rMemoryManager.getEntry(rDescriptor.memoryEntryId), copy);
 				Buffer& rBuffer = rMemoryManager.getBuffer(rMemoryEntry);
 				if(rBuffer.get() == VK_NULL_HANDLE)
 				{
@@ -337,7 +343,7 @@ namespace Graphics
 
 	/*
 		CPU-side rule only, no Vulkan sync: a readOnly entry is written without waiting, which is only safe while no GPU read can overlap the host write. A command buffer can only read the descriptor once it is submitted, so DescriptorsManager::lockBoundDescriptors calls this right after the submit that recorded a draw reading it and later writes throw (MemoryManager::lockEntry).
-		Locks every copy of the descriptor, once. Descriptors no draw read stay writable.
+		Locks the descriptor's entry, once. Descriptors no draw read stay writable.
 	*/
 	void DescriptorSet::lockReadOnlyDescriptor(PoolId descriptorId_)
 	{
@@ -347,10 +353,7 @@ namespace Graphics
 			return;
 		}
 
-		for(const MemoryEntryId& entryId : rDescriptor.memoryEntryIds)
-		{
-			getMemoryManager().lockEntry(entryId);
-		}
+		getMemoryManager().lockEntry(rDescriptor.memoryEntryId);
 		rDescriptor.readOnlyLocked = true;
 	}
 
@@ -367,45 +370,11 @@ namespace Graphics
 			return true;
 		}
 
-		for(const MemoryEntryId& entryId : rDescriptor.memoryEntryIds)
+		if(getMemoryManager().hasPendingWrite(rDescriptor.memoryEntryId))
 		{
-			if(getMemoryManager().hasPendingWrite(entryId))
-			{
-				return false;
-			}
+			return false;
 		}
 		rDescriptor.firstDataSettled = true;
 		return true;
-	}
-
-	/*
-		Vulkan rule: frame_'s previous submission read this frame's entries. vkWaitForFences returning signaled (the caller waited on frame_'s fences, PassesGraph::waitForFrame) makes that read happen-before the host, and a write-after-read hazard needs only that execution dependency. The memory is HOST_COHERENT, so no flush.
-		Writes by the host before vkQueueSubmit are visible to that submission (host write ordering guarantee), and the copy happens before this frame's submit, so no barrier is needed either. Only the entry of frame_ is touched: the other frames' entries may still be read by the GPU.
-		Whole-entry copy of every shadow whose version is newer than the one frame_'s entry holds. Sets that are not created yet have no buffers to write into and are skipped.
-	*/
-	void DescriptorSet::syncToFrame(uint32_t frame_)
-	{
-		if(this->vkHandles.empty())
-		{
-			return;
-		}
-
-		MemoryManager& rMemoryManager = getMemoryManager();
-		for(uint32_t i = 0; i < this->descriptors.allocatedSize(); i++)
-		{
-			if(!this->descriptors.alive[i])
-			{
-				continue;
-			}
-
-			Descriptor& rDescriptor = this->descriptors.getInternal(i);
-			if(!rDescriptor.isPerFrame() || rDescriptor.copyVersions[frame_] == rDescriptor.version)
-			{
-				continue;
-			}
-
-			rMemoryManager.writeShared(rMemoryManager.getEntry(rDescriptor.getEntryId(frame_)), 0, rDescriptor.shadow.data.data(), rDescriptor.shadow.data.size());
-			rDescriptor.copyVersions[frame_] = rDescriptor.version;
-		}
 	}
 }
