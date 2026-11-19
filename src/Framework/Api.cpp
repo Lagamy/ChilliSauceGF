@@ -275,11 +275,12 @@ namespace Graphics
 		return Globals::renderer.shadersManager.shaders.add(name_, Disk::executablePath + path_);  
 	}
 
-	void addDescriptorsToShader(PoolId shaderId_, uint32_t setIndex_, PoolId setLayoutId_, const std::vector<PoolId>& descriptorLayoutIds_)
+	void addDescriptorsToShader(PoolId shaderId_, PoolId setLayoutId_, const std::vector<PoolId>& descriptorLayoutIds_)
 	{
+		uint32_t setIndex = getDescriptorsManager().layouts[setLayoutId_].setIndex;
 		for(PoolId descriptorLayoutId : descriptorLayoutIds_)
 		{
-			getShader(shaderId_).addDescriptor(setIndex_, setLayoutId_, descriptorLayoutId);
+			getShader(shaderId_).addDescriptor(setIndex, setLayoutId_, descriptorLayoutId);
 		}
 	}
 
@@ -363,9 +364,9 @@ namespace Graphics
 		return Globals::renderer.resourcesManager.meshes.add(name_, name_, verticeLayoutId_, repeatCount_); 
 	} 
 
-	PoolId addDescriptorSetLayout(const char* name_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_)
+	PoolId addDescriptorSetLayout(const char* name_, uint32_t setIndex_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_)
 	{
-		return Globals::renderer.descriptorsManager.addDescriptorSetLayout(name_, shaderStages_, setsPerPool_);
+		return Globals::renderer.descriptorsManager.addDescriptorSetLayout(name_, setIndex_, shaderStages_, setsPerPool_);
 	}
 
 	PoolId getLayoutId(const char* layoutName_)
@@ -373,19 +374,19 @@ namespace Graphics
 		return Globals::renderer.descriptorsManager.getLayoutId(layoutName_);
 	}
 
-	PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_)
+	PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
 	{
-		return Globals::renderer.descriptorsManager.addBufferDescriptorLayout(layoutId_, descriptorLayoutName_, type_);
+		return Globals::renderer.descriptorsManager.addBufferDescriptorLayout(layoutId_, descriptorLayoutName_, binding_, type_);
 	}
 
-	PoolId addBufferDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_, uint32_t dynamicCount_)
+	PoolId addDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_)
 	{
-		return Globals::renderer.descriptorsManager.addBufferDynamicDescriptorLayout(layoutId_, descriptorLayoutName_, type_, dynamicCount_);
+		return Globals::renderer.descriptorsManager.addDynamicDescriptorLayout(layoutId_, descriptorLayoutName_, binding_, type_, dynamicCount_);
 	}
 
-	PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_)
+	PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
 	{
-		return Globals::renderer.descriptorsManager.addImageDescriptorLayout(layoutId_, descriptorLayoutName_, type_);
+		return Globals::renderer.descriptorsManager.addImageDescriptorLayout(layoutId_, descriptorLayoutName_, binding_, type_);
 	}
 
 	PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
@@ -403,19 +404,29 @@ namespace Graphics
 		return Globals::renderer.descriptorsManager.addStructMemberToDescriptorLayout(layoutId_, descriptorLayoutId_, name_, repeatCountPerDimension_);
 	}
 
-	PoolId addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.descriptorsManager.addVariableToDescriptorLayout(layoutId_, descriptorLayoutId_, structMemberId_, name_, dataType_, repeatCountPerDimension_);
+		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(layoutId_, descriptorLayoutId_, structMemberId_, name_, dataType_, repeatCountPerDimension_);
 	}
 
-	PoolId addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.descriptorsManager.addVariableToDescriptorLayout(layoutId_, descriptorLayoutId_, structMemberId_, name_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(layoutId_, descriptorLayoutId_, structMemberId_, name_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
 	}
 
-	PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_)
+	PoolId addDescriptorSet(const DescriptorSetCreateParams& rParams_)
 	{
-		return Globals::renderer.descriptorsManager.addDescriptorSet(layoutId_, allocatorType_, memoryVisability_);
+		return Globals::renderer.descriptorsManager.addDescriptorSet(rParams_);
+	}
+
+	void loadDescriptor(PoolId setId_, PoolId descriptorId_)
+	{
+		Globals::renderer.descriptorsManager.loadDescriptor(setId_, descriptorId_);
+	}
+
+	void unloadDescriptor(PoolId setId_, PoolId descriptorId_)
+	{
+		Globals::renderer.descriptorsManager.unloadDescriptor(setId_, descriptorId_);
 	}
 
 	void removeDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_)
@@ -478,9 +489,29 @@ namespace Graphics
 		return Globals::renderer.passesGraph.addPass(name_, cmdType_, queueFamily_, signalFenceRetrivalFunc_);
 	} 
 
-    uint32_t addTaskToPass(PassId passId_, const char* name_, CmdBufferFunc cmdBufferFunc_)
+	uint32_t addTaskToPass(PassId passId_, const char* name_, PoolId commandListId_)
 	{
-		return Globals::renderer.passesGraph.addTaskToPass(passId_, name_, cmdBufferFunc_);
+		return Globals::renderer.passesGraph.addTaskToPass(passId_, name_, commandListId_);
+	}
+
+	void setTaskCommandList(PassId passId_, uint32_t taskId_, PoolId commandListId_)
+	{
+		Globals::renderer.passesGraph.setTaskCommandList(passId_, taskId_, commandListId_);
+	}
+
+	PoolId addCommandList(const char* name_)
+	{
+		return Globals::renderer.commandLists.add(name_);
+	}
+
+	CommandList& getCommandList(PoolId commandListId_)
+	{
+		return Globals::renderer.commandLists[commandListId_];
+	}
+
+	void removeCommandList(PoolId commandListId_)
+	{
+		Globals::renderer.commandLists.remove(commandListId_);
 	}
 
 	void addWaitSemaphoreToTask(PassId passId_, uint32_t taskId_, PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_)
@@ -530,12 +561,22 @@ namespace Graphics
 
 	void beginCMDsRecording(VkCommandBuffer &cmdBuffer_)
 	{
+		beginCommandBuffer(cmdBuffer_);
+		beginPresentationRenderPass(cmdBuffer_);
+	}
+
+	void beginCommandBuffer(VkCommandBuffer &cmdBuffer_)
+	{
 		VkCommandBufferBeginInfo beginInfo = {}; 
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	
 		vkBeginCommandBuffer(cmdBuffer_, &beginInfo);
 		Globals::renderer.recordingPipelineId = UninitializedPoolId;
 		Globals::renderer.recordingSetIds.clear();
+	}
+
+	void beginPresentationRenderPass(VkCommandBuffer &cmdBuffer_)
+	{
 		setViewportAndScissors(cmdBuffer_);
 		VkClearValue clearColor = {};
 		clearColor.color = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -561,25 +602,26 @@ namespace Graphics
 	}
 
 	/*
-		The set has to be compatible with the set layout at setIndex_ of the pipeline's layout (descriptor set layout compatibility), that's the only thing Vulkan requires for the bind. It is always bound, even while some of its descriptors have no data yet: every binding was written by DescriptorSet::create, and a shader only reads the bindings it uses.
+		The set is bound at the set index of its layout (DescriptorSetLayout::setIndex). It has to be compatible with the set layout at that index of the pipeline's layout (descriptor set layout compatibility), that's the only thing Vulkan requires for the bind. It is always bound, even while some of its descriptors have no data yet: every binding was written by DescriptorSet::create, and a shader only reads the bindings it uses.
 		dynamicUnitIds_ (optional): the repeat unit each dynamic descriptor layout sees in this bind (one id per dynamic descriptor, in binding order, empty = unit 0). The framework turns them into the padded byte offsets, so call sites never touch strides.
 		The set is remembered for the rest of the recording (Renderer::recordingSetIds), drawMeshIndexed looks up the descriptors its shaders declared (Shader::addDescriptor) in it.
 	*/
-	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, uint32_t setIndex_, VkCommandBuffer &cmdBuffer_, std::span<const uint32_t> dynamicUnitIds_)
+	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, VkCommandBuffer &cmdBuffer_, std::span<const uint32_t> dynamicUnitIds_)
 	{
-		VkPipelineLayout pipelineLayout = getPipelinesManager().pipelineLayouts[getGraphicsPipeline(graphicsPipelineId_).pipelineLayoutId].get();
-		if(Globals::renderer.recordingSetIds.size() <= setIndex_)
-		{
-			Globals::renderer.recordingSetIds.resize(setIndex_ + 1, UninitializedPoolId);
-		}
-		Globals::renderer.recordingSetIds[setIndex_] = descriptorSetId_;
 		DescriptorSet& rSet = getDescriptorSet(descriptorSetId_);
+		uint32_t setIndex = getDescriptorsManager().layouts[rSet.setLayout].setIndex;
+		VkPipelineLayout pipelineLayout = getPipelinesManager().pipelineLayouts[getGraphicsPipeline(graphicsPipelineId_).pipelineLayoutId].get();
+		if(Globals::renderer.recordingSetIds.size() <= setIndex)
+		{
+			Globals::renderer.recordingSetIds.resize(setIndex + 1, UninitializedPoolId);
+		}
+		Globals::renderer.recordingSetIds[setIndex] = descriptorSetId_;
 		std::vector<uint32_t> dynamicOffsets = rSet.getDynamicOffsets(dynamicUnitIds_);
 		VkDescriptorSet descriptorSet = rSet.get();
-		vkCmdBindDescriptorSets(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, setIndex_, 1, &descriptorSet, static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+		vkCmdBindDescriptorSets(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, setIndex, 1, &descriptorSet, static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 	}
 
-	/* The set bound at setIndex_ in the command buffer being recorded. Throws when a shader declares a descriptor of a set index nothing was bound to, since the draw would read an unbound set. */
+	/* The set bound at setIndex in the command buffer being recorded. Throws when a shader declares a descriptor of a set index nothing was bound to, since the draw would read an unbound set. */
 	static DescriptorSet& getRecordingSet(uint32_t setIndex_)
 	{
 		if(Globals::renderer.recordingSetIds.size() <= setIndex_ || Globals::renderer.recordingSetIds[setIndex_] == UninitializedPoolId)
@@ -590,19 +632,23 @@ namespace Graphics
 	}
 
 	/*
-		A draw may only read the descriptors its shader declared once their first data was copied (DescriptorSet::isDescriptorSettled), later updates are ordered by the upload batch barriers. Descriptors the shader doesn't use don't matter, even when they share a set with one that is pending.
+		A draw may only read the descriptors its shader declared once they are loaded and their first data was copied (DescriptorSet::isDescriptorSettled), later updates are ordered by the upload batch barriers. Descriptors the shader doesn't use don't matter, even when they share a set with one that is pending.
+		Every declared descriptor is marked used, also after one failed: that restarts its absence time and requests a load of an unloaded one (DescriptorsManager::updateLoading serves it at the next frame start).
 		A draw that fails this is skipped for the frame and recorded again on a later one (the command buffer is re-recorded every frame), like drawMeshIndexed skips until its uploads are in the GPU.
 	*/
 	static bool areShaderDescriptorsSettled(const Shader& rShader_)
 	{
+		bool settled = true;
 		for(const ShaderDescriptorUse& rUse : rShader_.descriptors)
 		{
-			if(!getRecordingSet(rUse.setIndex).isDescriptorSettled(rUse.descriptorId))
+			DescriptorSet& rSet = getRecordingSet(rUse.setIndex);
+			rSet.markUsed(rUse.descriptorId);
+			if(!rSet.isDescriptorSettled(rUse.descriptorId))
 			{
-				return false;
+				settled = false;
 			}
 		}
-		return true;
+		return settled;
 	}
 
 	/* Queued only for draws that are recorded, so a descriptor that was skipped keeps accepting its first writes. The entries are locked after the frame's submit (DescriptorsManager::lockBoundDescriptors). */
@@ -620,7 +666,10 @@ namespace Graphics
 		GraphicsPipeline& rPipeline = getGraphicsPipeline(Globals::renderer.recordingPipelineId);
 		Shader& rVertexShader = getShader(rPipeline.vertexShaderId);
 		Shader& rFragmentShader = getShader(rPipeline.fragmentShaderId);
-		if(!areShaderDescriptorsSettled(rVertexShader) || !areShaderDescriptorsSettled(rFragmentShader))
+		/* Both are checked before deciding, so the descriptors of the second shader are marked used even when the first one fails. */
+		bool vertexSettled = areShaderDescriptorsSettled(rVertexShader);
+		bool fragmentSettled = areShaderDescriptorsSettled(rFragmentShader);
+		if(!vertexSettled || !fragmentSettled)
 		{
 			return;
 		}
@@ -651,7 +700,17 @@ namespace Graphics
 
 	void endCMDsRecording(VkCommandBuffer &cmdBuffer_)
 	{
+		endRenderPass(cmdBuffer_);
+		endCommandBuffer(cmdBuffer_);
+	}
+
+	void endRenderPass(VkCommandBuffer &cmdBuffer_)
+	{
 		vkCmdEndRenderPass(cmdBuffer_);
+	}
+
+	void endCommandBuffer(VkCommandBuffer &cmdBuffer_)
+	{
 		vkEndCommandBuffer(cmdBuffer_);
 	}
 

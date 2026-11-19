@@ -11,12 +11,10 @@
 
 namespace Graphics
 {
-using CmdBufferFunc = void (*)(VkCommandBuffer&);
-
 struct Task
 {
     std::string name; 
-    CmdBufferFunc cmdBufferFunc;
+    PoolId commandListId = UninitializedPoolId; // the CommandList replayed when the task is recorded, can be changed (setTaskCommandList)
     std::vector<uint32_t> cmdIds; // TODO: make per frame tasks retrive cmds each frame  
 
     std::vector<PoolId> waitSemaphoresIds; 
@@ -28,7 +26,7 @@ struct Task
     std::vector<DynamicSemaphoreRef> dynamicWaitSemaphoreRefs;
     std::vector<DynamicSemaphoreRef> dynamicSignalSemaphoreRefs;
     
-    Task(const char* name_, CmdBufferFunc cmdBufferFunc_); 
+    Task(const char* name_, PoolId commandListId_);
     void addWaitSemaphore(PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_);  
     void addSignalSemaphore(PoolId signalSemaphoreId_);
     void addDynamicWaitSemaphore(SyncRetrivalFunc semaphoreRetrivalFunc_, VkPipelineStageFlags pipelineStage_); 

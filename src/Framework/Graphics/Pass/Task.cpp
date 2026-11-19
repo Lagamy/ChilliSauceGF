@@ -3,7 +3,7 @@
 
 namespace Graphics
 {
-Task::Task(const char* name_, CmdBufferFunc cmdBufferFunc_) : name(name_), cmdBufferFunc(cmdBufferFunc_) {}; 
+Task::Task(const char* name_, PoolId commandListId_) : name(name_), commandListId(commandListId_) {}; 
 
 void Task::addWaitSemaphore(PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_)
 {

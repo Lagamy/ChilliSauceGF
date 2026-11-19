@@ -18,15 +18,16 @@ namespace Graphics
     struct DescriptorLayout 
     {
         std::string name; // for debug porpuses
+        uint32_t binding; // The binding number the shader uses (layout(set = N, binding = binding)), chosen by the user when the descriptor layout is added, unique inside its DescriptorSetLayout. The pool slot is only the internal id.
         DescriptorTypeEnum type; // UNIFORM_DESCRIPTOR or STORAGE_DESCRIPTOR, chosen when the descriptor layout is added.
-        bool dynamic = false; // The block is picked per bind (dynamic offset), set when the descriptor layout is added, buffers only (see DescriptorSetLayout::addBufferDynamicDescriptorLayout).
+        bool dynamic = false; // The block is picked per bind (dynamic offset), set when the descriptor layout is added, buffers only (see DescriptorSetLayout::addDynamicDescriptorLayout).
         uint32_t dynamicCount = 0; // Blocks of the dynamic layer, 0 if not dynamic.
         BufferTypeEnum bufferType; // Uniform or storage, decides the std140 / std430 padding of the members.
         Pool<MemberBlueprint> members; // In declaration order, the slot is the member id.
         Pool<VariableRef> variables; // Every variable of every member, the slot is the id the setters take.
         std::vector<PoolId> derivedDescriptors; // Ids of the DescriptorSets derived from it. The descriptor in each of them lives in the same slot as this descriptor layout in its DescriptorSetLayout.
 
-        DescriptorLayout(const char* name_, DescriptorTypeEnum type_, uint32_t dynamicCount_, BufferTypeEnum bufferType_) : name(name_), type(type_), dynamic(dynamicCount_ > 0), dynamicCount(dynamicCount_), bufferType(bufferType_) {};
+        DescriptorLayout(const char* name_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, BufferTypeEnum bufferType_) : name(name_), binding(binding_), type(type_), dynamic(dynamicCount_ > 0), dynamicCount(dynamicCount_), bufferType(bufferType_) {};
         VkDescriptorType getVkType() const { return getVkDescriptorType(this->type, this->dynamic); }
 
         /* Note: use in editor. All of them throw once the memory of a derived set was allocated. */

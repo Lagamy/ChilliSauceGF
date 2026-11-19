@@ -22,6 +22,6 @@ struct Pass
     Pass(const char* name_, PoolId signalFenceId_);
     Pass(const char* name_, SyncRetrivalFunc signalFenceRetrivalFunc_); 
     Pass(const char* name_); 
-    uint32_t addTask(const char* name_, CmdBufferFunc cmdBufferFunc_);
+    uint32_t addTask(const char* name_, PoolId commandListId_);
 };
 } 

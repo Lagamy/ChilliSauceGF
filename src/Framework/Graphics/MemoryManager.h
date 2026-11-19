@@ -36,7 +36,7 @@ struct MemoryManager
 	Pool<ReadbackRequest> readbackRequests; // Alive from requestReadback until releaseReadback.
 
 	std::vector<Operation> pendingOperationsInOrder;
-	std::vector<MemoryEntryId> copiedEntryIds; // Entries with copyCount > 1 (CPU_SHARED or GPU_LOCAL), the ones syncCopiesToFrame walks.
+	std::vector<MemoryEntryId> copiedEntryIds; // Entries with a shadow (CPU_SHARED or GPU_LOCAL), the ones syncCopiesToFrame walks.
 	
 	/*
 		GPU Local uploads are batched. Entries only queue a copy, and a ONESHOT TRANSFER pass records every copy queued in a slot into its command buffer.
@@ -82,6 +82,7 @@ struct MemoryManager
 	void startUploadBatch(uint32_t slotId_);
 	void completeUploadBatch(uint32_t slotId_);
 	bool isBatchCompleted(uint64_t batchId_);
+	void waitForBatch(uint64_t batchId_); // blocks until the batch's fence is signaled, only after the submit that carries it (Renderer::draw calls it after resolveSync_SubmitToGPU). Does nothing for a batch that is not in flight
 
 	void createCopies(MemoryEntryId entryId_, const MemoryAccessParams& rAccess_);
 

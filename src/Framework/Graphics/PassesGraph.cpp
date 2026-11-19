@@ -9,6 +9,7 @@
 #include "SubmissionMetadata.h"
 #include "Task.h"
 #include "Utilities.h"
+#include <algorithm>
 #include <cstddef>
 #include <format>
 #include <limits>
@@ -80,18 +81,35 @@ void PassesGraph::addDynamicSignalSemaphoreToTask(PassId passId_, uint32_t taskI
     rPass.tasks[taskId_].addDynammicSignalSemaphore(semaphoreRetrivalFunc_); 
 }
 
-uint32_t PassesGraph::addTaskToPass(PassId passId_, const char* name_, CmdBufferFunc cmdBufferFunc_)
+uint32_t PassesGraph::addTaskToPass(PassId passId_, const char* name_, PoolId commandListId_)
 {
-    Pass& rPass = getPass(passId_);
-    uint32_t taskId = rPass.addTask(name_, cmdBufferFunc_); 
-    Task& rTask = rPass.tasks[taskId];  
+    uint32_t taskId = getPass(passId_).addTask(name_, commandListId_); 
+    this->registerTaskCmdBuffers(passId_, taskId);
+    return taskId;
+}
+
+void PassesGraph::setTaskCommandList(PassId passId_, uint32_t taskId_, PoolId commandListId_)
+{
+    getPass(passId_).tasks[taskId_].commandListId = commandListId_;
+}
+
+/* The recorder carries only the ids of its task: the list is looked up in record, so it can be switched without touching the pools. */
+void PassesGraph::record(const CmdRecorder& rRecorder_, VkCommandBuffer& cmdBuffer_)
+{
+    getCommandList(getPass(rRecorder_.passId).tasks[rRecorder_.taskId].commandListId).record(cmdBuffer_);
+}
+
+void PassesGraph::registerTaskCmdBuffers(PassId passId_, uint32_t taskId_)
+{
+    Task& rTask = getPass(passId_).tasks[taskId_];
+    CmdRecorder recorder = {passId_, taskId_};
     // add CMD buffer to the corresponding Pool(add it, not init it)  
     
     if(passId_.cmdLifetime == ONESHOT)
     {
         CmdBuffers& rCommandBuffers = Globals::renderer.oneShotCommandPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
         rTask.cmdIds.emplace_back(rCommandBuffers.commandsToRecord.size()); 
-        rCommandBuffers.commandsToRecord.emplace_back(rTask.cmdBufferFunc);
+        rCommandBuffers.commandsToRecord.emplace_back(recorder);
         rCommandBuffers.buffersToEnabled.emplace_back(UninitializedId); 
     }
     else
@@ -100,11 +118,42 @@ uint32_t PassesGraph::addTaskToPass(PassId passId_, const char* name_, CmdBuffer
         {
             CmdBuffers& rCommandBuffers = rFrameResource.frameCmdPools.getPoolByQueue(passId_.queueFamily).commandBuffers; 
             rTask.cmdIds.emplace_back(rCommandBuffers.commandsToRecord.size());
-            rCommandBuffers.commandsToRecord.emplace_back(rTask.cmdBufferFunc); 
+            rCommandBuffers.commandsToRecord.emplace_back(recorder); 
             rCommandBuffers.buffersToEnabled.emplace_back(UninitializedId); 
         }
     }
-    return taskId;
+}
+
+/*
+    A ONESHOT command buffer is recorded and submitted once, so a draw that has to be skipped inside it would be lost for good. The pass is held until every descriptor its command lists use is loaded and settled, and holding re-marks them as used every frame so they can't be unloaded meanwhile.
+    FRAME passes are not held: they are re-recorded every frame and skip single draws (drawMeshIndexed).
+*/
+bool PassesGraph::areDescriptorsReady(PassId passId_)
+{
+    bool ready = true;
+    for(const auto& rTask : this->getPass(passId_).tasks)
+    {
+        for(const BoundDescriptor& rUse : getCommandList(rTask.commandListId).collectDescriptorUses())
+        {
+            DescriptorSet& rSet = getDescriptorSet(rUse.setId);
+            rSet.markUsed(rUse.descriptorId);
+            if(!rSet.isDescriptorSettled(rUse.descriptorId))
+            {
+                ready = false;
+            }
+        }
+    }
+    return ready;
+}
+
+void PassesGraph::releaseHeldPasses()
+{
+    std::vector<PassId> held = std::move(this->heldPasses);
+    this->heldPasses.clear();
+    for(const PassId& rPassId : held)
+    {
+        this->enablePass(rPassId);
+    }
 }
 
 void PassesGraph::enablePass(PassId passId_)
@@ -112,6 +161,19 @@ void PassesGraph::enablePass(PassId passId_)
     Pass& rPass = this->getPass(passId_);
     if(!rPass.enabled)
     {
+        if(passId_.cmdLifetime == ONESHOT && !this->areDescriptorsReady(passId_))
+        {
+            bool alreadyHeld = std::any_of(this->heldPasses.begin(), this->heldPasses.end(), [&](const PassId& rHeld_)
+            {
+                return rHeld_.cmdLifetime == passId_.cmdLifetime && rHeld_.queueFamily == passId_.queueFamily && rHeld_.id == passId_.id;
+            });
+            if(!alreadyHeld)
+            {
+                this->heldPasses.push_back(passId_);
+            }
+            return;
+        }
+
         for(const auto& rTask : rPass.tasks)
         {
                         // Enable Cmds.

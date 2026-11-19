@@ -55,7 +55,7 @@ void FrameCommandPool::rerecordEnabledCmdBuffers()
 	vkResetCommandPool(getMainDevice().logicalDevice, this->vkHandle, 0); 
 	for(const auto& enabledCmdBufId : this->commandBuffers.enabled)
 	{
-		this->commandBuffers.commandsToRecord[enabledCmdBufId](this->commandBuffers.buffers[enabledCmdBufId]);
+		Globals::renderer.passesGraph.record(this->commandBuffers.commandsToRecord[enabledCmdBufId], this->commandBuffers.buffers[enabledCmdBufId]);
 	}
 }
 

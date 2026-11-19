@@ -41,6 +41,12 @@ struct PoolMap {
     {
         PoolId id = {0, 0};
 
+		/* emplace into nameToId keeps the old entry on a repeated name, so getIdByName would return the old object while the new one lives in another slot. */
+		if (this->nameToId.contains(name_))
+		{
+			throw std::runtime_error(std::format("{} Pool: an object with name {} already exists.", this->name, name_));
+		}
+
         if (freeSlots.empty())
         {
             id.id = static_cast<uint32_t>(objects.size());

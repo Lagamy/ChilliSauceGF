@@ -37,26 +37,26 @@ namespace Graphics
 			vertexVariableIds.positionId = addVariableToVerticeLayout(vertexLayoutId, "Position", VEC3);
 			vertexVariableIds.colorId = addVariableToVerticeLayout(vertexLayoutId, "Color", VEC4);
 
-			/* Descriptors read by the vertex shader. The descriptor layout slot index is the binding number, so the creation order has to match shader.vert: MVP = 0, Objects = 1, Counter = 2. Members follow the order of the blocks in shader.vert. */
-			dsLayoutId = addDescriptorSetLayout("DSLayout", VK_SHADER_STAGE_VERTEX_BIT);
+			/* Descriptors read by the vertex shader. The set number (0) and the binding numbers (MVP = 0, Objects = 1, Counter = 2) have to match shader.vert. Members follow the order of the blocks in shader.vert. */
+			dsLayoutId = addDescriptorSetLayout("DSLayout", 0, VK_SHADER_STAGE_VERTEX_BIT);
 
-			vpDescriptorLayoutId = addBufferDescriptorLayout(dsLayoutId, "MVP", UNIFORM_DESCRIPTOR);
+			vpDescriptorLayoutId = addBufferDescriptorLayout(dsLayoutId, "MVP", 0, UNIFORM_DESCRIPTOR);
 			vpMemberIds.projectionId = addMemberToDescriptorLayout(dsLayoutId, vpDescriptorLayoutId, "Projection", MAT4);
 			vpMemberIds.viewId = addMemberToDescriptorLayout(dsLayoutId, vpDescriptorLayoutId, "View", MAT4);
 
 
 			/* Same shape as the block in shader.vert: states[2] followed by model, the whole block repeated once per triangle (dynamic unit). */
-			objectsDescriptorLayoutId = addBufferDynamicDescriptorLayout(dsLayoutId, "Objects", STORAGE_DESCRIPTOR, /*dynamicCount_*/ 2);
+			objectsDescriptorLayoutId = addDynamicDescriptorLayout(dsLayoutId, "Objects", 1, STORAGE_DESCRIPTOR, /*dynamicCount_*/ 2);
 			objectsMemberIds.statesId = addStructMemberToDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, "states", {2});
-			objectsMemberIds.colorId = addVariableToDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, objectsMemberIds.statesId, "color", VEC4);
-			objectsMemberIds.rotationDirectionId = addVariableToDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, objectsMemberIds.statesId, "rotationDirection", INT32);
+			objectsMemberIds.colorId = addVariableToStructInDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, objectsMemberIds.statesId, "color", VEC4);
+			objectsMemberIds.rotationDirectionId = addVariableToStructInDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, objectsMemberIds.statesId, "rotationDirection", INT32);
 			objectsMemberIds.modelId = addMemberToDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, "model", MAT4);
 
-			counterDescriptorLayoutId = addBufferDescriptorLayout(dsLayoutId, "Counter", UNIFORM_DESCRIPTOR);
+			counterDescriptorLayoutId = addBufferDescriptorLayout(dsLayoutId, "Counter", 2, UNIFORM_DESCRIPTOR);
 			counterMemberId = addMemberToDescriptorLayout(dsLayoutId, counterDescriptorLayoutId, "Value", UINT32);
 
 			/* The shader declares the descriptor it reads, so drawMeshIndexed can skip the draw until its first data was copied. The pipeline builds its pipeline layout from these declarations, so they come before the pipeline is added. */
-			addDescriptorsToShader(vertexShaderId, 0, dsLayoutId, {vpDescriptorLayoutId, objectsDescriptorLayoutId, counterDescriptorLayoutId});
+			addDescriptorsToShader(vertexShaderId, dsLayoutId, {vpDescriptorLayoutId, objectsDescriptorLayoutId, counterDescriptorLayoutId});
 			graphicsPipelineId = addGraphicsPipelineLayout("Draw Triangle", vertexShaderId, fragmentShaderId, vertexLayoutId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, getPresentationRenderPass(), 0);
 		}
 
@@ -66,14 +66,35 @@ namespace Graphics
 			triangle.upload(DYNAMIC_ALLOCATOR, GPU_LOCAL);
 
 			/* STATIC_ALLOCATOR sets have to be added before the static allocation, which happens right after define*. CPU_SHARED and not readOnly gives one entry per frame in flight, written through a CPU shadow. */
-			descriptorSetId = addDescriptorSet(dsLayoutId, STATIC_ALLOCATOR, CPU_SHARED);
+			DescriptorSetCreateParams setParams = {};
+			setParams.layoutId = dsLayoutId;
+			setParams.allocatorType = STATIC_ALLOCATOR;
+			setParams.memoryVisability = CPU_SHARED;
+			setParams.absenceSecondsCount = UninitializedId;
+			descriptorSetId = addDescriptorSet(setParams);
 		}
 
 		void definePasses()
 		{
 			PassId passId = addPass("Triangle Pass", FRAME, GRAPHICS);
-			uint32_t taskId = addTaskToPass(passId, "Draw Triangle", recordCMDs); 
-		
+
+			/*
+				Both triangles use the same set at set index 0 (the pipeline layout has one set). What differs is the dynamic unit: the bind takes one unit id per dynamic descriptor
+				(only Objects is dynamic), which picks the block (states + model) of that triangle. drawMeshIndexed looks up the declared descriptors in the set bound at the shader's set index, so the set is bound before each draw.
+			*/
+			drawTriangleCommandListId = addCommandList("Draw Triangle Commands");
+			CommandList& rCommandList = getCommandList(drawTriangleCommandListId);
+			rCommandList.addBeginPresentationRenderPass();
+			rCommandList.addBindGraphicsPipeline(graphicsPipelineId);
+			std::array<uint32_t, 1> firstTriangleUnitIds = {0};
+			rCommandList.addBindDescriptorSet(descriptorSetId, firstTriangleUnitIds);
+			rCommandList.addDrawMeshIndexed(triangle.meshId);
+			std::array<uint32_t, 1> secondTriangleUnitIds = {1};
+			rCommandList.addBindDescriptorSet(descriptorSetId, secondTriangleUnitIds);
+			rCommandList.addDrawMeshIndexed(triangle.meshId);
+			rCommandList.addEndRenderPass();
+			
+			uint32_t taskId = addTaskToPass(passId, "Draw Triangle", drawTriangleCommandListId);
 			addDynamicWaitSemaphoreToTask(passId, taskId, getCurrentFrameImageIsAcquiredSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 			addDynamicSignalSemaphoreToTask(passId, taskId, getCurrentSwapchainImageUseFinishedSemaphore);
 			enablePass(passId); 
@@ -126,27 +147,6 @@ namespace Graphics
 				rSet.setDescriptorMemberValue(vpDescriptorLayoutId, vpMemberIds.projectionId, projection);
 				lastProjectionExtent = rExtent;
 			}
-		}
-
-		void recordCMDs(VkCommandBuffer& cmdBuffer_)
-		{
-			beginCMDsRecording(cmdBuffer_); 
-			// Bind graphics pipeline  
-			bindGraphicsPipeline(graphicsPipelineId, cmdBuffer_); 
-			
-			/*
-				Both triangles use the same set at set index 0 (the pipeline layout has one set). What differs is the dynamic unit: bindDescriptorSet takes one unit id per dynamic descriptor
-				(only Objects is dynamic), which picks the block (states + model) of that triangle. drawMeshIndexed looks up the declared descriptors in the set bound at the shader's set index, so the set has to be bound before each draw.
-			*/
-			std::array<uint32_t, 1> firstTriangleUnitIds = {0};
-			bindDescriptorSet(descriptorSetId, graphicsPipelineId, 0, cmdBuffer_, firstTriangleUnitIds);
-			drawMeshIndexed(triangle.meshId, 1, cmdBuffer_);
-
-			std::array<uint32_t, 1> secondTriangleUnitIds = {1};
-			bindDescriptorSet(descriptorSetId, graphicsPipelineId, 0, cmdBuffer_, secondTriangleUnitIds);
-			drawMeshIndexed(triangle.meshId, 1, cmdBuffer_);
-			
-			endCMDsRecording(cmdBuffer_); 
 		}
 	}
 }

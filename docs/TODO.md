@@ -19,6 +19,10 @@ Needs approval before starting: the reflection dependency (SPIRV-Reflect, one C 
 
 Limit: reflection checks layout and bindings, not runtime data. Validation layers still cover the rest.
 
+## Compute support
+
+Side note: a `ONESHOT` compute pass reads descriptors too, and the on demand loading depends on it. `PassesGraph::enablePass` holds a `ONESHOT` pass until every descriptor its command lists use is loaded and settled (`CommandList::collectDescriptorUses`), and today that walk only knows draws. When the first compute commands are added, add a dispatch case to `collectDescriptorUses` (track the bound compute pipeline and take the descriptors its shader declares, like a draw does) and a compute bind path (`bindDescriptorSet` takes a graphics pipeline only), otherwise a compute pass would run before its descriptors are loaded.
+
 ## Later (not scheduled)
 
 - Data-driven command recording (about 0.5-1 descriptor-system-sized units), then derivable sync in stages: buffers on a single queue, hazard tracking, images and attachments, multi-queue. Images and dynamic rendering come first.

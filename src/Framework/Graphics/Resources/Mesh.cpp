@@ -65,7 +65,7 @@ void Mesh::commitUpload()
 
 bool Mesh::hasCopies()
 {
-    return getMemoryManager().getEntry(this->vbMemoryUploadId).copyCount > 1;
+    return getMemoryManager().getEntry(this->vbMemoryUploadId).hasShadow;
 }
 
 StagingDataContainer Mesh::getStagingContainer(uint64_t inEntryOffset_, uint64_t size_)

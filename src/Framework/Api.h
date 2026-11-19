@@ -1,4 +1,5 @@
 #pragma once 
+#include "CommandList.h"
 #include "DescriptorsManager.h"
 #include "Layout.h"
 #include "PassesGraph.h"
@@ -89,7 +90,7 @@ namespace Graphics
 	PoolId addSemaphore();
 	PoolId addFence(bool createSignaled_);
 	PoolId addShader(const char* name_, const char* path_); 
-	void addDescriptorsToShader(PoolId shaderId_, uint32_t setIndex_, PoolId setLayoutId_, const std::vector<PoolId>& descriptorLayoutIds_); // declares that the shader reads the descriptors of those descriptor layouts in the set (derived from setLayoutId_) bound at setIndex_. Graphics pipelines build their pipeline layout from these, so declare before adding the pipeline. drawMeshIndexed waits for the data of exactly these. Shaders without descriptors are fine. The declaration is what lets drawMeshIndexed check these descriptors and skip the draw until their first data is copied, so every descriptor the shader reads has to be declared: nothing checks the SPIR-V, an undeclared one can be read before its data was copied
+	void addDescriptorsToShader(PoolId shaderId_, PoolId setLayoutId_, const std::vector<PoolId>& descriptorLayoutIds_); // declares that the shader reads the descriptors of those descriptor layouts in the set (derived from setLayoutId_) bound at the set index of setLayoutId_. Graphics pipelines build their pipeline layout from these, so declare before adding the pipeline. drawMeshIndexed waits for the data of exactly these. Shaders without descriptors are fine. The declaration is what lets drawMeshIndexed check these descriptors and skip the draw until their first data is copied, so every descriptor the shader reads has to be declared: nothing checks the SPIR-V, an undeclared one can be read before its data was copied
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_); 
 	MemoryEntryId addAndUploadMemoryEntry(const MemoryEntryCreateParams& rParams_); // params.data and params.size describe the bytes to upload
 
@@ -105,17 +106,20 @@ namespace Graphics
 	PoolId addVerticeLayout(const char* name_);
 	PoolId addVariableToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {});
 	PoolId addVariableToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
-	PoolId addDescriptorSetLayout(const char* name_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_ = DescriptorSetsPerPool); // the layout adds Descriptor Pools by itself as sets are derived, each one sized for setsPerPool_ sets
+	PoolId addDescriptorSetLayout(const char* name_, uint32_t setIndex_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_ = DescriptorSetsPerPool); // setIndex_ is the set number of the shader (layout(set = setIndex_, ...)): shader declarations and bindDescriptorSet use it, so a pipeline's shaders can't declare two different layouts with the same one. The layout adds Descriptor Pools by itself as sets are derived, each one sized for setsPerPool_ sets
 	PoolId getLayoutId(const char* layoutName_); // id of the Descriptor Set Layout added with that name, throws if there is none
-	PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_); // type_: UNIFORM_DESCRIPTOR or STORAGE_DESCRIPTOR, a set can mix both. The members of the block are added with addMemberToDescriptorLayout / addStructMemberToDescriptorLayout + addVariableToDescriptorLayout
-	PoolId addBufferDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_, uint32_t dynamicCount_); // same, but the whole block is repeated dynamicCount_ times and one of them is picked per bind (bindDescriptorSet dynamicUnitIds_) and written with setDynamicDescriptorMember...
-	PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_); // TEXTURE_DESCRIPTOR / SAMPLER_DESCRIPTOR. Not supported yet, throws
+	PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_); // binding_ is the binding number of the shader (layout(set = N, binding = binding_)), unique in the set layout, throws otherwise. type_: UNIFORM_DESCRIPTOR or STORAGE_DESCRIPTOR, a set can mix both. The members of the block are added with addMemberToDescriptorLayout / addStructMemberToDescriptorLayout + addVariableToStructInDescriptorLayout
+	PoolId addDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_); // same, but the whole block is repeated dynamicCount_ times and one of them is picked per bind (bindDescriptorSet dynamicUnitIds_) and written with setDynamicDescriptorMember...
+	PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_); // TEXTURE_DESCRIPTOR / SAMPLER_DESCRIPTOR. Not supported yet, throws
 	PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable directly in the block (mat4 model;). Returns the variable id the setters take
-	PoolId addStructMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, const std::vector<uint32_t>& repeatCountPerDimension_); // A struct in the block repeated per layer, outermost first ({2, 3} = states[2][3], {1} = a single struct). Returns the struct member id, its variables are added with addVariableToDescriptorLayout
-	PoolId addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable of a struct member. Returns the variable id the setters take
-	PoolId addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	PoolId addStructMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, const std::vector<uint32_t>& repeatCountPerDimension_); // A struct in the block repeated per layer, outermost first ({2, 3} = states[2][3], {1} = a single struct). Returns the struct member id, its variables are added with addVariableToStructInDescriptorLayout
+	PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable of a struct member. Returns the variable id the setters take
+	PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
 	PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
-	PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_);
+	PoolId addDescriptorSet(const DescriptorSetCreateParams& rParams_); // see DescriptorSetCreateParams: the set's descriptors are loaded and unloaded on demand
+	/* The engine already loads a descriptor when a draw or pass uses it and unloads it after absenceSecondsCount seconds without use (DescriptorSetCreateParams), so these two are only for an application that wants to decide itself. descriptorId_ is the descriptor layout id. They wait for the device and are not allowed while recording. Only DYNAMIC_ALLOCATOR sets can unload; an unloaded descriptor can't be written until it was loaded again. */
+	void loadDescriptor(PoolId setId_, PoolId descriptorId_);
+	void unloadDescriptor(PoolId setId_, PoolId descriptorId_);
 	void removeDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_);
 	void removeDescriptorSet(PoolId setId_);
 	void removeDescriptorSetLayout(PoolId layoutId_);
@@ -130,7 +134,8 @@ namespace Graphics
 	PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, PoolId signalFenceId_);
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_);
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc signalFenceRetrivalFunc_); 
-    uint32_t addTaskToPass(PassId passId_, const char* name_, CmdBufferFunc cmdBufferFunc_);
+	uint32_t addTaskToPass(PassId passId_, const char* name_, PoolId commandListId_); // the task is recorded from the command list (the commands are added with getCommandList(id).addX), every time it is recorded
+	void setTaskCommandList(PassId passId_, uint32_t taskId_, PoolId commandListId_); // switches the list of a task made with a command list. Takes effect at the next recording. Not while recording
 	void addWaitSemaphoreToTask(PassId passId_, uint32_t taskId_, PoolId waitSemaphoreId_, VkPipelineStageFlags pipelineStage_); 
 	void addSignalSemaphoreToTask(PassId passId_, uint32_t taskId_, PoolId signalSemaphoreId_); 
 	void addDynamicWaitSemaphoreToTask(PassId passId_, uint32_t taskId_, SyncRetrivalFunc semaphoreRetrivalFunc_, VkPipelineStageFlags pipelineStage_); 
@@ -146,12 +151,21 @@ namespace Graphics
 	void removeSemaphore(PoolId id_);
 	void removeUpload(MemoryEntryId uploadId_);
 	
+	// Command lists
+	PoolId addCommandList(const char* name_); // names are unique, like every PoolMap. A scene that is defined again has to remove its lists first
+	CommandList& getCommandList(PoolId commandListId_);
+	void removeCommandList(PoolId commandListId_); // a task that still points at it throws when it is recorded
+
 	// Commands Recording
-	void beginCMDsRecording(VkCommandBuffer& cmdBuffer_);
+	void beginCMDsRecording(VkCommandBuffer& cmdBuffer_); // beginCommandBuffer + beginPresentationRenderPass
+	void beginCommandBuffer(VkCommandBuffer& cmdBuffer_); // also resets the recording state (bound pipeline and sets)
+	void beginPresentationRenderPass(VkCommandBuffer& cmdBuffer_); // viewport, scissor and the presentation render pass on the current swapchain image
 	void bindGraphicsPipeline(PoolId graphicsPipelineId_, VkCommandBuffer& cmdBuffer_); 
-	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, uint32_t setIndex_, VkCommandBuffer& cmdBuffer_, std::span<const uint32_t> dynamicUnitIds_ = {}); // dynamicUnitIds_ is optional, see the definition
+	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, VkCommandBuffer& cmdBuffer_, std::span<const uint32_t> dynamicUnitIds_ = {}); // binds at the set index of the set's layout. dynamicUnitIds_ is optional, see the definition
 	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer& cmdBuffer_, uint32_t firstInstance_ = 0); // firstInstance_ is optional: gl_InstanceIndex runs from firstInstance_ to firstInstance_ + instanceCount_ - 1, so a draw can pick its repeat unit(s) of an SSBO descriptor.
-	void endCMDsRecording(VkCommandBuffer& cmdBuffer_); 
+	void endCMDsRecording(VkCommandBuffer& cmdBuffer_); // endRenderPass + endCommandBuffer
+	void endRenderPass(VkCommandBuffer& cmdBuffer_);
+	void endCommandBuffer(VkCommandBuffer& cmdBuffer_);
 
 	// Misc/Internal 
 	void setViewportAndScissors(VkCommandBuffer& cmdBuffer_); 

@@ -51,7 +51,7 @@ add_executable(ChilliSauceGF
 	"src/Framework/Graphics/Backend/Base/MemoryBlock.cpp" "src/Framework/Graphics/Backend/Base/Buffer.cpp" 
 	"src/Framework/Graphics/Backend/Base/RenderPass.cpp" "src/Framework/Graphics/Backend/Base/Framebuffer.cpp"
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"
-	"src/Framework/Graphics/Backend/Base/SubPass.cpp"	"src/Framework/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" 
+	"src/Framework/Graphics/Backend/Base/SubPass.cpp"	"src/Framework/Graphics/Backend/CommandBuffer/FrameCommandPool.cpp" "src/Framework/Graphics/Backend/CommandBuffer/CommandList.cpp" 
 	"src/Framework/Graphics/Backend/CommandBuffer/OneShotCommandPool.cpp" "src/Framework/Graphics/GPUScene.cpp" 
 	"src/Framework/Graphics/Backend/Base/GraphicsPipeline.cpp" "src/Framework/Graphics/Backend/Base/PipelineLayout.cpp" 
 	"src/Framework/Graphics/Backend/Synchronisation/Semaphore.cpp" "src/Framework/Graphics/Backend/Synchronisation/Fence.cpp" 	
@@ -81,7 +81,7 @@ add_executable(ChilliSauceGF
  	"src/Framework/Graphics/MemoryManagment/Pages/FreeSpace.cpp"
  	"src/Framework/Graphics/MemoryManagment/Heaps/GPULocalHeap.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/CPUSharedHeap.cpp"
  	src/Framework/Graphics/Backend/Descriptor/DescriptorLayout.cpp src/Framework/Graphics/Backend/Descriptor/Descriptor.cpp
- 	src/Framework/Graphics/Backend/Descriptor/DescriptorSetLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSet.cpp
+ 	src/Framework/Graphics/Backend/Descriptor/DescriptorSetLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSet.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSetCreateParams.cpp
  	src/Framework/Graphics/Backend/Descriptor/DescriptorPool.cpp src/Framework/Graphics/DescriptorsManager.cpp
 )
 

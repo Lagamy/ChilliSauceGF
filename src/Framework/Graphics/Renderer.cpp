@@ -95,6 +95,9 @@ void Renderer::draw()
 		this->gpuSceneManager.updatePasses(); 
 
 		this->passesGraph.waitForFrame(this->currentFrame);
+		/* After the fence wait and before the shadows are copied: a load writes the shadow of a per-frame descriptor, which syncCopiesToFrame then copies into this frame's copy. */
+		this->descriptorsManager.updateLoading();
+		this->passesGraph.releaseHeldPasses();
 		this->memoryManager.syncCopiesToFrame(this->currentFrame);
 
 		vkAcquireNextImageKHR(
@@ -113,6 +116,7 @@ void Renderer::draw()
 
 		// if Data was 
 		this->descriptorsManager.lockBoundDescriptors();
+		this->descriptorsManager.waitForLoads();
 		
 		presentToScreen(); 
 		this->currentFrame = (this->currentFrame + 1) % this->framesAtFlightCount; 
@@ -147,8 +151,10 @@ void Renderer::destroyDeviceObjects()
 void Renderer::resetDeviceState()
 {
 	this->passesGraph = PassesGraph();
+	this->commandLists.clear();
 	this->memoryManager = MemoryManager();
 	this->descriptorsManager.boundDescriptors.clear();
+	this->descriptorsManager.loadsToWaitFor.clear();
 	for (auto& rLayouts : this->reflectionSystem.layoutsPerBufferType)
 	{
 		rLayouts.clear();

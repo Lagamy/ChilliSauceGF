@@ -103,10 +103,10 @@ namespace Graphics
 		FOLLOW_FRAMES_IN_FLIGHT,
 
 		/*
-			Exactly customCopyCount copies (at least 2), the count is the caller's choice. When it is below framesAtFlightCount, copies are shared between frames and a CPU_SHARED copy is only overwritten
-			after the fences of every frame that uses it were waited on (a GPU_LOCAL copy is ordered by the transfer barriers instead).
-			Pros: you pick the memory / parallelism trade-off, e.g. 2 copies for a big entry with 3 frames in flight, and a write never overlaps a GPU read.
-			Cons: the CPU can stall on a fence when frames share a copy, so those frames don't run fully in parallel. Still costs a RAM shadow and a whole-entry copy per changed frame.
+			Exactly customCopyCount copies (1 to framesAtFlightCount), the count is the caller's choice. When it is below framesAtFlightCount, copies are shared between frames and a CPU_SHARED copy is only overwritten
+			after the fences of every frame that uses it were waited on (a GPU_LOCAL copy is ordered by the transfer barriers instead). With a count of 1 that is every frame: the entry is one buffer without a shadow, and a CPU_SHARED write waits for every frame to finish before it writes directly.
+			Pros: you pick the memory / parallelism trade-off, e.g. 2 copies for a big entry with 3 frames in flight, and a write never overlaps a GPU read. A count of 1 is the least memory without glitches.
+			Cons: the CPU can stall on a fence when frames share a copy, so the frames that draw this entry don't run in parallel (with a count of 1 they are fully serialized). With 2 or more copies it also costs a RAM shadow and a whole-entry copy per changed frame (a count of 1 has neither).
 			A count above framesAtFlightCount throws in MemoryAccessParams::validate, the extra copies would never be read.
 		*/
 		CUSTOM_COPY_COUNT_WITH_WAIT

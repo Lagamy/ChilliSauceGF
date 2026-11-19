@@ -4,6 +4,7 @@
 #include "GPUScene.h"
 #include "PipelinesManager.h"
 #include "PassesGraph.h"
+#include "CommandList.h"
 #include "PoolMap.h"
 #include "RenderPass.h" 
 #include "Instance.h"
@@ -46,6 +47,7 @@ struct Renderer {
 	// I have only one RenderTarget and only one material type(PBR). So having single 
 	RenderPass presentationRenderPass;
 	PoolMap<RenderPass> renderPasses = ("RenderPasses"); 
+	PoolMap<CommandList> commandLists = ("CommandLists"); // recipes the tasks are recorded from (Task::commandListId)
 
 	GPUSceneManager gpuSceneManager;
 	ProjectManager projectManager; 

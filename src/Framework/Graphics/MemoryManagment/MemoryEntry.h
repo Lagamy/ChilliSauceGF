@@ -23,10 +23,12 @@ namespace Graphics {
 
 		/*
 			Copies of a READ_AND_WRITE entry (see CopyCountModeEnum), CPU_SHARED or GPU_LOCAL. This entry is copy 0, copyEntryIds hold copies 1..copyCount - 1 (hidden entries of the same allocator and visability that have copyCount 1).
-			With copyCount > 1 writes go to shadow and bump version, MemoryManager::syncCopiesToFrame copies the shadow into a frame's copy (directly for CPU_SHARED, through staging for GPU_LOCAL) when copyVersions[copy] differs from version.
+			With hasShadow writes go to shadow and bump version, MemoryManager::syncCopiesToFrame copies the shadow into a frame's copy (directly for CPU_SHARED, through staging for GPU_LOCAL) when copyVersions[copy] differs from version.
 			copySettled[copy] is set once MemoryManager::isFrameCopyReady saw the copy's first fill complete.
 		*/
 		uint32_t copyCount = 1;
+		bool hasShadow = false; // copyCount > 1: writes go to shadow
+		bool waitsBeforeWrite = false; // CPU_SHARED single buffer of a mode other than ONE: a write waits for every frame in flight first, there is no shadow
 		std::vector<MemoryEntryId> copyEntryIds;
 		std::vector<char> shadow;
 		uint64_t version = 1;

@@ -40,6 +40,7 @@ namespace Demo {
 
 	inline MVPMemberIds vpMemberIds;
 	inline PoolId descriptorSetId;
+	inline PoolId drawTriangleCommandListId;
 
 	inline uint32_t counter = 0; 
 	inline bool descriptorsHaveSet = false; 
@@ -50,7 +51,6 @@ namespace Demo {
 	void defineResources(); 
 	void definePasses(); 
 	void updateResources(); 
-	void recordCMDs(VkCommandBuffer& cmdBuffer_);
 	
 	void setGPUSceneToDemo();
 }; 

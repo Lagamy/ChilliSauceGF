@@ -8,29 +8,24 @@
 
 namespace Graphics
 {
-struct BoundDescriptor
-{
-    PoolId setId;
-    PoolId descriptorId; // descriptor layout id, as in DescriptorSet::setDescriptorMemberValue
-};
-
 struct DescriptorsManager 
 {
     PoolMap<DescriptorSetLayout> layouts = {"Descriptor Set Layouts"}; // Same layout can have multiple Descriptor Sets in it. 
     Pool<DescriptorSet> descriptorSet; // with Pool (since this framework has them 1 to 1. Since we use dynamic pools)
     std::vector<BoundDescriptor> boundDescriptors; // descriptors read by a draw recorded this frame, see lockBoundDescriptors
+    std::vector<BoundDescriptor> loadsToWaitFor; // descriptors of WAIT_UNTIL_LOADED sets loaded this frame, see waitForLoads
 
-    PoolId addDescriptorSetLayout(const char* name_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_);
+    PoolId addDescriptorSetLayout(const char* name_, uint32_t setIndex_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_);
     PoolId getLayoutId(const char* layoutName_);
-    PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_);
-    PoolId addBufferDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_, uint32_t dynamicCount_);
-    PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, DescriptorTypeEnum type_);
+    PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_);
+    PoolId addDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_);
+    PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_);
     PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
     PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
     PoolId addStructMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, const std::vector<uint32_t>& repeatCountPerDimension_);
-    PoolId addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
-    PoolId addVariableToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
-    PoolId addDescriptorSet(PoolId layoutId_, AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_);
+    PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
+    PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
+    PoolId addDescriptorSet(const DescriptorSetCreateParams& rParams_);
     void removeDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_); // throws if the layout has derived sets
     void removeDescriptorSet(PoolId setId_); // waits for the frames that bind it, so don't call it while recording
     void removeDescriptorSetLayout(PoolId layoutId_); // throws if it has derived sets or a PipelineLayout uses it
@@ -40,6 +35,17 @@ struct DescriptorsManager
     void queueLockOnSubmit(PoolId setId_, PoolId descriptorId_); // called by drawMeshIndexed for the descriptors its shaders declared
     void lockBoundDescriptors(); // right after the frame's submit
     void destroy();
+
+    /*
+        On demand loading of descriptors (DescriptorSet::loadDescriptor), per descriptor, see DescriptorSetCreateParams. updateLoading runs in Renderer::draw every frame (after the frame's fence wait, before the shadows are copied): it loads the descriptors a draw or pass requested and unloads the ones nobody used for their set's absenceSecondsCount seconds.
+        Anything it changes needs the device idle first (one vkDeviceWaitIdle per call), so a frame that loads or unloads stalls the GPU once. Not while recording.
+        loadDescriptor / unloadDescriptor are the manual versions (Api.h).
+    */
+    void updateLoading();
+    void loadDescriptor(PoolId setId_, PoolId descriptorId_);
+    void unloadDescriptor(PoolId setId_, PoolId descriptorId_);
+    void waitForLoads(); // after the frame's submit: blocks until the uploads of the descriptors loaded this frame by a WAIT_UNTIL_LOADED set completed
+    void waitForGpu(); // vkDeviceWaitIdle, the ONESHOT passes have no frame fence to wait on
 };
 }
 

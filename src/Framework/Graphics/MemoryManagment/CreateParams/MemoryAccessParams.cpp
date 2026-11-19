@@ -10,6 +10,11 @@ namespace Graphics
 		return this->accessMode == MemoryAccessModeEnum::READ_ONLY;
 	}
 
+	bool MemoryAccessParams::hasShadow() const
+	{
+		return this->resolveCopyCount() > 1;
+	}
+
 	uint32_t MemoryAccessParams::resolveCopyCount() const
 	{
 		if(this->copyCountMode == CopyCountModeEnum::FOLLOW_FRAMES_IN_FLIGHT)
@@ -36,9 +41,9 @@ namespace Graphics
 			throw std::runtime_error(std::format("Memory Access Params: Entry {} is READ_ONLY, it is one instance every frame reads. Leave copyCountMode at CopyCountModeEnum::ONE.", entryName_));
 		}
 
-		if(this->copyCountMode == CopyCountModeEnum::CUSTOM_COPY_COUNT_WITH_WAIT && this->customCopyCount < 2)
+		if(this->copyCountMode == CopyCountModeEnum::CUSTOM_COPY_COUNT_WITH_WAIT && this->customCopyCount == 0)
 		{
-			throw std::runtime_error(std::format("Memory Access Params: Entry {} uses CUSTOM_COPY_COUNT_WITH_WAIT, customCopyCount has to be at least 2 (use ONE for a single buffer).", entryName_));
+			throw std::runtime_error(std::format("Memory Access Params: Entry {} uses CUSTOM_COPY_COUNT_WITH_WAIT, customCopyCount has to be at least 1.", entryName_));
 		}
 		if(this->copyCountMode == CopyCountModeEnum::CUSTOM_COPY_COUNT_WITH_WAIT && this->customCopyCount > Globals::renderer.framesAtFlightCount)
 		{

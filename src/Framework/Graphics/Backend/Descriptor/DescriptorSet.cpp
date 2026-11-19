@@ -4,14 +4,16 @@
 #include "Descriptor.h"
 #include "MemoryManager.h"
 #include "Utilities.h"
+#include <algorithm>
 #include <array>
+#include <chrono>
 #include <format>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
 namespace Graphics 
 {   
-	DescriptorSet::DescriptorSet(PoolId setLayout_, AllocatorTypeEnum allocatorType_) : setLayout(setLayout_), allocatorType(allocatorType_)
+	DescriptorSet::DescriptorSet(const DescriptorSetCreateParams& rParams_) : setLayout(rParams_.layoutId), allocatorType(rParams_.allocatorType), params(rParams_)
 	{
 	}
 
@@ -136,17 +138,24 @@ namespace Graphics
 			}
 			return offsets;
 		}
+
+		/* Vulkan orders the dynamic offsets of a bind by binding number, which is not the slot order now that bindings are chosen by the user. */
+		std::vector<Descriptor*> dynamicDescriptors;
 		for(uint32_t i = 0; i < this->descriptors.allocatedSize(); i++)
 		{
-			if(!this->descriptors.alive[i])
+			if(this->descriptors.alive[i] && this->descriptors.getInternal(i).isDynamic())
 			{
-				continue;
+				dynamicDescriptors.push_back(&this->descriptors.getInternal(i));
 			}
-			Descriptor& rDescriptor = this->descriptors.getInternal(i);
-			if(!rDescriptor.isDynamic())
-			{
-				continue;
-			}
+		}
+		std::sort(dynamicDescriptors.begin(), dynamicDescriptors.end(), [](Descriptor* pLeft_, Descriptor* pRight_)
+		{
+			return pLeft_->getDescriptorLayout().binding < pRight_->getDescriptorLayout().binding;
+		});
+
+		for(Descriptor* pDescriptor : dynamicDescriptors)
+		{
+			Descriptor& rDescriptor = *pDescriptor;
 			uint32_t unitId = offsets.size() < unitIds_.size() ? unitIds_[offsets.size()] : 0;
 			if(unitId >= rDescriptor.shape.dynamicLayer.count)
 			{
@@ -177,6 +186,30 @@ namespace Graphics
 		}
 	}
 
+	/* A per frame descriptor's entry has one copy per frame in flight, kept by the MemoryManager (shadow, versions, sync). The shape has to be built already (allocateDescriptorsMemory does it once, a load reuses it). */
+	void DescriptorSet::allocateDescriptorMemory(Descriptor& rDescriptor_)
+	{
+		DescriptorLayout& rDescriptorLayout = rDescriptor_.getDescriptorLayout();
+		MemoryEntryCreateParams entryParams = {};
+		entryParams.name = rDescriptorLayout.name.c_str();
+		entryParams.allocatorType = this->allocatorType;
+		entryParams.memoryVisability = rDescriptor_.memoryVisability;
+		entryParams.bufferType = rDescriptorLayout.bufferType;
+		entryParams.size = rDescriptor_.shape.getSize();
+		entryParams.access.accessMode = rDescriptor_.readOnly ? MemoryAccessModeEnum::READ_ONLY : MemoryAccessModeEnum::READ_AND_WRITE;
+		if(rDescriptor_.isPerFrame())
+		{
+			entryParams.access.copyCountMode = CopyCountModeEnum::FOLLOW_FRAMES_IN_FLIGHT;
+		}
+		rDescriptor_.memoryEntryId = allocateMemoryEntryRaw(entryParams);
+		MemoryEntry& rEntry = getMemoryManager().getEntry(rDescriptor_.memoryEntryId);
+		rEntry.descriptorSet = rDescriptor_.setId;
+		for(const MemoryEntryId& copyId : rEntry.copyEntryIds)
+		{
+			getMemoryManager().getEntry(copyId).descriptorSet = rDescriptor_.setId;
+		}
+	}
+
 	/*
 		Allocates one MemoryEntry per descriptor (with one copy per frame in flight for a per-frame descriptor, see Descriptor::isPerFrame), sized from its descriptor layout's block (DescriptorLayout::makeShape). Nothing is uploaded: a GPU_LOCAL entry's bytes are undefined until the first setDescriptorMemberValue was copied.
 		Static entries have to be added before StaticAllocator::allocateAndUpload, which is why this is separate from create.
@@ -202,25 +235,9 @@ namespace Graphics
 				(rDescriptor.getType() == UNIFORM_DESCRIPTOR ? dynamicUniformCount : dynamicStorageCount)++;
 			}
 
-			/* A per frame descriptor's entry has one copy per frame in flight, kept by the MemoryManager (shadow, versions, sync). */
-			MemoryEntryCreateParams entryParams = {};
-			entryParams.name = rDescriptorLayout.name.c_str();
-			entryParams.allocatorType = this->allocatorType;
-			entryParams.memoryVisability = rDescriptor.memoryVisability;
-			entryParams.bufferType = rDescriptorLayout.bufferType;
-			entryParams.size = rDescriptor.shape.getSize();
-			entryParams.access.accessMode = rDescriptor.readOnly ? MemoryAccessModeEnum::READ_ONLY : MemoryAccessModeEnum::READ_AND_WRITE;
-			if(rDescriptor.isPerFrame())
-			{
-				entryParams.access.copyCountMode = CopyCountModeEnum::FOLLOW_FRAMES_IN_FLIGHT;
-			}
-			rDescriptor.memoryEntryId = allocateMemoryEntryRaw(entryParams);
-			MemoryEntry& rEntry = getMemoryManager().getEntry(rDescriptor.memoryEntryId);
-			rEntry.descriptorSet = rDescriptor.setId;
-			for(const MemoryEntryId& copyId : rEntry.copyEntryIds)
-			{
-				getMemoryManager().getEntry(copyId).descriptorSet = rDescriptor.setId;
-			}
+			this->allocateDescriptorMemory(rDescriptor);
+			rDescriptor.backup.data.assign(this->keepsBackup() ? rDescriptor.shape.getSize() : 0, 0);
+			rDescriptor.lastUsedTime = std::chrono::steady_clock::now();
 		}
 		const VkPhysicalDeviceLimits& rLimits = getMainDevice().properties.limits;
 		if(dynamicUniformCount > rLimits.maxDescriptorSetUniformBuffersDynamic)
@@ -275,8 +292,7 @@ namespace Graphics
 		this->vkHandles.resize(copiesCount);
 		this->poolId = rLayout.allocateSets(copiesCount, this->vkHandles.data());
 
-		/* The writes keep pointers into bufferInfos, so it is reserved up front and never reallocates. Copy f of the set points every binding at copy f of the descriptor's entry (MemoryManager::getCopy): a per-frame descriptor has one per frame in flight, the others only one. */
-		MemoryManager& rMemoryManager = getMemoryManager(); 
+		/* The writes keep pointers into bufferInfos, so it is reserved up front and never reallocates. Copy f of the set points every binding at copy f of the descriptor's entry (makeBindingWrite): a per-frame descriptor has one per frame in flight, the others only one. */
 		std::vector<VkDescriptorBufferInfo> bufferInfos;
 		bufferInfos.reserve(descriptorsCount * copiesCount);
 		std::vector<VkWriteDescriptorSet> updateSetWrites; 
@@ -291,40 +307,46 @@ namespace Graphics
 				}
 
 				Descriptor& rDescriptor = this->descriptors.getInternal(i);
-				const MemoryEntry& rMemoryEntry = rMemoryManager.getCopy(rMemoryManager.getEntry(rDescriptor.memoryEntryId), copy);
-				Buffer& rBuffer = rMemoryManager.getBuffer(rMemoryEntry);
-				if(rBuffer.get() == VK_NULL_HANDLE)
-				{
-					throw std::runtime_error(std::format("Descriptor Set: Buffer of {} doesn't exist yet. Static entries get it in StaticAllocator::allocateAndUpload.", rMemoryEntry.name));
-				}
-
-				VkDescriptorBufferInfo bufferInfo = {};
-				bufferInfo.buffer = rBuffer.get();
-				bufferInfo.offset = rMemoryEntry.isForDynamic ? 0 : rMemoryEntry.inBufferFirstByte;
-				if(rDescriptor.isDynamic() && bufferInfo.offset % getDynamicAlignment(rDescriptor.getType()) != 0)
-				{
-					/* The dynamic offsets are multiples of the alignment (padded stride), so the sum only is if the entry starts aligned too. */
-					throw std::runtime_error(std::format("Descriptor Set: Dynamic entry {} starts at byte {}, not a multiple of the offset alignment of its buffer type.", rMemoryEntry.name, bufferInfo.offset));
-				}
-				/* A dynamic binding sees one block: the dynamic offset of the bind moves this window inside the entry, which holds all of them. The others see the whole entry. */
-				bufferInfo.range = rDescriptor.isDynamic() ? rDescriptor.shape.blockSize : rMemoryEntry.size;
-				bufferInfos.emplace_back(bufferInfo);
-
-				VkWriteDescriptorSet updateSetWrite = {};
-				updateSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				updateSetWrite.dstSet = this->vkHandles[copy];
-				updateSetWrite.dstBinding = i;
-				updateSetWrite.dstArrayElement = 0;
-				updateSetWrite.descriptorType = rDescriptor.getDescriptorLayout().getVkType();
-				updateSetWrite.descriptorCount = 1;
-				updateSetWrite.pBufferInfo = &bufferInfos.back();
-				updateSetWrites.emplace_back(updateSetWrite);
-
+				bufferInfos.emplace_back();
+				updateSetWrites.emplace_back(this->makeBindingWrite(rDescriptor, copy, bufferInfos.back()));
 				rDescriptor.created = true;
 			}
 		}
 		vkUpdateDescriptorSets(getMainDevice().logicalDevice, updateSetWrites.size(), updateSetWrites.data(), 0, nullptr);
     }
+
+	/* The write that points binding of the descriptor in set copy copy_ at copy copy_ of its entry (MemoryManager::getCopy). */
+	VkWriteDescriptorSet DescriptorSet::makeBindingWrite(Descriptor& rDescriptor_, uint32_t copy_, VkDescriptorBufferInfo& rBufferInfo_)
+	{
+		MemoryManager& rMemoryManager = getMemoryManager();
+		const MemoryEntry& rMemoryEntry = rMemoryManager.getCopy(rMemoryManager.getEntry(rDescriptor_.memoryEntryId), copy_);
+		Buffer& rBuffer = rMemoryManager.getBuffer(rMemoryEntry);
+		if(rBuffer.get() == VK_NULL_HANDLE)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: Buffer of {} doesn't exist yet. Static entries get it in StaticAllocator::allocateAndUpload.", rMemoryEntry.name));
+		}
+
+		rBufferInfo_ = {};
+		rBufferInfo_.buffer = rBuffer.get();
+		rBufferInfo_.offset = rMemoryEntry.isForDynamic ? 0 : rMemoryEntry.inBufferFirstByte;
+		if(rDescriptor_.isDynamic() && rBufferInfo_.offset % getDynamicAlignment(rDescriptor_.getType()) != 0)
+		{
+			/* The dynamic offsets are multiples of the alignment (padded stride), so the sum only is if the entry starts aligned too. */
+			throw std::runtime_error(std::format("Descriptor Set: Dynamic entry {} starts at byte {}, not a multiple of the offset alignment of its buffer type.", rMemoryEntry.name, rBufferInfo_.offset));
+		}
+		/* A dynamic binding sees one block: the dynamic offset of the bind moves this window inside the entry, which holds all of them. The others see the whole entry. */
+		rBufferInfo_.range = rDescriptor_.isDynamic() ? rDescriptor_.shape.blockSize : rMemoryEntry.size;
+
+		VkWriteDescriptorSet updateSetWrite = {};
+		updateSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		updateSetWrite.dstSet = this->vkHandles[copy_];
+		updateSetWrite.dstBinding = rDescriptor_.getDescriptorLayout().binding;
+		updateSetWrite.dstArrayElement = 0;
+		updateSetWrite.descriptorType = rDescriptor_.getDescriptorLayout().getVkType();
+		updateSetWrite.descriptorCount = 1;
+		updateSetWrite.pBufferInfo = &rBufferInfo_;
+		return updateSetWrite;
+	}
 
 	/*
 		Gives the VkDescriptorSets back to its pool in the layout (the caller guarantees the GPU is done with them). The memory entries stay owned by the MemoryManager.
@@ -348,7 +370,7 @@ namespace Graphics
 	void DescriptorSet::lockReadOnlyDescriptor(PoolId descriptorId_)
 	{
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
-		if(!rDescriptor.readOnly || rDescriptor.readOnlyLocked)
+		if(!rDescriptor.readOnly || rDescriptor.readOnlyLocked || !rDescriptor.loaded)
 		{
 			return;
 		}
@@ -365,6 +387,10 @@ namespace Graphics
 	bool DescriptorSet::isDescriptorSettled(PoolId descriptorId_)
 	{
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
+		if(!rDescriptor.loaded)
+		{
+			return false;
+		}
 		if(rDescriptor.memoryVisability != GPU_LOCAL || rDescriptor.firstDataSettled || !rDescriptor.gpuWritten)
 		{
 			return true;
@@ -376,5 +402,124 @@ namespace Graphics
 		}
 		rDescriptor.firstDataSettled = true;
 		return true;
+	}
+	bool DescriptorSet::canUnload() const
+	{
+		return this->allocatorType == DYNAMIC_ALLOCATOR;
+	}
+
+	bool DescriptorSet::unloadsAutomatically() const
+	{
+		return this->canUnload() && this->params.absenceSecondsCount != UninitializedId;
+	}
+
+	bool DescriptorSet::keepsBackup() const
+	{
+		return this->canUnload() && this->params.loadFromDisk == nullptr;
+	}
+
+	/* Stamps the use for the absence time (only a set that unloads by itself has one) and requests a load of an unloaded descriptor, also when it was unloaded by hand. A static set never leaves memory, so there is nothing to do. */
+	void DescriptorSet::markUsed(PoolId descriptorId_)
+	{
+		if(!this->canUnload())
+		{
+			return;
+		}
+
+		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
+		if(this->unloadsAutomatically())
+		{
+			rDescriptor.lastUsedTime = std::chrono::steady_clock::now();
+		}
+		if(!rDescriptor.loaded)
+		{
+			rDescriptor.loadRequested = true;
+		}
+	}
+
+	/*
+		Vulkan rule: a buffer may only be destroyed once no submitted command uses it (VUID-vkDestroyBuffer-buffer-00922), which the caller guarantees by waiting for the device. The binding is not rewritten: a descriptor whose buffer was destroyed is undefined, and that is legal as long as no shader that runs reads it (the draws and passes that use it are skipped or held until it is loaded again, and the validation layers report it when one slips through).
+		The state that described the old entry is reset, the new one starts fresh (nothing written, not locked).
+	*/
+	void DescriptorSet::unloadDescriptor(PoolId descriptorId_)
+	{
+		if(!this->canUnload())
+		{
+			throw std::runtime_error("Descriptor Set: Only a DYNAMIC_ALLOCATOR set can unload, static entries can't be removed.");
+		}
+
+		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
+		if(!rDescriptor.loaded)
+		{
+			return;
+		}
+
+		getMemoryManager().removeDynamicEntry(rDescriptor.memoryEntryId);
+		rDescriptor.loaded = false;
+		rDescriptor.loadRequested = false;
+		rDescriptor.created = false;
+		rDescriptor.gpuWritten = false;
+		rDescriptor.firstDataSettled = false;
+		rDescriptor.readOnlyLocked = false;
+	}
+
+	/*
+		A new entry, then every copy of the set is pointed at it with one vkUpdateDescriptorSets (no pending command buffer may use the set, see the header). The bytes come back from loadFromDisk or the CPU backup, as ordinary writes, so the descriptor is settled once their upload completed.
+		loaded is set before the writes since the setters throw on an unloaded descriptor.
+	*/
+	void DescriptorSet::loadDescriptor(PoolId descriptorId_)
+	{
+		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
+		if(rDescriptor.loaded)
+		{
+			return;
+		}
+
+		this->allocateDescriptorMemory(rDescriptor);
+		std::vector<VkDescriptorBufferInfo> bufferInfos(this->vkHandles.size());
+		std::vector<VkWriteDescriptorSet> updateSetWrites;
+		updateSetWrites.reserve(this->vkHandles.size());
+		for(uint32_t copy = 0; copy < this->vkHandles.size(); copy++)
+		{
+			updateSetWrites.emplace_back(this->makeBindingWrite(rDescriptor, copy, bufferInfos[copy]));
+		}
+		vkUpdateDescriptorSets(getMainDevice().logicalDevice, updateSetWrites.size(), updateSetWrites.data(), 0, nullptr);
+
+		rDescriptor.loaded = true;
+		rDescriptor.loadRequested = false;
+		rDescriptor.created = true;
+		rDescriptor.lastUsedTime = std::chrono::steady_clock::now();
+		if(this->params.loadFromDisk != nullptr)
+		{
+			this->params.loadFromDisk(rDescriptor.setId, rDescriptor.DescriptorLayoutId);
+		}
+		else
+		{
+			this->restoreBackup(rDescriptor);
+		}
+	}
+
+	/* One write of the whole entry, so a GPU_LOCAL descriptor is one update (one staging range) and not one per variable. */
+	void DescriptorSet::restoreBackup(Descriptor& rDescriptor_)
+	{
+		uint64_t size = rDescriptor_.backup.data.size();
+		if(size == 0)
+		{
+			return;
+		}
+
+		if(rDescriptor_.memoryVisability == GPU_LOCAL)
+		{
+			rDescriptor_.gpuWritten = true;
+			StagingDataContainer container = this->getStagingContainer(rDescriptor_.memoryEntryId, 0, size);
+			container.write(0, rDescriptor_.backup.data.data(), size);
+		}
+		else
+		{
+			SharedDataContainer container = this->getSharedContainer(rDescriptor_.memoryEntryId);
+			container.validFirstOffset = 0;
+			container.validSize = size;
+			container.write(0, rDescriptor_.backup.data.data(), size);
+		}
 	}
 }
