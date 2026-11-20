@@ -8,6 +8,7 @@
 #include "Layout.h"
 #include "MemoryAccessParams.h"
 #include "EntryCopyRequest.h"
+#include "Residency.h"
 #include <cstdint>
 #include <format>
 #include <stdexcept>
@@ -29,6 +30,8 @@ namespace Graphics
 		bool readOnly = false;
 		AllocatorTypeEnum allocatorType = DYNAMIC_ALLOCATOR; // as given to queueUpload, a new vertex entry (restride) is made the same way
 		MemoryAccessParams access;
+		ResidencyParams residencyParams; // as given to queueUpload (a mesh queued without them never unloads)
+		Residency residency; // load / unload state of the vertex and index entries together, see unload and load
 		std::vector<uint32_t> indices;
 
 		MemoryEntryId vbMemoryUploadId; // Handle to mem entry in the GPUMemoryManager
@@ -117,6 +120,10 @@ namespace Graphics
 		*/
 		ReadbackId requestVerticeVariableReadback(PoolId variableId_, uint32_t verticeId_)
 		{
+			if(!this->residency.loaded)
+			{
+				throw std::runtime_error(std::format("Mesh {}: is unloaded, it can't be read back until it was loaded again.", this->name));
+			}
 			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
 			const VariableBlueprint& rVariable = rLayout.variableBlueprints[variableId_];
 			uint64_t inEntryOffset = verticeId_ * rLayout.size + rVariable.firstByteId;
@@ -143,8 +150,24 @@ namespace Graphics
 			return rLayout.getElementInMemberMatrix<T>(container, variableId_, verticeId_, rowId_, columnId_, repeatIdPerDimension_);
 		}
 
+		/* The version without residency_ never unloads the mesh and keeps no CPU copy of its vertex bytes. */
 		void queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, const MemoryAccessParams& access_);
+		void queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, const MemoryAccessParams& access_, const ResidencyParams& residency_);
 		void commitUpload();
+
+		/*
+			On demand loading, like a descriptor (DescriptorSet::loadDescriptor): the vertex and index entries leave memory together (unload) and come back (load: new entries, the bytes from loadFromDisk or the CPU copy, then commitUpload).
+			Only a DYNAMIC_ALLOCATOR mesh can unload. Before an unload the mesh has to be committed, and it needs a way to get its bytes back: loadFromDisk, an entry with a shadow (it moves into Residency::backup), or an absenceSecondsCount (the writes are mirrored into the backup), otherwise unload throws.
+			The caller waits for the submits that used the mesh first (PassesGraph::waitForMeshUse; a buffer may not be destroyed while a pending command buffer uses it, VUID-vkDestroyBuffer-buffer-00922), ResourceManager::updateLoading and unloadMesh do. meshId_ is the id loadFromDisk gets as its ownerId_ (partId_ is UninitializedPoolId).
+			markUsed restarts the absence time and requests a load of an unloaded mesh, isSettled is true once the mesh is loaded and the copy of the current frame of both entries was filled, so a draw may read it.
+		*/
+		void unload();
+		void load(PoolId meshId_);
+		void markUsed();
+		void markDiskLayoutChanged(); // changeLayoutOnDisk was called for the mesh: loadFromDisk may be used again
+		bool isSettled();
+		bool canUnload() const;
+		bool unloadsAutomatically() const;
 
 		/*
 			For ReflectionSystem::commitVertexLayoutUpdate. hasVertexEntry: queueUpload was called. throwIfCantReplaceVertexEntry: the entry can't be replaced (static, or reserved and not committed).
@@ -170,6 +193,10 @@ namespace Graphics
 		template<typename F>
 		void writeVariableRange(PoolId variableId_, uint32_t verticeId_, uint64_t inMemberOffset_, uint64_t size_, F&& write_)
 		{
+			if(!this->residency.loaded)
+			{
+				throw std::runtime_error(std::format("Mesh {}: is unloaded, it can't be written until it was loaded again (load, or a draw / pass that uses it).", this->name));
+			}
 			ReflectionLayout& rLayout = getVerticeLayout(this->verticeLayoutId);
 			uint64_t inEntryOffset = verticeId_ * rLayout.size + rLayout.variableBlueprints[variableId_].firstByteId + inMemberOffset_;
 
@@ -188,9 +215,21 @@ namespace Graphics
 				container.validSize = size_;
 				write_(rLayout, container);
 			}
+
+			/* The same write goes into the CPU copy, which is what a load writes back (the entry's bytes are gone with the entry). Same offsets, the copy is as large as the entry. An entry with a shadow already is that copy. */
+			if(this->mirrorsWrites())
+			{
+				this->residency.backup.repeatCount = this->verticesCount;
+				write_(rLayout, this->residency.backup);
+			}
 		}
 
 		bool hasCopies();
+		bool mirrorsWrites() const; // canUnload, an absenceSecondsCount, no loadFromDisk and no shadow: every write is mirrored into Residency::backup
+		void reserveVertexEntry(); // vbMemoryUploadId: the vertex entry reserved (no data yet), used by queueUpload and load
+		void uploadIndexEntry(); // ibMemoryUploadId: the index entry uploaded from indices, locked when the mesh is readOnly, used by queueUpload and load
+		void restoreBackup(); // a load writes the backup into the reserved vertex entry
+		void remapBackup(const ReflectionLayout& rOldLayout_, const ReflectionLayout& rNewLayout_); // restride: the CPU copy moves to the new offsets
 		StagingDataContainer getStagingContainer(uint64_t inEntryOffset_, uint64_t size_);
 		SharedDataContainer getSharedContainer();
 	};

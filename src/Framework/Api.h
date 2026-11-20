@@ -140,13 +140,20 @@ namespace Graphics
 	void removeMemberFromDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId memberId_); // a whole member (a struct member with its variables), the other members keep their ids. 
 	void removeVariableFromStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId variableId_); // one variable of a struct member (a variable directly in the block goes with removeMemberFromDescriptorLayout), the variables after it move up and keep their ids
 	PoolId addDescriptorSet(const DescriptorSetCreateParams& rParams_); // see DescriptorSetCreateParams: the set's descriptors are loaded and unloaded on demand
-	/* The engine already loads a descriptor when a draw or pass uses it and unloads it after absenceSecondsCount seconds without use (DescriptorSetCreateParams), so these two are only for an application that wants to decide itself. descriptorId_ is the descriptor layout id. They wait for the device and are not allowed while recording. Only DYNAMIC_ALLOCATOR sets can unload; an unloaded descriptor can't be written until it was loaded again. */
+	/* The engine already loads a descriptor when a draw or pass uses it and unloads it after residency.absenceSecondsCount seconds without use (DescriptorSetCreateParams::residency), so these two are only for an application that wants to decide itself. descriptorId_ is the descriptor layout id. They wait for the device and are not allowed while recording. Only DYNAMIC_ALLOCATOR sets can unload; an unloaded descriptor can't be written until it was loaded again. */
 	void loadDescriptor(PoolId setId_, PoolId descriptorId_);
 	void unloadDescriptor(PoolId setId_, PoolId descriptorId_);
 	MemoryEntryId getDescriptorMemoryEntry(PoolId setId_, PoolId descriptorId_); // the entry of a loaded descriptor (for requestMemoryEntryReadback, e.g. in saveToDisk), throws when it is unloaded. A load and a layout update that reallocates give it a new one, so ask again after them
-	/* The two functions of DescriptorSetCreateParams that belong to loadFromDisk. The engine never calls them (a conversion that failed half way would already have rewritten the files): call them after the whole conversion succeeded, saveDescriptorToDisk writes the data, changeDescriptorLayoutOnDisk rewrites the file for the current layout. */
+	/* The two functions of DescriptorSetCreateParams::residency that belong to loadFromDisk. The engine never calls them (a conversion that failed half way would already have rewritten the files): call them after the whole conversion succeeded, saveDescriptorToDisk writes the data, changeDescriptorLayoutOnDisk rewrites the file for the current layout. */
 	void saveDescriptorToDisk(PoolId setId_, PoolId descriptorId_);
 	void changeDescriptorLayoutOnDisk(PoolId setId_, PoolId descriptorId_);
+	/* The same for meshes (Mesh::queueUpload with a ResidencyParams): the engine loads a mesh when a draw or pass uses it and unloads it after residency.absenceSecondsCount seconds without use, these are for an application that decides itself. An unload waits for the submits that used the mesh, not while recording. Only DYNAMIC_ALLOCATOR meshes unload; an unloaded mesh can't be written until it was loaded again. */
+	void loadMesh(PoolId meshId_);
+	void unloadMesh(PoolId meshId_);
+	MemoryEntryId getMeshVertexEntry(PoolId meshId_); // the vertex entry of a loaded mesh (for requestMemoryEntryReadback, e.g. in saveToDisk), throws when it is unloaded. A load and a vertex layout update that reallocates give it a new one, so ask again after them
+	/* The functions of the mesh's ResidencyParams that belong to loadFromDisk, called with ownerId_ = the mesh id and partId_ = UninitializedPoolId. The engine never calls them: call them after the whole conversion of a vertex layout update succeeded. changeMeshLayoutOnDisk also clears the flag that makes a load of the mesh throw after a layout update. Both throw when the mesh has no loadFromDisk. */
+	void saveMeshToDisk(PoolId meshId_);
+	void changeMeshLayoutOnDisk(PoolId meshId_);
 	void removeDescriptorSet(PoolId setId_);
 	void removeDescriptorSetLayout(PoolId layoutId_);
 	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 

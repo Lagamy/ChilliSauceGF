@@ -79,7 +79,7 @@ namespace Graphics
 			setParams.layoutId = dsLayoutId;
 			setParams.allocatorType = STATIC_ALLOCATOR;
 			setParams.memoryVisability = CPU_SHARED;
-			setParams.absenceSecondsCount = UninitializedId;
+			setParams.residency.absenceSecondsCount = UninitializedId;
 			descriptorSetId = addDescriptorSet(setParams);
 		}
 

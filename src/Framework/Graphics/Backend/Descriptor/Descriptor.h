@@ -5,6 +5,7 @@
 #include "DescriptorLayout.h"
 #include "Utilities.h"
 #include "DescriptorShape.h"
+#include "Residency.h"
 #include <chrono>
 #include <vector>
 
@@ -31,15 +32,10 @@ struct Descriptor
 	bool readOnly = false;
 	bool gpuWritten = false; // setDescriptorMemberValue wrote a GPU_LOCAL descriptor at least once
 	bool firstDataSettled = false; // a check saw no pending write after the first one, see DescriptorSet::isDescriptorSettled
-	bool diskLayoutStale = false; // loadFromDisk set: a layout update changed the block, the file still has the old layout until changeDescriptorLayoutOnDisk, so a load throws (DescriptorSet::loadDescriptor)
 	bool readOnlyLocked = false; // the entry was locked, see DescriptorSet::lockReadOnlyDescriptor
 
-	/* Load / unload state, see DescriptorSet::loadDescriptor. An unloaded descriptor has no memory entry (memoryEntryId is stale) and its binding points at a destroyed buffer, so nothing may read or write it. */
-	bool loaded = true;
-	bool loadRequested = false; // a draw or a ONESHOT pass used it while unloaded, DescriptorsManager::updateLoading loads it at the next frame start
-	std::chrono::steady_clock::time_point lastUsedTime = std::chrono::steady_clock::now();
-	/* The bytes of the entry as the application wrote them, kept only by a set that can unload and has no loadFromDisk (DescriptorSet::keepsBackup). Written back by a load. */
-	CPUDataContainer backup;
+	/* Load / unload state, see DescriptorSet::loadDescriptor. */
+	Residency residency;
 
 	Descriptor(PoolId DSlayoutId_, MemoryVisabilityEnum memoryVisability_, PoolId setId_, PoolId DescriptorLayoutId_) : DSlayoutId(DSlayoutId_), memoryVisability(memoryVisability_), setId(setId_), DescriptorLayoutId(DescriptorLayoutId_) {};
 	DescriptorLayout& getDescriptorLayout();

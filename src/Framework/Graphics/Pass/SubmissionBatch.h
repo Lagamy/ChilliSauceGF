@@ -1,5 +1,6 @@
 #pragma once 
 #include "PoolId.h"
+#include "PassId.h"
 #include "SubmissionMetadata.h"
 #include "Utilities.h"
 #include <vulkan/vulkan.h>
@@ -18,6 +19,7 @@ struct SubmissionBatch
 {
     std::string name; 
     CmdLifetimeEnum lifetime;
+    PassId passId = {}; // the pass the batch was compiled from
     QueueFamilyEnum queueFamily; 
     std::vector<SubmissionMetadata> perSubmissionMetadata; 
     std::vector<VkSubmitInfo> submitInfos; 

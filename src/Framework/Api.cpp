@@ -499,6 +499,31 @@ namespace Graphics
 		Globals::renderer.descriptorsManager.unloadDescriptor(setId_, descriptorId_);
 	}
 
+	void loadMesh(PoolId meshId_)
+	{
+		Globals::renderer.resourcesManager.loadMesh(meshId_);
+	}
+
+	void unloadMesh(PoolId meshId_)
+	{
+		Globals::renderer.resourcesManager.unloadMesh(meshId_);
+	}
+
+	MemoryEntryId getMeshVertexEntry(PoolId meshId_)
+	{
+		return Globals::renderer.resourcesManager.getMeshVertexEntry(meshId_);
+	}
+
+	void saveMeshToDisk(PoolId meshId_)
+	{
+		Globals::renderer.resourcesManager.saveMeshToDisk(meshId_);
+	}
+
+	void changeMeshLayoutOnDisk(PoolId meshId_)
+	{
+		Globals::renderer.resourcesManager.changeMeshLayoutOnDisk(meshId_);
+	}
+
 	void removeDescriptorSet(PoolId setId_)
 	{
 		Globals::renderer.descriptorsManager.removeDescriptorSet(setId_);
@@ -728,6 +753,7 @@ namespace Graphics
 	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer &cmdBuffer_, uint32_t firstInstance_)
 	{
 		Mesh& rMesh = getMesh(meshId_);
+		rMesh.markUsed();
 		GraphicsPipeline& rPipeline = getGraphicsPipeline(Globals::renderer.recordingPipelineId);
 		Shader& rVertexShader = getShader(rPipeline.vertexShaderId);
 		Shader& rFragmentShader = getShader(rPipeline.fragmentShaderId);
@@ -739,7 +765,8 @@ namespace Graphics
 			return;
 		}
 		MemoryManager& rMemoryManager = Globals::renderer.memoryManager;
-		if(rMemoryManager.isFrameCopyReady(rMesh.vbMemoryUploadId) && rMemoryManager.isFrameCopyReady(rMesh.ibMemoryUploadId))
+		/* An unloaded mesh is skipped like one whose uploads are still in flight (Mesh::isSettled), markUsed above requested its load. */
+		if(rMesh.isSettled())
 		{
 			queueShaderDescriptorLocks(rVertexShader);
 			queueShaderDescriptorLocks(rFragmentShader);

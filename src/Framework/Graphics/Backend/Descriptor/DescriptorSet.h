@@ -227,7 +227,7 @@ struct DescriptorSet
 	bool isDescriptorSettled(PoolId descriptorId_); // true unless the descriptor is unloaded, or GPU_LOCAL and its first write is still pending, so a draw may read it. drawMeshIndexed skips the draws of shaders that use it otherwise
 
 	/*
-		On demand memory: a descriptor of a DYNAMIC_ALLOCATOR set can leave memory (unloadDescriptor removes its entries, every copy) and come back (loadDescriptor allocates a new entry, points the binding of every set copy at it and writes the bytes again: loadFromDisk, or the CPU backup).
+		On demand memory: a descriptor of a DYNAMIC_ALLOCATOR set can leave memory (unloadDescriptor removes its entries, every copy) and come back (loadDescriptor allocates a new entry, points the binding of every set copy at it and writes the bytes again: loadFromDisk, or the CPU backup (Residency::backup). The CPU holds one copy of the bytes: an entry with a shadow (per frame descriptor) moves its shadow into the backup on unload and gets it back on a load, any other entry has its writes mirrored into the backup).
 		The caller has to make sure no submitted command uses the set (DescriptorsManager::loadDescriptor / unloadDescriptor and updateLoading wait for the device first): a set may not be updated while a pending command buffer uses it, and a buffer may not be destroyed while one uses it.
 		Not while recording. DescriptorsManager::updateLoading calls them by itself from the absence time, the functions in Api.h are for an application that wants to decide.
 	*/
@@ -243,6 +243,7 @@ struct DescriptorSet
 	void rebuildHandles();
 	void markDiskLayoutChanged(PoolId descriptorId_); // changeLayoutOnDisk was called for the descriptor: loadFromDisk may be used again
 	MemoryEntryId getDescriptorEntryId(PoolId descriptorId_); // the entry of a loaded descriptor (copy 0 of a per frame one), throws when unloaded. It is replaced by a load and by a layout update that reallocates, so ask again after those
+	uint64_t getLastUsedFrame(PoolId descriptorId_); // Residency::lastUsedFrame of the descriptor, what PassesGraph::waitForDescriptorUse waits on
 	void markUsed(PoolId descriptorId_); // a draw or pass uses the descriptor now: restarts its absence time and requests a load when it is unloaded
 	bool canUnload() const; // DYNAMIC_ALLOCATOR sets only
 	bool unloadsAutomatically() const; // canUnload and an absenceSecondsCount
@@ -257,7 +258,8 @@ struct DescriptorSet
 	void rewriteBindings(Descriptor& rDescriptor_); // points every VkDescriptorSet copy at the descriptor's current entry
 	void moveDescriptorEntry(Descriptor& rDescriptor_, const DescriptorLayout& rOldLayout_, const DescriptorShape& rOldShape_, const DescriptorShape& rNewShape_); // reshapeDescriptor of a loaded GPU_LOCAL descriptor without copies: a new entry filled by a GPU side copy
 	void restoreBackup(Descriptor& rDescriptor_);
-	bool keepsBackup() const; // canUnload and no loadFromDisk: the set mirrors every write into Descriptor::backup
+	bool entryHasShadow(const Descriptor& rDescriptor_) const; // the entry of the descriptor has copies, so a CPU shadow (a per frame descriptor with more than one frame in flight), known without an entry since an unloaded descriptor has none
+	bool mirrorsWrites(const Descriptor& rDescriptor_) const; // the set unloads by itself (an absenceSecondsCount), has no loadFromDisk and the entry has no shadow: every write is mirrored into Residency::backup. Otherwise unloadDescriptor gets the bytes when it runs: the shadow is moved into the backup, a CPU_SHARED entry is read, anything else can't unload without loadFromDisk
 	const VariableBlueprint& getVariable(PoolId descriptorId_, PoolId variableId_);
 	std::vector<uint32_t> makeSingleLayerIds(PoolId descriptorId_, PoolId variableId_, uint32_t repeatUnitId_);
 	/* Plain setters are for descriptors without a dynamic layer, setDynamic... ones for dynamic descriptor layouts. Throws on a mismatch. */
@@ -273,7 +275,7 @@ struct DescriptorSet
 	void writeMemberRange(PoolId descriptorId_, PoolId variableId_, const std::vector<uint32_t>& idsPerLayer_, bool dynamic_, uint64_t inVariableOffset_, uint64_t size_, F&& write_)
 	{
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
-		if(!rDescriptor.loaded)
+		if(!rDescriptor.residency.loaded)
 		{
 			throw std::runtime_error(std::format("Descriptor Set: {} is unloaded, it can't be written until it was loaded again (loadDescriptor, or a draw / pass that uses it).", rDescriptor.getDescriptorLayout().name));
 		}
@@ -320,13 +322,13 @@ struct DescriptorSet
 			write_(rLayout, rVariableRef.variableId, container);
 		}
 
-		/* The same write goes into the CPU copy, which is what a load writes back (the entry's bytes are gone with the entry). Same offsets, the copy is as large as the entry. */
-		if(this->keepsBackup())
+		/* The same write goes into the CPU copy, which is what a load writes back (the entry's bytes are gone with the entry). Same offsets, the copy is as large as the entry. An entry with a shadow already is that copy. */
+		if(this->mirrorsWrites(rDescriptor))
 		{
-			rDescriptor.backup.repeatCount = 1;
-			rDescriptor.backup.repeatStride = rLayout.size;
-			rDescriptor.backup.repeatBaseOffset = repeatOffset;
-			write_(rLayout, rVariableRef.variableId, rDescriptor.backup);
+			rDescriptor.residency.backup.repeatCount = 1;
+			rDescriptor.residency.backup.repeatStride = rLayout.size;
+			rDescriptor.residency.backup.repeatBaseOffset = repeatOffset;
+			write_(rLayout, rVariableRef.variableId, rDescriptor.residency.backup);
 		}
 	}
 

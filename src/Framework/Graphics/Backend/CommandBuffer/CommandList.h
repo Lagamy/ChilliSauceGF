@@ -35,6 +35,7 @@ namespace Graphics
 		void addUploadQueuedCopies(); // the copies the MemoryManager queued for the upload slot of the task (MemoryManager::setup's list)
 		void clear();
 		void record(VkCommandBuffer& cmdBuffer_) const;
+		std::vector<PoolId> collectMeshUses() const; // every mesh a draw of the list uses, without recording anything
 		std::vector<BoundDescriptor> collectDescriptorUses() const; // every (set, descriptor) the shaders of the draws declare, without recording anything
 	};
 }

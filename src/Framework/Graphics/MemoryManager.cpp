@@ -414,6 +414,17 @@ void MemoryManager::zeroEntryRanges(MemoryEntryId entryId_, const std::vector<Me
     this->removeDynamicEntry(zeroEntryId);
 }
 
+/* The bytes the entry's copies are synced from. The shadow is left empty, so the entry can't be written or synced afterwards, only removed. */
+std::vector<char> MemoryManager::takeShadow(MemoryEntryId entryId_)
+{
+	MemoryEntry& rEntry = this->getEntry(entryId_);
+	if(!rEntry.hasShadow)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Entry {} has no shadow to take.", rEntry.name));
+	}
+	return std::move(rEntry.shadow);
+}
+
 /*
 	Both entries are GPU_LOCAL without copies (an entry with copies is copied copy by copy, CPU_SHARED has writeShared). The copy is deferred like a readback: it is queued by resolvePendingOperations
 	once the source has no upload in flight and no earlier UPDATE of the source or the destination waits. The destination is pending (OpenBatchId) from here on, then its upload batch is the copy's, which is never earlier than a batch it had before
@@ -618,6 +629,8 @@ void MemoryManager::syncCopiesToFrame(uint32_t frame_)
 					Globals::renderer.passesGraph.waitForFrame(frame);
 				}
 			}
+			/* A ONESHOT submit that bound this copy has no frame fence, its tracking fence is waited on instead. A copy per frame is also overwritten once the frame comes round again, which a ONESHOT submit of an earlier frame can still be reading. */
+			Globals::renderer.passesGraph.waitForEntryUse(rEntryId);
 			std::memcpy(this->getSharedPointer(this->getEntry(copyEntryId), 0), rEntry.shadow.data(), rEntry.size);
 		}
 		rEntry.copyVersions[copyId] = rEntry.version;
@@ -1063,13 +1076,15 @@ void MemoryManager::writeShared(MemoryEntry& rEntry_, uint64_t inEntryOffset_, c
 		return;
 	}
 
-	/* A single buffer that waits (CUSTOM_COPY_COUNT_WITH_WAIT with a count of 1) is only written once no frame in flight reads it: the fences are the write-after-read dependency. Waiting on a signaled fence is cheap, so repeated writes cost little. */
+	/* A single buffer that waits (CUSTOM_COPY_COUNT_WITH_WAIT with a count of 1) is only written once no frame in flight reads it: the fences are the write-after-read dependency. Waiting on a signaled fence is cheap, so repeated writes cost little.
+	The entry id isn't known here, so every in flight ONESHOT submit is waited on too (a ONESHOT draw has no frame fence). */
 	if(rEntry_.waitsBeforeWrite)
 	{
 		for(uint32_t frame = 0; frame < Globals::renderer.framesAtFlightCount; frame++)
 		{
 			Globals::renderer.passesGraph.waitForFrame(frame);
 		}
+		Globals::renderer.passesGraph.waitForOneShots();
 	}
 	std::memcpy(this->getSharedPointer(rEntry_, inEntryOffset_), pSrc_, size_);
 }

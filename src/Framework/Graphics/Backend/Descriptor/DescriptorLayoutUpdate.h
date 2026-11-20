@@ -23,7 +23,7 @@ namespace Graphics
 
 	/*
 		The bytes of a descriptor after its block changed: every variable that exists in both layouts (same slot and generation) is copied from where the old shape had it to where the new shape has it, for every dynamic unit and struct element. The rest (new variables) is zero.
-		rOldBytes_ is the whole old entry, e.g. Descriptor::backup. Returns the whole new entry.
+		rOldBytes_ is the whole old entry, e.g. Residency::backup. Returns the whole new entry.
 	*/
 	std::vector<char> remapDescriptorBytes(const std::vector<char>& rOldBytes_, const DescriptorLayout& rOldLayout_, const DescriptorShape& rOldShape_, const DescriptorLayout& rNewLayout_, const DescriptorShape& rNewShape_);
 

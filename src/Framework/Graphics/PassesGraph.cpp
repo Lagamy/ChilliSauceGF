@@ -125,14 +125,23 @@ void PassesGraph::registerTaskCmdBuffers(PassId passId_, uint32_t taskId_)
 }
 
 /*
-    A ONESHOT command buffer is recorded and submitted once, so a draw that has to be skipped inside it would be lost for good. The pass is held until every descriptor its command lists use is loaded and settled, and holding re-marks them as used every frame so they can't be unloaded meanwhile.
+    A ONESHOT command buffer is recorded and submitted once, so a draw that has to be skipped inside it would be lost for good. The pass is held until every descriptor and mesh its command lists use is loaded and settled, and holding re-marks them as used every frame so they can't be unloaded meanwhile.
     FRAME passes are not held: they are re-recorded every frame and skip single draws (drawMeshIndexed).
 */
-bool PassesGraph::areDescriptorsReady(PassId passId_)
+bool PassesGraph::areResourcesReady(PassId passId_)
 {
     bool ready = true;
     for(const auto& rTask : this->getPass(passId_).tasks)
     {
+        for(PoolId meshId : getCommandList(rTask.commandListId).collectMeshUses())
+        {
+            Mesh& rMesh = getMesh(meshId);
+            rMesh.markUsed();
+            if(!rMesh.isSettled())
+            {
+                ready = false;
+            }
+        }
         for(const BoundDescriptor& rUse : getCommandList(rTask.commandListId).collectDescriptorUses())
         {
             DescriptorSet& rSet = getDescriptorSet(rUse.setId);
@@ -161,7 +170,7 @@ void PassesGraph::enablePass(PassId passId_)
     Pass& rPass = this->getPass(passId_);
     if(!rPass.enabled)
     {
-        if(passId_.cmdLifetime == ONESHOT && !this->areDescriptorsReady(passId_))
+        if(passId_.cmdLifetime == ONESHOT && !this->areResourcesReady(passId_))
         {
             bool alreadyHeld = std::any_of(this->heldPasses.begin(), this->heldPasses.end(), [&](const PassId& rHeld_)
             {
@@ -249,6 +258,141 @@ void PassesGraph::waitForFrame(uint32_t frameIndex_)
     }
 }
 
+/*
+    Vulkan rule: a buffer may not be destroyed and a descriptor binding may not be rewritten while a pending command buffer uses it (VUID-vkDestroyBuffer-buffer-00922, VUID-vkUpdateDescriptorSets-None-03047). A submit is no longer pending once its fence signaled.
+    A use recorded in frame N was submitted by the FRAME passes of frame N, whose fences waitForFrame(N % framesAtFlightCount) waits on. Renderer::draw waits on its own slot at the start of every frame, so a use that is framesAtFlightCount frames old or older was waited on already.
+*/
+void PassesGraph::waitForUse(uint64_t lastUsedFrame_)
+{
+    if(lastUsedFrame_ == NeverUsedFrame)
+    {
+        return;
+    }
+    uint64_t framesAtFlight = Globals::renderer.framesAtFlightCount;
+    if(Globals::renderer.frameNumber - lastUsedFrame_ < framesAtFlight)
+    {
+        this->waitForFrame(static_cast<uint32_t>(lastUsedFrame_ % framesAtFlight));
+    }
+}
+
+/*
+    A ONESHOT submit has no frame fence, so resolveSync_SubmitToGPU gives every one that uses meshes or descriptors a tracking fence (an empty submit after it: a fence signals once everything submitted to the queue before it finished) and records what it uses.
+    Only the submits that use the resource are waited on, the rest of the device keeps running.
+*/
+void PassesGraph::waitForMeshUse(PoolId meshId_)
+{
+    this->waitForUse(getMesh(meshId_).residency.lastUsedFrame);
+    for(const OneShotFlight& rFlight : this->oneShotsInFlight)
+    {
+        if(std::find(rFlight.meshIds.begin(), rFlight.meshIds.end(), meshId_) != rFlight.meshIds.end())
+        {
+            this->waitForOneShotFlight(rFlight);
+        }
+    }
+}
+
+/*
+    A host write into a CPU_SHARED copy needs every submit that reads the copy to be finished (write after read). A FRAME pass is covered by waitForFrame, a ONESHOT submit by its tracking fence.
+    The flight lists the entry, not the copy, so it is waited on whichever copy it was recorded with.
+*/
+void PassesGraph::waitForEntryUse(const MemoryEntryId& rEntryId_)
+{
+    for(const OneShotFlight& rFlight : this->oneShotsInFlight)
+    {
+        for(const MemoryEntryId& rUsed : rFlight.entryIds)
+        {
+            if(rUsed.allocatorType == rEntryId_.allocatorType && rUsed.id == rEntryId_.id)
+            {
+                this->waitForOneShotFlight(rFlight);
+                break;
+            }
+        }
+    }
+}
+
+void PassesGraph::waitForOneShots()
+{
+    for(const OneShotFlight& rFlight : this->oneShotsInFlight)
+    {
+        this->waitForOneShotFlight(rFlight);
+    }
+}
+
+void PassesGraph::waitForOneShotFlight(const OneShotFlight& rFlight_)
+{
+    VkFence fence = getFence(rFlight_.fenceId);
+    vkWaitForFences(getMainDevice().logicalDevice, 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+}
+
+void PassesGraph::waitForDescriptorUse(PoolId setId_, PoolId descriptorId_)
+{
+    this->waitForUse(getDescriptorSet(setId_).getLastUsedFrame(descriptorId_));
+    for(const OneShotFlight& rFlight : this->oneShotsInFlight)
+    {
+        for(const BoundDescriptor& rUse : rFlight.descriptors)
+        {
+            if(rUse.setId == setId_ && rUse.descriptorId == descriptorId_)
+            {
+                this->waitForOneShotFlight(rFlight);
+                break;
+            }
+        }
+    }
+}
+
+void PassesGraph::trackOneShot(const SubmissionBatch& rBatch_)
+{
+    OneShotFlight flight;
+    for(const auto& rTask : this->getPass(rBatch_.passId).tasks)
+    {
+        const CommandList& rList = getCommandList(rTask.commandListId);
+        for(PoolId meshId : rList.collectMeshUses())
+        {
+            flight.meshIds.push_back(meshId);
+            flight.entryIds.push_back(getMesh(meshId).vbMemoryUploadId);
+        }
+        for(const BoundDescriptor& rUse : rList.collectDescriptorUses())
+        {
+            flight.descriptors.push_back(rUse);
+            flight.entryIds.push_back(getDescriptorSet(rUse.setId).getDescriptorEntryId(rUse.descriptorId));
+        }
+    }
+    if(flight.meshIds.empty() && flight.descriptors.empty())
+    {
+        return;
+    }
+
+    if(this->freeOneShotFenceIds.empty())
+    {
+        flight.fenceId = addFence(false);
+    }
+    else
+    {
+        flight.fenceId = this->freeOneShotFenceIds.back();
+        this->freeOneShotFenceIds.pop_back();
+    }
+    vkQueueSubmit(getQueue(rBatch_.queueFamily), 0, nullptr, getFence(flight.fenceId));
+    this->oneShotsInFlight.push_back(std::move(flight));
+}
+
+void PassesGraph::retireOneShots()
+{
+    for(uint32_t i = 0; i < this->oneShotsInFlight.size();)
+    {
+        VkFence fence = getFence(this->oneShotsInFlight[i].fenceId);
+        if(vkGetFenceStatus(getMainDevice().logicalDevice, fence) == VK_SUCCESS)
+        {
+            vkResetFences(getMainDevice().logicalDevice, 1, &fence);
+            this->freeOneShotFenceIds.push_back(this->oneShotsInFlight[i].fenceId);
+            this->oneShotsInFlight.erase(this->oneShotsInFlight.begin() + i);
+        }
+        else
+        {
+            i++;
+        }
+    }
+}
+
 void PassesGraph::compileIfDirty()
 {
     if(this->orderDirty)
@@ -262,6 +406,7 @@ void PassesGraph::compileIfDirty()
             {
                 this->submissionBatches.emplace_back(rPass.name, rPassId.cmdLifetime, rPassId.queueFamily, rPass.signalFenceId);  
                 SubmissionBatch& rBatch = this->submissionBatches.back(); 
+                rBatch.passId = rPassId;
                 
                 if(rPass.dynamicSignalFence)
                 {
@@ -419,6 +564,10 @@ void PassesGraph::resolveSync_SubmitToGPU()
             vkResetFences(getMainDevice().logicalDevice, 1, &signalFence);
         }
 	    vkQueueSubmit(getQueue(rBatch.queueFamily), rBatch.submitInfos.size(), rBatch.submitInfos.data(), signalFence);
+        if(rBatch.lifetime == ONESHOT)
+        {
+            this->trackOneShot(rBatch);
+        }
         if(rBatch.lifetime == ONESHOT) // cmdBuffers were already disabled when recorded, remove this submissionBatch from list
 	    {
 		    this->submissionBatches.erase(this->submissionBatches.begin() + batchId); 

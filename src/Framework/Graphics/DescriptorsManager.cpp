@@ -269,7 +269,7 @@ namespace Graphics
             }
 
             Descriptor& rDescriptor = rSet.descriptors.getInternal(i);
-            if(rSet.descriptorsMemoryAllocated && rSet.allocatorType == DYNAMIC_ALLOCATOR && rDescriptor.loaded)
+            if(rSet.descriptorsMemoryAllocated && rSet.allocatorType == DYNAMIC_ALLOCATOR && rDescriptor.residency.loaded)
             {
                 getMemoryManager().removeDynamicEntry(rDescriptor.memoryEntryId);
             }
@@ -370,8 +370,8 @@ namespace Graphics
     }
 
     /*
-        The decisions are collected first and applied after one wait for the device, since a load updates the descriptor sets and an unload destroys buffers, which no submitted command may use (see DescriptorSet::loadDescriptor).
-        A descriptor is unloaded once it was not used for absenceSecondsCount seconds, a request (DescriptorSet::markUsed) loads it. Draws and passes that use an unloaded descriptor are skipped / held until the load's upload completed.
+        The decisions are collected first and applied after waiting for the submits that used the descriptors (PassesGraph::waitForDescriptorUse, not the whole device), since a load updates the descriptor sets and an unload destroys buffers, which no submitted command may use (see DescriptorSet::loadDescriptor). A descriptor nobody used for the absence time has nothing to wait for.
+        A descriptor is unloaded once it was not used for residency.absenceSecondsCount seconds, a request (DescriptorSet::markUsed) loads it. Draws and passes that use an unloaded descriptor are skipped / held until the load's upload completed.
         resolvePendingOperations runs again afterwards, so the copies of the loaded bytes are queued and the deferred removals of the unloaded entries happen in this frame: the upload batch is submitted this frame, which is what waitForLoads waits on.
     */
     void DescriptorsManager::updateLoading()
@@ -401,12 +401,12 @@ namespace Graphics
 
                 Descriptor& rDescriptor = rSet.descriptors.getInternal(j);
                 PoolId setId = PoolId(i, this->descriptorSet.generation[i]);
-                double absentSeconds = std::chrono::duration<double>(now - rDescriptor.lastUsedTime).count();
-                if(!rDescriptor.loaded && rDescriptor.loadRequested)
+                double absentSeconds = std::chrono::duration<double>(now - rDescriptor.residency.lastUsedTime).count();
+                if(!rDescriptor.residency.loaded && rDescriptor.residency.loadRequested)
                 {
                     toLoad.push_back({setId, rDescriptor.DescriptorLayoutId});
                 }
-                else if(rDescriptor.loaded && rSet.unloadsAutomatically() && absentSeconds > rSet.params.absenceSecondsCount)
+                else if(rDescriptor.residency.loaded && rSet.unloadsAutomatically() && absentSeconds > rSet.params.residency.absenceSecondsCount)
                 {
                     toUnload.push_back({setId, rDescriptor.DescriptorLayoutId});
                 }
@@ -417,7 +417,14 @@ namespace Graphics
             return;
         }
 
-        this->waitForGpu();
+        for(const BoundDescriptor& rBound : toUnload)
+        {
+            getPassesManager().waitForDescriptorUse(rBound.setId, rBound.descriptorId);
+        }
+        for(const BoundDescriptor& rBound : toLoad)
+        {
+            getPassesManager().waitForDescriptorUse(rBound.setId, rBound.descriptorId);
+        }
         for(const BoundDescriptor& rBound : toUnload)
         {
             this->descriptorSet[rBound.setId].unloadDescriptor(rBound.descriptorId);
@@ -426,7 +433,7 @@ namespace Graphics
         {
             DescriptorSet& rSet = this->descriptorSet[rBound.setId];
             rSet.loadDescriptor(rBound.descriptorId);
-            if(rSet.params.loadMode == WAIT_UNTIL_LOADED)
+            if(rSet.params.residency.loadMode == WAIT_UNTIL_LOADED)
             {
                 this->loadsToWaitFor.push_back(rBound);
             }
@@ -438,9 +445,9 @@ namespace Graphics
     void DescriptorsManager::loadDescriptor(PoolId setId_, PoolId descriptorId_)
     {
         DescriptorSet& rSet = this->descriptorSet[setId_];
-        this->waitForGpu();
+        getPassesManager().waitForDescriptorUse(setId_, descriptorId_);
         rSet.loadDescriptor(descriptorId_);
-        if(rSet.params.loadMode == WAIT_UNTIL_LOADED)
+        if(rSet.params.residency.loadMode == WAIT_UNTIL_LOADED)
         {
             this->loadsToWaitFor.push_back({setId_, descriptorId_});
         }
@@ -455,27 +462,27 @@ namespace Graphics
     void DescriptorsManager::saveDescriptorToDisk(PoolId setId_, PoolId descriptorId_)
     {
         DescriptorSet& rSet = this->descriptorSet[setId_];
-        if(rSet.params.saveToDisk == nullptr)
+        if(rSet.params.residency.saveToDisk == nullptr)
         {
             throw std::runtime_error("Descriptors Manager: the set has no saveToDisk, it needs loadFromDisk.");
         }
-        rSet.params.saveToDisk(setId_, descriptorId_);
+        rSet.params.residency.saveToDisk(setId_, descriptorId_);
     }
 
     void DescriptorsManager::changeDescriptorLayoutOnDisk(PoolId setId_, PoolId descriptorId_)
     {
         DescriptorSet& rSet = this->descriptorSet[setId_];
-        if(rSet.params.changeLayoutOnDisk == nullptr)
+        if(rSet.params.residency.changeLayoutOnDisk == nullptr)
         {
             throw std::runtime_error("Descriptors Manager: the set has no changeLayoutOnDisk, it needs loadFromDisk.");
         }
-        rSet.params.changeLayoutOnDisk(setId_, descriptorId_);
+        rSet.params.residency.changeLayoutOnDisk(setId_, descriptorId_);
         rSet.markDiskLayoutChanged(descriptorId_);
     }
 
     void DescriptorsManager::unloadDescriptor(PoolId setId_, PoolId descriptorId_)
     {
-        this->waitForGpu();
+        getPassesManager().waitForDescriptorUse(setId_, descriptorId_);
         this->descriptorSet[setId_].unloadDescriptor(descriptorId_);
         getMemoryManager().resolvePendingOperations();
     }
@@ -490,7 +497,7 @@ namespace Graphics
         {
             DescriptorSet& rSet = this->descriptorSet[rBound.setId];
             Descriptor& rDescriptor = rSet.descriptors.getInternal(rBound.descriptorId.id);
-            if(rDescriptor.loaded && rDescriptor.memoryVisability == GPU_LOCAL)
+            if(rDescriptor.residency.loaded && rDescriptor.memoryVisability == GPU_LOCAL)
             {
                 getMemoryManager().waitForBatch(getMemoryEntry(rDescriptor.memoryEntryId).uploadBatchId);
             }

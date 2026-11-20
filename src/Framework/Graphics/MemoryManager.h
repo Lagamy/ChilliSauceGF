@@ -64,6 +64,7 @@ struct MemoryManager
 	void queueEntryCopy(const EntryCopyRequest& rRequest_, MemoryEntry& rSrcEntry_, MemoryEntry& rDstEntry_);
 	void copyEntry(MemoryEntryId srcEntryId_, MemoryEntryId dstEntryId_, const std::vector<MemoryCopyRegion>& regions_); // GPU Local -> GPU Local on the GPU, deferred like a readback. Empty regions = the first min(src size, dst size) bytes. The destination can have writes pending, the copy goes after them
 	void zeroEntryRanges(MemoryEntryId entryId_, const std::vector<MemoryCopyRegion>& rRanges_); // Sets the byte ranges (MemoryCopyRegion::dstOffset, size) of an entry to 0: in memory for CPU_SHARED and entries with a shadow, into the staging range of a reserved entry, otherwise on the GPU
+	std::vector<char> takeShadow(MemoryEntryId entryId_); // moves the shadow out of an entry with copies (the entry is about to be removed and its owner keeps the bytes, so there is one CPU copy, not two). Throws when the entry has none
 	MemoryEntryId allocateEntry(const MemoryEntryCreateParams& rParams_); // params.data has to be nullptr
 	MemoryEntryId reserveEntry(const MemoryEntryCreateParams& rParams_); // params.data has to be nullptr
 	void commitEntry(MemoryEntryId entryId_);

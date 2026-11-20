@@ -95,8 +95,10 @@ void Renderer::draw()
 		this->gpuSceneManager.updatePasses(); 
 
 		this->passesGraph.waitForFrame(this->currentFrame);
+		this->passesGraph.retireOneShots();
 		/* After the fence wait and before the shadows are copied: a load writes the shadow of a per-frame descriptor, which syncCopiesToFrame then copies into this frame's copy. */
 		this->descriptorsManager.updateLoading();
+		this->resourcesManager.updateLoading();
 		this->passesGraph.releaseHeldPasses();
 		this->memoryManager.syncCopiesToFrame(this->currentFrame);
 
@@ -117,9 +119,11 @@ void Renderer::draw()
 		// if Data was 
 		this->descriptorsManager.lockBoundDescriptors();
 		this->descriptorsManager.waitForLoads();
+		this->resourcesManager.waitForLoads();
 		
 		presentToScreen(); 
 		this->currentFrame = (this->currentFrame + 1) % this->framesAtFlightCount; 
+		this->frameNumber++;
 	}
 }
 
@@ -171,6 +175,7 @@ void Renderer::resetDeviceState()
 	this->framesResources.clear();
 	this->oneShotCommandPools = CmdPoolsPack<OneShotCommandPool>();
 	this->currentFrame = 0;
+	this->frameNumber = 0;
 	this->recordingPipelineId = UninitializedPoolId;
 	this->recordingSetIds.clear();
 }

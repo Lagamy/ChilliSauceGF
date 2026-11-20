@@ -51,8 +51,8 @@ struct DescriptorsManager
     void destroy();
 
     /*
-        On demand loading of descriptors (DescriptorSet::loadDescriptor), per descriptor, see DescriptorSetCreateParams. updateLoading runs in Renderer::draw every frame (after the frame's fence wait, before the shadows are copied): it loads the descriptors a draw or pass requested and unloads the ones nobody used for their set's absenceSecondsCount seconds.
-        Anything it changes needs the device idle first (one vkDeviceWaitIdle per call), so a frame that loads or unloads stalls the GPU once. Not while recording.
+        On demand loading of descriptors (DescriptorSet::loadDescriptor), per descriptor, see DescriptorSetCreateParams::residency (ResidencyParams). updateLoading runs in Renderer::draw every frame (after the frame's fence wait, before the shadows are copied): it loads the descriptors a draw or pass requested and unloads the ones nobody used for their set's residency.absenceSecondsCount seconds.
+        Anything it changes needs the submits that used the descriptor finished first (PassesGraph::waitForDescriptorUse). Not while recording.
         loadDescriptor / unloadDescriptor are the manual versions (Api.h).
     */
     void updateLoading();
@@ -62,7 +62,7 @@ struct DescriptorsManager
     void saveDescriptorToDisk(PoolId setId_, PoolId descriptorId_); // calls the set's saveToDisk, throws if the set has none
     void changeDescriptorLayoutOnDisk(PoolId setId_, PoolId descriptorId_); // calls the set's changeLayoutOnDisk, throws if the set has none
     void waitForLoads(); // after the frame's submit: blocks until the uploads of the descriptors loaded this frame by a WAIT_UNTIL_LOADED set completed
-    void waitForGpu(); // vkDeviceWaitIdle, the ONESHOT passes have no frame fence to wait on
+    void waitForGpu(); // vkDeviceWaitIdle, for the structural changes (layout commits, removals). Loads and unloads wait with PassesGraph::waitForDescriptorUse instead
 };
 }
 

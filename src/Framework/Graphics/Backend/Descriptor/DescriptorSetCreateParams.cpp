@@ -17,21 +17,6 @@ namespace Graphics
 		{
 			throw std::runtime_error("Descriptor Set Create Params: memoryVisability is required.");
 		}
-		if(this->absenceSecondsCount == 0)
-		{
-			throw std::runtime_error("Descriptor Set Create Params: absenceSecondsCount can't be 0, the descriptor would unload and load again every frame. Use 1 or more, or UninitializedId to never unload.");
-		}
-		if(this->loadFromDisk != nullptr && (this->saveToDisk == nullptr || this->changeLayoutOnDisk == nullptr))
-		{
-			throw std::runtime_error("Descriptor Set Create Params: loadFromDisk needs saveToDisk and changeLayoutOnDisk too.");
-		}
-		if(this->loadFromDisk == nullptr && (this->saveToDisk != nullptr || this->changeLayoutOnDisk != nullptr))
-		{
-			throw std::runtime_error("Descriptor Set Create Params: saveToDisk and changeLayoutOnDisk belong to loadFromDisk, set it too.");
-		}
-		if(this->allocatorType == STATIC_ALLOCATOR &&this->absenceSecondsCount != UninitializedId)
-		{
-			throw std::runtime_error("Descriptor Set Create Params: A STATIC_ALLOCATOR set can't unload (static entries can't be removed), set absenceSecondsCount to UninitializedId.");
-		}
+		this->residency.validate(this->allocatorType);
 	}
 }

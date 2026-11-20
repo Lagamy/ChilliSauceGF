@@ -81,7 +81,7 @@ add_executable(ChilliSauceGF
  	"src/Framework/Graphics/MemoryManagment/Pages/FreeSpace.cpp"
  	"src/Framework/Graphics/MemoryManagment/Heaps/GPULocalHeap.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/CPUSharedHeap.cpp"
  	src/Framework/Graphics/Backend/Descriptor/DescriptorLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorLayoutUpdate.cpp src/Framework/Graphics/Backend/Descriptor/Descriptor.cpp
- 	src/Framework/Graphics/Backend/Descriptor/DescriptorSetLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSet.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSetCreateParams.cpp
+ 	src/Framework/Graphics/Backend/Descriptor/DescriptorSetLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSet.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSetCreateParams.cpp src/Framework/Graphics/Residency/Residency.cpp src/Framework/Graphics/ResourcesManager.cpp
  	src/Framework/Graphics/Backend/Descriptor/DescriptorPool.cpp src/Framework/Graphics/DescriptorsManager.cpp
 )
 
@@ -110,6 +110,7 @@ set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
 set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
 set(MEMORY_MANAGMENT_DIR "${GRAPHICS_DIR}/MemoryManagment")
 set(REFLECTION_DIR "${GRAPHICS_DIR}/Reflection")
+set(RESIDENCY_DIR "${GRAPHICS_DIR}/Residency")
 
 #Memory Managment 
 set(HEAPS_DIR "${MEMORY_MANAGMENT_DIR}/Heaps")
@@ -142,6 +143,9 @@ target_include_directories(ChilliSauceGF PRIVATE
 
 	# Reflection
 	${REFLECTION_DIR}
+
+	# Residency
+	${RESIDENCY_DIR}
 
 	# Memory Managment 
 	${HEAPS_DIR} ${PAGES_DIR} ${CREATE_PARAMS_DIR}

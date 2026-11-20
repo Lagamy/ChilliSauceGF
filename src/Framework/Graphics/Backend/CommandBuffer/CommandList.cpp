@@ -99,6 +99,20 @@ namespace Graphics
 		}
 		endCommandBuffer(cmdBuffer_);
 	}
+	/* The meshes the draws of the list use, for PassesGraph::enablePass: a ONESHOT pass is held until they are loaded, like the descriptors. */
+	std::vector<PoolId> CommandList::collectMeshUses() const
+	{
+		std::vector<PoolId> uses;
+		for(const CmdEntry& rEntry : this->order)
+		{
+			if(rEntry.type == CMD_DRAW_MESH_INDEXED)
+			{
+				uses.push_back(this->drawMeshIndexedParams[rEntry.paramsId].meshId);
+			}
+		}
+		return uses;
+	}
+
 	/*
 		Replays the commands like record does, but only follows what is bound: the pipeline of the last bind graphics pipeline command and the set per set index. Every draw adds the descriptors its vertex and fragment shader declared (Shader::addDescriptor) in the sets bound at their set indices, the same lookup drawMeshIndexed makes while recording.
 		PassesGraph::enablePass uses it to hold a ONESHOT pass until all of them are loaded: a draw skipped inside a ONESHOT buffer would be lost for good, since the buffer is recorded and submitted only once. Doesn't throw for an unbound set index, record does that.

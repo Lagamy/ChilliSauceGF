@@ -220,8 +220,8 @@ namespace Graphics
 		rDescriptor_.shape = rDescriptor_.getDescriptorLayout().makeShape(getDynamicAlignment(rDescriptor_.getType()));
 		this->validateShape(rDescriptor_);
 		this->allocateDescriptorMemory(rDescriptor_);
-		rDescriptor_.backup.data.assign(this->keepsBackup() ? rDescriptor_.shape.getSize() : 0, 0);
-		rDescriptor_.lastUsedTime = std::chrono::steady_clock::now();
+		rDescriptor_.residency.backup.data.assign(this->mirrorsWrites(rDescriptor_) ? rDescriptor_.shape.getSize() : 0, 0);
+		rDescriptor_.residency.lastUsedTime = std::chrono::steady_clock::now();
 	}
 
 	void DescriptorSet::checkDynamicLimits()
@@ -319,7 +319,7 @@ namespace Graphics
 				}
 
 				Descriptor& rDescriptor = this->descriptors.getInternal(i);
-				if(!rDescriptor.loaded)
+				if(!rDescriptor.residency.loaded)
 				{
 					continue;
 				}
@@ -389,7 +389,7 @@ namespace Graphics
 	void DescriptorSet::lockReadOnlyDescriptor(PoolId descriptorId_)
 	{
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
-		if(!rDescriptor.readOnly || rDescriptor.readOnlyLocked || !rDescriptor.loaded)
+		if(!rDescriptor.readOnly || rDescriptor.readOnlyLocked || !rDescriptor.residency.loaded)
 		{
 			return;
 		}
@@ -406,7 +406,7 @@ namespace Graphics
 	bool DescriptorSet::isDescriptorSettled(PoolId descriptorId_)
 	{
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
-		if(!rDescriptor.loaded)
+		if(!rDescriptor.residency.loaded)
 		{
 			return false;
 		}
@@ -429,30 +429,40 @@ namespace Graphics
 
 	bool DescriptorSet::unloadsAutomatically() const
 	{
-		return this->canUnload() && this->params.absenceSecondsCount != UninitializedId;
+		return this->canUnload() && this->params.residency.absenceSecondsCount != UninitializedId;
 	}
 
-	bool DescriptorSet::keepsBackup() const
+	bool DescriptorSet::entryHasShadow(const Descriptor& rDescriptor_) const
 	{
-		return this->canUnload() && this->params.loadFromDisk == nullptr;
+		return rDescriptor_.isPerFrame() && Globals::renderer.framesAtFlightCount > 1;
 	}
 
-	/* Stamps the use for the absence time (only a set that unloads by itself has one) and requests a load of an unloaded descriptor, also when it was unloaded by hand. A static set never leaves memory, so there is nothing to do. */
+	bool DescriptorSet::mirrorsWrites(const Descriptor& rDescriptor_) const
+	{
+		return this->unloadsAutomatically() && this->params.residency.loadFromDisk == nullptr && !this->entryHasShadow(rDescriptor_);
+	}
+
 	void DescriptorSet::markDiskLayoutChanged(PoolId descriptorId_)
 	{
-		this->getDescriptor(descriptorId_).diskLayoutStale = false;
+		this->getDescriptor(descriptorId_).residency.diskLayoutStale = false;
 	}
 
 	MemoryEntryId DescriptorSet::getDescriptorEntryId(PoolId descriptorId_)
 	{
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
-		if(!rDescriptor.loaded)
+		if(!rDescriptor.residency.loaded)
 		{
 			throw std::runtime_error(std::format("Descriptor Set: {} is unloaded, it has no entry.", rDescriptor.getDescriptorLayout().name));
 		}
 		return rDescriptor.memoryEntryId;
 	}
 
+	uint64_t DescriptorSet::getLastUsedFrame(PoolId descriptorId_)
+	{
+		return this->getDescriptor(descriptorId_).residency.lastUsedFrame;
+	}
+
+	/* Stamps the use for the absence time (only a set that unloads by itself has one) and requests a load of an unloaded descriptor, also when it was unloaded by hand. A static set never leaves memory, so there is nothing to do. */
 	void DescriptorSet::markUsed(PoolId descriptorId_)
 	{
 		if(!this->canUnload())
@@ -461,19 +471,21 @@ namespace Graphics
 		}
 
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
+		rDescriptor.residency.markUsedFrame();
 		if(this->unloadsAutomatically())
 		{
-			rDescriptor.lastUsedTime = std::chrono::steady_clock::now();
+			rDescriptor.residency.lastUsedTime = std::chrono::steady_clock::now();
 		}
-		if(!rDescriptor.loaded)
+		if(!rDescriptor.residency.loaded)
 		{
-			rDescriptor.loadRequested = true;
+			rDescriptor.residency.loadRequested = true;
 		}
 	}
 
 	/*
 		Vulkan rule: a buffer may only be destroyed once no submitted command uses it (VUID-vkDestroyBuffer-buffer-00922), which the caller guarantees by waiting for the device. The binding is not rewritten: a descriptor whose buffer was destroyed is undefined, and that is legal as long as no shader that runs reads it (the draws and passes that use it are skipped or held until it is loaded again, and the validation layers report it when one slips through).
 		The state that described the old entry is reset, the new one starts fresh (nothing written, not locked).
+		The CPU copy of the bytes stays: an entry with a shadow hands it over (takeShadow) before it is removed, the others mirrored their writes already.
 	*/
 	void DescriptorSet::unloadDescriptor(PoolId descriptorId_)
 	{
@@ -483,14 +495,36 @@ namespace Graphics
 		}
 
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
-		if(!rDescriptor.loaded)
+		if(!rDescriptor.residency.loaded)
 		{
 			return;
 		}
 
+		/*
+			The bytes have to survive the removal of the entry, in one CPU copy: with loadFromDisk the file has them, an entry with a shadow hands the shadow over (takeShadow), a mirrored descriptor has the backup already, a CPU_SHARED entry is read (its memory is readable).
+			A GPU_LOCAL entry without a shadow in a set that doesn't unload by itself has no copy and the GPU can't be read here, so it can't unload.
+		*/
+		if(this->params.residency.loadFromDisk == nullptr)
+		{
+			MemoryManager& rMemoryManager = getMemoryManager();
+			if(this->entryHasShadow(rDescriptor))
+			{
+				rDescriptor.residency.backup.data = rMemoryManager.takeShadow(rDescriptor.memoryEntryId);
+			}
+			else if(!this->mirrorsWrites(rDescriptor))
+			{
+				if(rDescriptor.memoryVisability != CPU_SHARED)
+				{
+					throw std::runtime_error(std::format("Descriptor Set: {} can't unload, nothing could bring its bytes back. Create the set with residency.loadFromDisk or an absenceSecondsCount (the engine then keeps a CPU copy).", rDescriptor.getDescriptorLayout().name));
+				}
+				MemoryEntry& rEntry = rMemoryManager.getEntry(rDescriptor.memoryEntryId);
+				rDescriptor.residency.backup.data.resize(rEntry.size);
+				rMemoryManager.readShared(rEntry, 0, rDescriptor.residency.backup.data.data(), rEntry.size);
+			}
+		}
 		getMemoryManager().removeDynamicEntry(rDescriptor.memoryEntryId);
-		rDescriptor.loaded = false;
-		rDescriptor.loadRequested = false;
+		rDescriptor.residency.loaded = false;
+		rDescriptor.residency.loadRequested = false;
 		rDescriptor.created = false;
 		rDescriptor.gpuWritten = false;
 		rDescriptor.firstDataSettled = false;
@@ -520,11 +554,11 @@ namespace Graphics
 	void DescriptorSet::loadDescriptor(PoolId descriptorId_)
 	{
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
-		if(rDescriptor.loaded)
+		if(rDescriptor.residency.loaded)
 		{
 			return;
 		}
-		if(rDescriptor.diskLayoutStale && this->params.loadFromDisk != nullptr)
+		if(rDescriptor.residency.diskLayoutStale && this->params.residency.loadFromDisk != nullptr)
 		{
 			throw std::runtime_error(std::format("Descriptor Set: {} can't be loaded from disk, a layout update changed its block and the file still has the old layout. Call changeDescriptorLayoutOnDisk (and saveDescriptorToDisk) for it first.", rDescriptor.getDescriptorLayout().name));
 		}
@@ -532,17 +566,22 @@ namespace Graphics
 		this->allocateDescriptorMemory(rDescriptor);
 		this->rewriteBindings(rDescriptor);
 
-		rDescriptor.loaded = true;
-		rDescriptor.loadRequested = false;
+		rDescriptor.residency.loaded = true;
+		rDescriptor.residency.loadRequested = false;
 		rDescriptor.created = true;
-		rDescriptor.lastUsedTime = std::chrono::steady_clock::now();
-		if(this->params.loadFromDisk != nullptr)
+		rDescriptor.residency.lastUsedTime = std::chrono::steady_clock::now();
+		if(this->params.residency.loadFromDisk != nullptr)
 		{
-			this->params.loadFromDisk(rDescriptor.setId, rDescriptor.DescriptorLayoutId);
+			this->params.residency.loadFromDisk(rDescriptor.setId, rDescriptor.DescriptorLayoutId);
 		}
 		else
 		{
 			this->restoreBackup(rDescriptor);
+			/* Unless the writes are mirrored the bytes are in the new entry now (its shadow, or the CPU_SHARED memory), so the backup would be a second CPU copy of them. */
+			if(!this->mirrorsWrites(rDescriptor))
+			{
+				std::vector<char>().swap(rDescriptor.residency.backup.data);
+			}
 		}
 	}
 
@@ -558,22 +597,22 @@ namespace Graphics
 		DescriptorShape newShape = rLayout.makeShape(getDynamicAlignment(rDescriptor.getType()));
 
 		/* Nothing the shader reads moved and the entry has the same size, e.g. a member that fit in the headroom was added: the entry (and its copies) stays, only the shape and the CPU copy change. */
-		if(rDescriptor.loaded && descriptorKeepsEntry(rOldLayout_, rOldShape_, rLayout, newShape))
+		if(rDescriptor.residency.loaded && descriptorKeepsEntry(rOldLayout_, rOldShape_, rLayout, newShape))
 		{
 			rDescriptor.shape = newShape;
 			this->validateShape(rDescriptor);
-			if(this->keepsBackup())
+			if(!rDescriptor.residency.backup.data.empty())
 			{
-				rDescriptor.backup.data = remapDescriptorBytes(rDescriptor.backup.data, rOldLayout_, rOldShape_, rLayout, rDescriptor.shape);
+				rDescriptor.residency.backup.data = remapDescriptorBytes(rDescriptor.residency.backup.data, rOldLayout_, rOldShape_, rLayout, rDescriptor.shape);
 			}
 		}
-		else if(rDescriptor.loaded && this->canUnload() && rDescriptor.memoryVisability == GPU_LOCAL && !getMemoryManager().getEntry(rDescriptor.memoryEntryId).hasShadow)
+		else if(rDescriptor.residency.loaded && this->canUnload() && rDescriptor.memoryVisability == GPU_LOCAL && !getMemoryManager().getEntry(rDescriptor.memoryEntryId).hasShadow)
 		{
 			this->moveDescriptorEntry(rDescriptor, rOldLayout_, rOldShape_, newShape);
 		}
 		else
 		{
-			bool wasLoaded = rDescriptor.loaded;
+			bool wasLoaded = rDescriptor.residency.loaded;
 			if(wasLoaded)
 			{
 				this->unloadDescriptor(descriptorId_);
@@ -581,9 +620,9 @@ namespace Graphics
 
 			rDescriptor.shape = newShape;
 			this->validateShape(rDescriptor);
-			if(this->keepsBackup())
+			if(!rDescriptor.residency.backup.data.empty())
 			{
-				rDescriptor.backup.data = remapDescriptorBytes(rDescriptor.backup.data, rOldLayout_, rOldShape_, rLayout, rDescriptor.shape);
+				rDescriptor.residency.backup.data = remapDescriptorBytes(rDescriptor.residency.backup.data, rOldLayout_, rOldShape_, rLayout, rDescriptor.shape);
 			}
 
 			if(wasLoaded)
@@ -592,7 +631,7 @@ namespace Graphics
 			}
 		}
 
-		rDescriptor.diskLayoutStale = this->params.loadFromDisk != nullptr;
+		rDescriptor.residency.diskLayoutStale = this->params.residency.loadFromDisk != nullptr;
 	}
 
 	/*
@@ -617,9 +656,9 @@ namespace Graphics
 		rDescriptor_.gpuWritten = true;
 		rDescriptor_.firstDataSettled = false;
 		rDescriptor_.readOnlyLocked = false;
-		if(this->keepsBackup())
+		if(!rDescriptor_.residency.backup.data.empty())
 		{
-			rDescriptor_.backup.data = remapDescriptorBytes(rDescriptor_.backup.data, rOldLayout_, rOldShape_, rLayout, rDescriptor_.shape);
+			rDescriptor_.residency.backup.data = remapDescriptorBytes(rDescriptor_.residency.backup.data, rOldLayout_, rOldShape_, rLayout, rDescriptor_.shape);
 		}
 	}
 
@@ -642,7 +681,7 @@ namespace Graphics
 	void DescriptorSet::removeDescriptor(PoolId descriptorLayoutId_)
 	{
 		Descriptor& rDescriptor = this->descriptors.getInternal(descriptorLayoutId_.id);
-		if(this->descriptorsMemoryAllocated && this->allocatorType == DYNAMIC_ALLOCATOR && rDescriptor.loaded)
+		if(this->descriptorsMemoryAllocated && this->allocatorType == DYNAMIC_ALLOCATOR && rDescriptor.residency.loaded)
 		{
 			getMemoryManager().removeDynamicEntry(rDescriptor.memoryEntryId);
 		}
@@ -664,7 +703,7 @@ namespace Graphics
 	/* One write of the whole entry, so a GPU_LOCAL descriptor is one update (one staging range) and not one per variable. */
 	void DescriptorSet::restoreBackup(Descriptor& rDescriptor_)
 	{
-		uint64_t size = rDescriptor_.backup.data.size();
+		uint64_t size = rDescriptor_.residency.backup.data.size();
 		if(size == 0)
 		{
 			return;
@@ -674,14 +713,14 @@ namespace Graphics
 		{
 			rDescriptor_.gpuWritten = true;
 			StagingDataContainer container = this->getStagingContainer(rDescriptor_.memoryEntryId, 0, size);
-			container.write(0, rDescriptor_.backup.data.data(), size);
+			container.write(0, rDescriptor_.residency.backup.data.data(), size);
 		}
 		else
 		{
 			SharedDataContainer container = this->getSharedContainer(rDescriptor_.memoryEntryId);
 			container.validFirstOffset = 0;
 			container.validSize = size;
-			container.write(0, rDescriptor_.backup.data.data(), size);
+			container.write(0, rDescriptor_.residency.backup.data.data(), size);
 		}
 	}
 }
