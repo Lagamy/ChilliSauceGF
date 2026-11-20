@@ -7,6 +7,7 @@
 #include "ReadbackRequest.h"
 #include "Layout.h"
 #include "MemoryAccessParams.h"
+#include "EntryCopyRequest.h"
 #include <cstdint>
 #include <format>
 #include <stdexcept>
@@ -26,6 +27,8 @@ namespace Graphics
 		uint32_t verticesCount;
 		MemoryVisabilityEnum memoryVisability;
 		bool readOnly = false;
+		AllocatorTypeEnum allocatorType = DYNAMIC_ALLOCATOR; // as given to queueUpload, a new vertex entry (restride) is made the same way
+		MemoryAccessParams access;
 		std::vector<uint32_t> indices;
 
 		MemoryEntryId vbMemoryUploadId; // Handle to mem entry in the GPUMemoryManager
@@ -142,6 +145,15 @@ namespace Graphics
 
 		void queueUpload(AllocatorTypeEnum allocatorType_, MemoryVisabilityEnum memoryVisability_, const MemoryAccessParams& access_);
 		void commitUpload();
+
+		/*
+			For ReflectionSystem::commitVertexLayoutUpdate. hasVertexEntry: queueUpload was called. throwIfCantReplaceVertexEntry: the entry can't be replaced (static, or reserved and not committed).
+			restride: the vertex entry was made for rOldLayout_, afterwards it fits rNewLayout_. An entry that fits as it is stays. Otherwise a new entry takes its place: a GPU_LOCAL one without copies by a GPU side copy (MemoryManager::copyEntry),
+			any other by rewriting the bytes on the CPU (their data is readable: CPU_SHARED memory, or the shadow of an entry with copies). The bytes of variables that are new are 0 (MemoryManager::zeroEntryRanges).
+		*/
+		bool hasVertexEntry() const;
+		void throwIfCantReplaceVertexEntry();
+		void restride(const ReflectionLayout& rOldLayout_, const ReflectionLayout& rNewLayout_);
 
 		Mesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_);
 

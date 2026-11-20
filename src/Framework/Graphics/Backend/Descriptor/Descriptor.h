@@ -31,6 +31,7 @@ struct Descriptor
 	bool readOnly = false;
 	bool gpuWritten = false; // setDescriptorMemberValue wrote a GPU_LOCAL descriptor at least once
 	bool firstDataSettled = false; // a check saw no pending write after the first one, see DescriptorSet::isDescriptorSettled
+	bool diskLayoutStale = false; // loadFromDisk set: a layout update changed the block, the file still has the old layout until changeDescriptorLayoutOnDisk, so a load throws (DescriptorSet::loadDescriptor)
 	bool readOnlyLocked = false; // the entry was locked, see DescriptorSet::lockReadOnlyDescriptor
 
 	/* Load / unload state, see DescriptorSet::loadDescriptor. An unloaded descriptor has no memory entry (memoryEntryId is stale) and its binding points at a destroyed buffer, so nothing may read or write it. */

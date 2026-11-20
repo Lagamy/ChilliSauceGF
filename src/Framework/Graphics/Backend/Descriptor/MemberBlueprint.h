@@ -17,10 +17,11 @@ namespace Graphics
     {
         std::string name; // for debug porpuses
         MemberKindEnum kind;
+        uint32_t orderPosition; // Declaration order in the block, unique there (can be sparse). makeShape places the members in this order, not in the order of the slots.
         ReflectionLayout layout; // VARIABLE_MEMBER: exactly one variable. STRUCT_MEMBER: the variables of the struct.
         std::vector<uint32_t> repeatCountPerDimension; // STRUCT_MEMBER only: elements per layer of the struct array, outermost first ({2} = states[2], {1} = a single struct). Empty for a variable.
 
-        MemberBlueprint(const char* name_, MemberKindEnum kind_, STDAlignmentLayoutEnum alignment_, std::vector<uint32_t> repeatCountPerDimension_) : name(name_), kind(kind_), layout(alignment_), repeatCountPerDimension(std::move(repeatCountPerDimension_)) {};
+        MemberBlueprint(const char* name_, MemberKindEnum kind_, STDAlignmentLayoutEnum alignment_, uint32_t orderPosition_, std::vector<uint32_t> repeatCountPerDimension_, uint32_t headroom_ = 0) : name(name_), kind(kind_), orderPosition(orderPosition_), layout(alignment_, headroom_), repeatCountPerDimension(std::move(repeatCountPerDimension_)) {};
     };
 
     /* A variable of the descriptor: the member that holds it and its id in that member's layout. The id the user keeps (and the setters take) is the slot of this in DescriptorLayout::variables. */

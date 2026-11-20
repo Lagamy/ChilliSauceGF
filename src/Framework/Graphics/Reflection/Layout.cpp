@@ -5,37 +5,119 @@ namespace Graphics
 {
 uint32_t ReflectionLayout::getFirstAvailableByte()
 {
-    if(this->variableBlueprints.allocatedSize() == 0)
+    uint32_t firstAvailableByte = 0;
+    for(uint32_t i = 0; i < this->variableBlueprints.allocatedSize(); i++)
     {
-        return 0;
+        if(this->variableBlueprints.alive[i])
+        {
+            firstAvailableByte = std::max<uint32_t>(firstAvailableByte, this->variableBlueprints.objects[i].lastByteId + 1);
+        }
     }
-    return this->variableBlueprints.back().lastByteId + 1;
+    return firstAvailableByte;
 }
 
 /*
-    The member may start after padding, so the layout ends where its last member ends, rounded up to the alignment of the whole layout (the largest member alignment,
+    The layout ends where its last variable ends (or at headroom, if that is later), rounded up to the alignment of the whole layout (the largest variable alignment,
     and for std140 at least 16). That way repeat unit N+1 (repeatUnitId * size) starts where a struct array of this layout would put it.
+    Everything is worked out from the live variables (not only the last added one), so it is also right after a removal.
 */
 void ReflectionLayout::updateSize()
 {
-    this->structAlignment = std::max(this->structAlignment, this->variableBlueprints.back().alignmentRule);
-    if(this->alignment == STD140)
+    this->structAlignment = (this->alignment == STD140) ? 16 : 1;
+    for(uint32_t i = 0; i < this->variableBlueprints.allocatedSize(); i++)
     {
-        this->structAlignment = std::max<uint8_t>(this->structAlignment, 16);
+        if(this->variableBlueprints.alive[i])
+        {
+            this->structAlignment = std::max(this->structAlignment, this->variableBlueprints.objects[i].alignmentRule);
+        }
     }
-    this->size = alignUp(this->variableBlueprints.back().lastByteId + 1, this->structAlignment);
+    this->size = alignUp(std::max<size_t>(this->getFirstAvailableByte(), this->headroom), this->structAlignment);
+}
+
+/*
+    Places the live variables again in the order of their orderPosition. A slot freed by a removal is reused by the next add, so the slot order is not the declaration order.
+    The slots and generations stay, so the ids of the variables are still valid.
+*/
+void ReflectionLayout::relayout()
+{
+    std::vector<uint32_t> order;
+    for(uint32_t i = 0; i < this->variableBlueprints.allocatedSize(); i++)
+    {
+        if(this->variableBlueprints.alive[i])
+        {
+            order.push_back(i);
+        }
+    }
+    std::sort(order.begin(), order.end(), [this](uint32_t a_, uint32_t b_) { return this->variableBlueprints.objects[a_].orderPosition < this->variableBlueprints.objects[b_].orderPosition; });
+
+    size_t cursor = 0;
+    for(uint32_t slot : order)
+    {
+        VariableBlueprint& rVariable = this->variableBlueprints.objects[slot];
+        rVariable.firstByteId = alignUp(cursor, rVariable.alignmentRule);
+        rVariable.lastByteId = rVariable.firstByteId + rVariable.size - 1;
+        cursor = rVariable.lastByteId + 1;
+    }
+}
+
+void ReflectionLayout::removeVariableBlueprint(PoolId variableBlueprintId_)
+{
+    this->variableBlueprints.remove(variableBlueprintId_);
+    this->relayout();
+    this->updateSize();
+}
+
+uint32_t ReflectionLayout::getNextOrderPosition()
+{
+    uint32_t next = 0;
+    for(uint32_t i = 0; i < this->variableBlueprints.allocatedSize(); i++)
+    {
+        if(this->variableBlueprints.alive[i])
+        {
+            next = std::max(next, this->variableBlueprints.objects[i].orderPosition + 1);
+        }
+    }
+    return next;
+}
+
+void ReflectionLayout::throwIfOrderPositionUsed(const char* name_, uint32_t orderPosition_)
+{
+    for(uint32_t i = 0; i < this->variableBlueprints.allocatedSize(); i++)
+    {
+        if(this->variableBlueprints.alive[i] && this->variableBlueprints.objects[i].orderPosition == orderPosition_)
+        {
+            throw std::runtime_error(std::format("Layout: Order position {} of variable {} is already used by {}.", orderPosition_, name_, this->variableBlueprints.names[i]));
+        }
+    }
 }
 
 PoolId ReflectionLayout::addVariableBlueprint(const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 {
-    PoolId id = this->variableBlueprints.add(name_, dataType_, this->alignment, this->getFirstAvailableByte(), repeatCountPerDimension_);
-    this->updateSize();
-    return id;
+    return this->addVariableBlueprint(name_, this->getNextOrderPosition(), dataType_, repeatCountPerDimension_);
 }
 
 PoolId ReflectionLayout::addVariableBlueprint(const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
 {
+    return this->addVariableBlueprint(name_, this->getNextOrderPosition(), dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+}
+
+/* The variable is created at the end and relayout moves it (and the ones after it) to where its position says. */
+PoolId ReflectionLayout::addVariableBlueprint(const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+{
+    this->throwIfOrderPositionUsed(name_, orderPosition_);
+    PoolId id = this->variableBlueprints.add(name_, dataType_, this->alignment, this->getFirstAvailableByte(), repeatCountPerDimension_);
+    this->variableBlueprints[id].orderPosition = orderPosition_;
+    this->relayout();
+    this->updateSize();
+    return id;
+}
+
+PoolId ReflectionLayout::addVariableBlueprint(const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+{
+    this->throwIfOrderPositionUsed(name_, orderPosition_);
     PoolId id = this->variableBlueprints.add(name_, dataType_, rowCount_, columnCount_, this->alignment, this->getFirstAvailableByte(), repeatCountPerDimension_);
+    this->variableBlueprints[id].orderPosition = orderPosition_;
+    this->relayout();
     this->updateSize();
     return id;
 }

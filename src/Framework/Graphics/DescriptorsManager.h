@@ -4,6 +4,8 @@
 #include "PoolMap.h"
 #include "DescriptorSet.h"
 #include "DescriptorSetLayout.h"
+#include "DescriptorLayoutUpdate.h"
+#include "SetLayoutUpdate.h"
 #include <vector>
 
 namespace Graphics
@@ -11,22 +13,34 @@ namespace Graphics
 struct DescriptorsManager 
 {
     PoolMap<DescriptorSetLayout> layouts = {"Descriptor Set Layouts"}; // Same layout can have multiple Descriptor Sets in it. 
+    Pool<DescriptorLayoutUpdate> descriptorLayoutUpdates; // open updates, removed by their commit
+    Pool<SetLayoutUpdate> setLayoutUpdates;
     Pool<DescriptorSet> descriptorSet; // with Pool (since this framework has them 1 to 1. Since we use dynamic pools)
     std::vector<BoundDescriptor> boundDescriptors; // descriptors read by a draw recorded this frame, see lockBoundDescriptors
     std::vector<BoundDescriptor> loadsToWaitFor; // descriptors of WAIT_UNTIL_LOADED sets loaded this frame, see waitForLoads
 
     PoolId addDescriptorSetLayout(const char* name_, uint32_t setIndex_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_);
     PoolId getLayoutId(const char* layoutName_);
-    PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_);
-    PoolId addDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_);
-    PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_);
-    PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
-    PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
-    PoolId addStructMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, const std::vector<uint32_t>& repeatCountPerDimension_);
-    PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
-    PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
+    /*
+        Runtime editing of descriptor layouts, see DescriptorLayoutUpdate and SetLayoutUpdate: begin... opens an update of a layout, the add / remove functions edit it (they take the update id, which knows its layout) and commit... applies it, consuming the update.
+        Before anything of the layout exists (the define* of a scene) a commit only writes the changes into the layouts, with live objects it waits for the device and reallocates, copies and rewrites what the change touches. Not while recording.
+    */
+    PoolId beginSetLayoutUpdate(PoolId layoutId_);
+    PoolId beginDescriptorLayoutUpdate(PoolId layoutId_, PoolId descriptorLayoutId_);
+    PoolId addBufferDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_ = 0);
+    PoolId addDynamicDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_ = 0);
+    PoolId addImageDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_);
+    void removeDescriptorLayout(PoolId setLayoutUpdateId_, PoolId descriptorLayoutId_); // takes effect at the commit
+    PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
+    PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
+    PoolId addStructMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_ = 0);
+    PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
+    PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
+    void removeMemberFromDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId memberId_); // a whole member and its variables
+    void removeVariableFromStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId variableId_); // one variable of a struct member
+    void commitSetLayoutUpdate(PoolId updateId_);
+    void commitDescriptorLayoutUpdate(PoolId updateId_);
     PoolId addDescriptorSet(const DescriptorSetCreateParams& rParams_);
-    void removeDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_); // throws if the layout has derived sets
     void removeDescriptorSet(PoolId setId_); // waits for the frames that bind it, so don't call it while recording
     void removeDescriptorSetLayout(PoolId layoutId_); // throws if it has derived sets or a PipelineLayout uses it
 
@@ -44,6 +58,9 @@ struct DescriptorsManager
     void updateLoading();
     void loadDescriptor(PoolId setId_, PoolId descriptorId_);
     void unloadDescriptor(PoolId setId_, PoolId descriptorId_);
+    MemoryEntryId getDescriptorMemoryEntry(PoolId setId_, PoolId descriptorId_);
+    void saveDescriptorToDisk(PoolId setId_, PoolId descriptorId_); // calls the set's saveToDisk, throws if the set has none
+    void changeDescriptorLayoutOnDisk(PoolId setId_, PoolId descriptorId_); // calls the set's changeLayoutOnDisk, throws if the set has none
     void waitForLoads(); // after the frame's submit: blocks until the uploads of the descriptors loaded this frame by a WAIT_UNTIL_LOADED set completed
     void waitForGpu(); // vkDeviceWaitIdle, the ONESHOT passes have no frame fence to wait on
 };

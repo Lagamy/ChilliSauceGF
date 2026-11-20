@@ -3,6 +3,7 @@
 #include "Globals.h"
 #include "Descriptor.h"
 #include "MemoryManager.h"
+#include "DescriptorLayoutUpdate.h"
 #include "Utilities.h"
 #include <algorithm>
 #include <array>
@@ -211,33 +212,28 @@ namespace Graphics
 	}
 
 	/*
-		Allocates one MemoryEntry per descriptor (with one copy per frame in flight for a per-frame descriptor, see Descriptor::isPerFrame), sized from its descriptor layout's block (DescriptorLayout::makeShape). Nothing is uploaded: a GPU_LOCAL entry's bytes are undefined until the first setDescriptorMemberValue was copied.
-		Static entries have to be added before StaticAllocator::allocateAndUpload, which is why this is separate from create.
+		Builds the shape of one descriptor from its descriptor layout, allocates its entry (see allocateDescriptorMemory) and sizes its backup.
+		Every dynamic offset has to be a multiple of minUniformBufferOffsetAlignment (uniform) / minStorageBufferOffsetAlignment (storage), so the units are padded to it.
 	*/
-	void DescriptorSet::allocateDescriptorsMemory()
+	void DescriptorSet::setupDescriptorMemory(Descriptor& rDescriptor_)
+	{
+		rDescriptor_.shape = rDescriptor_.getDescriptorLayout().makeShape(getDynamicAlignment(rDescriptor_.getType()));
+		this->validateShape(rDescriptor_);
+		this->allocateDescriptorMemory(rDescriptor_);
+		rDescriptor_.backup.data.assign(this->keepsBackup() ? rDescriptor_.shape.getSize() : 0, 0);
+		rDescriptor_.lastUsedTime = std::chrono::steady_clock::now();
+	}
+
+	void DescriptorSet::checkDynamicLimits()
 	{
 		uint32_t dynamicUniformCount = 0;
 		uint32_t dynamicStorageCount = 0;
 		for(uint32_t i = 0; i < this->descriptors.allocatedSize(); i++)
 		{
-			if(!this->descriptors.alive[i])
+			if(this->descriptors.alive[i] && this->descriptors.getInternal(i).isDynamic())
 			{
-				continue;
+				(this->descriptors.getInternal(i).getType() == UNIFORM_DESCRIPTOR ? dynamicUniformCount : dynamicStorageCount)++;
 			}
-
-			Descriptor& rDescriptor = this->descriptors.getInternal(i);
-			DescriptorLayout& rDescriptorLayout = rDescriptor.getDescriptorLayout();
-			/* Every dynamic offset has to be a multiple of minUniformBufferOffsetAlignment (uniform) / minStorageBufferOffsetAlignment (storage), so the units are padded to it. */
-			rDescriptor.shape = rDescriptorLayout.makeShape(getDynamicAlignment(rDescriptor.getType()));
-			this->validateShape(rDescriptor);
-			if(rDescriptor.isDynamic())
-			{
-				(rDescriptor.getType() == UNIFORM_DESCRIPTOR ? dynamicUniformCount : dynamicStorageCount)++;
-			}
-
-			this->allocateDescriptorMemory(rDescriptor);
-			rDescriptor.backup.data.assign(this->keepsBackup() ? rDescriptor.shape.getSize() : 0, 0);
-			rDescriptor.lastUsedTime = std::chrono::steady_clock::now();
 		}
 		const VkPhysicalDeviceLimits& rLimits = getMainDevice().properties.limits;
 		if(dynamicUniformCount > rLimits.maxDescriptorSetUniformBuffersDynamic)
@@ -248,6 +244,22 @@ namespace Graphics
 		{
 			throw std::runtime_error(std::format("Descriptor Set: {} dynamic storage descriptors in one set, the device allows {}.", dynamicStorageCount, rLimits.maxDescriptorSetStorageBuffersDynamic));
 		}
+	}
+
+	/*
+		Allocates one MemoryEntry per descriptor (with one copy per frame in flight for a per-frame descriptor, see Descriptor::isPerFrame), sized from its descriptor layout's block (DescriptorLayout::makeShape). Nothing is uploaded: a GPU_LOCAL entry's bytes are undefined until the first setDescriptorMemberValue was copied.
+		Static entries have to be added before StaticAllocator::allocateAndUpload, which is why this is separate from create.
+	*/
+	void DescriptorSet::allocateDescriptorsMemory()
+	{
+		for(uint32_t i = 0; i < this->descriptors.allocatedSize(); i++)
+		{
+			if(this->descriptors.alive[i])
+			{
+				this->setupDescriptorMemory(this->descriptors.getInternal(i));
+			}
+		}
+		this->checkDynamicLimits();
 		this->descriptorsMemoryAllocated = true;
 	}
 
@@ -307,12 +319,19 @@ namespace Graphics
 				}
 
 				Descriptor& rDescriptor = this->descriptors.getInternal(i);
+				if(!rDescriptor.loaded)
+				{
+					continue;
+				}
 				bufferInfos.emplace_back();
 				updateSetWrites.emplace_back(this->makeBindingWrite(rDescriptor, copy, bufferInfos.back()));
 				rDescriptor.created = true;
 			}
 		}
-		vkUpdateDescriptorSets(getMainDevice().logicalDevice, updateSetWrites.size(), updateSetWrites.data(), 0, nullptr);
+		if(!updateSetWrites.empty())
+		{
+			vkUpdateDescriptorSets(getMainDevice().logicalDevice, updateSetWrites.size(), updateSetWrites.data(), 0, nullptr);
+		}
     }
 
 	/* The write that points binding of the descriptor in set copy copy_ at copy copy_ of its entry (MemoryManager::getCopy). */
@@ -419,6 +438,21 @@ namespace Graphics
 	}
 
 	/* Stamps the use for the absence time (only a set that unloads by itself has one) and requests a load of an unloaded descriptor, also when it was unloaded by hand. A static set never leaves memory, so there is nothing to do. */
+	void DescriptorSet::markDiskLayoutChanged(PoolId descriptorId_)
+	{
+		this->getDescriptor(descriptorId_).diskLayoutStale = false;
+	}
+
+	MemoryEntryId DescriptorSet::getDescriptorEntryId(PoolId descriptorId_)
+	{
+		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
+		if(!rDescriptor.loaded)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: {} is unloaded, it has no entry.", rDescriptor.getDescriptorLayout().name));
+		}
+		return rDescriptor.memoryEntryId;
+	}
+
 	void DescriptorSet::markUsed(PoolId descriptorId_)
 	{
 		if(!this->canUnload())
@@ -463,6 +497,22 @@ namespace Graphics
 		rDescriptor.readOnlyLocked = false;
 	}
 
+	/* Every VkDescriptorSet copy of the set is pointed at the descriptor's current entry with one vkUpdateDescriptorSets (no pending command buffer may use the set, see the header). */
+	void DescriptorSet::rewriteBindings(Descriptor& rDescriptor_)
+	{
+		std::vector<VkDescriptorBufferInfo> bufferInfos(this->vkHandles.size());
+		std::vector<VkWriteDescriptorSet> updateSetWrites;
+		updateSetWrites.reserve(this->vkHandles.size());
+		for(uint32_t copy = 0; copy < this->vkHandles.size(); copy++)
+		{
+			updateSetWrites.emplace_back(this->makeBindingWrite(rDescriptor_, copy, bufferInfos[copy]));
+		}
+		if(!updateSetWrites.empty())
+		{
+			vkUpdateDescriptorSets(getMainDevice().logicalDevice, updateSetWrites.size(), updateSetWrites.data(), 0, nullptr);
+		}
+	}
+
 	/*
 		A new entry, then every copy of the set is pointed at it with one vkUpdateDescriptorSets (no pending command buffer may use the set, see the header). The bytes come back from loadFromDisk or the CPU backup, as ordinary writes, so the descriptor is settled once their upload completed.
 		loaded is set before the writes since the setters throw on an unloaded descriptor.
@@ -474,16 +524,13 @@ namespace Graphics
 		{
 			return;
 		}
+		if(rDescriptor.diskLayoutStale && this->params.loadFromDisk != nullptr)
+		{
+			throw std::runtime_error(std::format("Descriptor Set: {} can't be loaded from disk, a layout update changed its block and the file still has the old layout. Call changeDescriptorLayoutOnDisk (and saveDescriptorToDisk) for it first.", rDescriptor.getDescriptorLayout().name));
+		}
 
 		this->allocateDescriptorMemory(rDescriptor);
-		std::vector<VkDescriptorBufferInfo> bufferInfos(this->vkHandles.size());
-		std::vector<VkWriteDescriptorSet> updateSetWrites;
-		updateSetWrites.reserve(this->vkHandles.size());
-		for(uint32_t copy = 0; copy < this->vkHandles.size(); copy++)
-		{
-			updateSetWrites.emplace_back(this->makeBindingWrite(rDescriptor, copy, bufferInfos[copy]));
-		}
-		vkUpdateDescriptorSets(getMainDevice().logicalDevice, updateSetWrites.size(), updateSetWrites.data(), 0, nullptr);
+		this->rewriteBindings(rDescriptor);
 
 		rDescriptor.loaded = true;
 		rDescriptor.loadRequested = false;
@@ -497,6 +544,121 @@ namespace Graphics
 		{
 			this->restoreBackup(rDescriptor);
 		}
+	}
+
+	/*
+		The block of the descriptor's descriptor layout changed (commitDescriptorLayoutUpdate swapped the members in, rOldLayout_ and rOldShape_ describe the block as it was). The caller waited for the device (the old entry is destroyed and the bindings rewritten).
+		A loaded GPU_LOCAL descriptor without copies of a dynamic set gets a new entry that is filled on the GPU from the old one (moveDescriptorEntry), so bytes only the GPU holds survive. Any other loaded descriptor is unloaded, gets the new shape and is loaded again: the new entry holds the old bytes from the CPU backup remapped to the new offsets, or from whatever loadFromDisk writes.
+		An unloaded one only gets the shape and the remapped backup. loadFromDisk is not called for it (it stays for the usual loads): the files keep the old layout until the application converts them (saveToDisk / changeLayoutOnDisk), so the descriptor is marked diskLayoutStale and a later load throws until changeDescriptorLayoutOnDisk was called for it (the load of this function, in the other path, still reads the old files, which is what the application converts from).
+	*/
+	void DescriptorSet::reshapeDescriptor(PoolId descriptorId_, const DescriptorLayout& rOldLayout_, const DescriptorShape& rOldShape_)
+	{
+		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
+		DescriptorLayout& rLayout = rDescriptor.getDescriptorLayout();
+		DescriptorShape newShape = rLayout.makeShape(getDynamicAlignment(rDescriptor.getType()));
+
+		/* Nothing the shader reads moved and the entry has the same size, e.g. a member that fit in the headroom was added: the entry (and its copies) stays, only the shape and the CPU copy change. */
+		if(rDescriptor.loaded && descriptorKeepsEntry(rOldLayout_, rOldShape_, rLayout, newShape))
+		{
+			rDescriptor.shape = newShape;
+			this->validateShape(rDescriptor);
+			if(this->keepsBackup())
+			{
+				rDescriptor.backup.data = remapDescriptorBytes(rDescriptor.backup.data, rOldLayout_, rOldShape_, rLayout, rDescriptor.shape);
+			}
+		}
+		else if(rDescriptor.loaded && this->canUnload() && rDescriptor.memoryVisability == GPU_LOCAL && !getMemoryManager().getEntry(rDescriptor.memoryEntryId).hasShadow)
+		{
+			this->moveDescriptorEntry(rDescriptor, rOldLayout_, rOldShape_, newShape);
+		}
+		else
+		{
+			bool wasLoaded = rDescriptor.loaded;
+			if(wasLoaded)
+			{
+				this->unloadDescriptor(descriptorId_);
+			}
+
+			rDescriptor.shape = newShape;
+			this->validateShape(rDescriptor);
+			if(this->keepsBackup())
+			{
+				rDescriptor.backup.data = remapDescriptorBytes(rDescriptor.backup.data, rOldLayout_, rOldShape_, rLayout, rDescriptor.shape);
+			}
+
+			if(wasLoaded)
+			{
+				this->loadDescriptor(descriptorId_);
+			}
+		}
+
+		rDescriptor.diskLayoutStale = this->params.loadFromDisk != nullptr;
+	}
+
+	/*
+		Vulkan rules: the old buffer is destroyed only once no submitted command uses it (VUID-vkDestroyBuffer-buffer-00922), which the device wait of the caller and the deferred removal (it waits for the copy that reads the old entry) guarantee, and the set is only updated while no pending command buffer uses it (VUID-vkUpdateDescriptorSets-None-03047), which the same wait guarantees.
+		The new entry is filled by copyEntry (the variables both shapes have) and zeroEntryRanges (everything else), so it is pending until the copy completes: draws using the descriptor skip and it counts as unsettled, like after a load. The descriptor stays loaded, the state that described the old entry is reset like in unloadDescriptor.
+		The CPU backup (kept only without loadFromDisk) is remapped as in a load.
+	*/
+	void DescriptorSet::moveDescriptorEntry(Descriptor& rDescriptor_, const DescriptorLayout& rOldLayout_, const DescriptorShape& rOldShape_, const DescriptorShape& rNewShape_)
+	{
+		DescriptorLayout& rLayout = rDescriptor_.getDescriptorLayout();
+		MemoryEntryId oldEntryId = rDescriptor_.memoryEntryId;
+		rDescriptor_.shape = rNewShape_;
+		this->validateShape(rDescriptor_);
+		this->allocateDescriptorMemory(rDescriptor_);
+
+		MemoryManager& rMemoryManager = getMemoryManager();
+		rMemoryManager.copyEntry(oldEntryId, rDescriptor_.memoryEntryId, makeDescriptorCopyRegions(rOldLayout_, rOldShape_, rLayout, rDescriptor_.shape));
+		rMemoryManager.zeroEntryRanges(rDescriptor_.memoryEntryId, makeDescriptorZeroRegions(rOldLayout_, rOldShape_, rLayout, rDescriptor_.shape));
+		rMemoryManager.removeDynamicEntry(oldEntryId);
+		this->rewriteBindings(rDescriptor_);
+
+		rDescriptor_.gpuWritten = true;
+		rDescriptor_.firstDataSettled = false;
+		rDescriptor_.readOnlyLocked = false;
+		if(this->keepsBackup())
+		{
+			rDescriptor_.backup.data = remapDescriptorBytes(rDescriptor_.backup.data, rOldLayout_, rOldShape_, rLayout, rDescriptor_.shape);
+		}
+	}
+
+	/*
+		A descriptor layout was committed to the set's layout: the set gets its descriptor in the same slot (descriptors mirror the slots of the descriptor layouts). If the memory of the set exists, the new descriptor gets its entry too, which a static set can't (static entries have to be added before the static allocation).
+		The VkDescriptorSets don't have the binding yet, rebuildHandles writes it.
+	*/
+	void DescriptorSet::addDescriptor(PoolId setId_, PoolId descriptorLayoutId_)
+	{
+		PoolId descriptorId = this->descriptors.addAt(descriptorLayoutId_.id, this->setLayout, this->params.memoryVisability, setId_, descriptorLayoutId_);
+		this->descriptors.getInternal(descriptorId.id).getDescriptorLayout().derivedDescriptors.emplace_back(setId_);
+		if(this->descriptorsMemoryAllocated)
+		{
+			this->setupDescriptorMemory(this->descriptors.getInternal(descriptorId.id));
+			this->checkDynamicLimits();
+		}
+	}
+
+	/* The entries of a loaded descriptor of a dynamic set are removed, a static entry can't be and stays in the static heap until shutdown (like removeDescriptorSet). */
+	void DescriptorSet::removeDescriptor(PoolId descriptorLayoutId_)
+	{
+		Descriptor& rDescriptor = this->descriptors.getInternal(descriptorLayoutId_.id);
+		if(this->descriptorsMemoryAllocated && this->allocatorType == DYNAMIC_ALLOCATOR && rDescriptor.loaded)
+		{
+			getMemoryManager().removeDynamicEntry(rDescriptor.memoryEntryId);
+		}
+		std::erase(rDescriptor.getDescriptorLayout().derivedDescriptors, rDescriptor.setId);
+		this->descriptors.removeInternal(descriptorLayoutId_.id);
+	}
+
+	/*
+		A set belongs to the VkDescriptorSetLayout it was allocated with, so a recreated layout needs new VkDescriptorSets. The old ones went with the old layout's pools (DescriptorSetLayout::destroy), so there is nothing to free.
+		create allocates them again and writes the bindings of the loaded descriptors.
+	*/
+	void DescriptorSet::rebuildHandles()
+	{
+		this->vkHandles.clear();
+		this->poolId = UninitializedId;
+		this->create();
 	}
 
 	/* One write of the whole entry, so a GPU_LOCAL descriptor is one update (one staging range) and not one per variable. */

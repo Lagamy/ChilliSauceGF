@@ -19,13 +19,22 @@ struct ReflectionLayout
     PoolMap<VariableBlueprint> variableBlueprints = ("Member Blueprints");
     size_t size = 0; // Includes the padding at the end, see updateSize
     uint8_t structAlignment = 1;
+    bool updateOpen = false; // a VertexLayoutUpdate of it wasn't committed yet, only one at a time
+    size_t headroom = 0; // The layout is never smaller than this many bytes (before the end padding), so variables added later that fit in it don't change size
 
-    ReflectionLayout(STDAlignmentLayoutEnum alignment_ = NONE) : alignment(alignment_) {};
+    ReflectionLayout(STDAlignmentLayoutEnum alignment_ = NONE, size_t headroom_ = 0) : alignment(alignment_), headroom(headroom_) {};
 
     /* repeatCountPerDimension_: element count per dimension, outermost first ({2, 3} = a[2][3]), empty = not repeated. */
-    PoolId addVariableBlueprint(const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Scalar
-    PoolId addVariableBlueprint(const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+    PoolId addVariableBlueprint(const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Scalar, after the variables that exist (the next orderPosition)
+    PoolId addVariableBlueprint(const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix, after the variables that exist
+
+    /*
+        Same, at orderPosition_: the variables are placed in the order of their positions (can be sparse), whatever order they were added in, so a variable added at a lower position moves the ones after it. Unique in the layout, throws otherwise.
+    */
+    PoolId addVariableBlueprint(const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Scalar
+    PoolId addVariableBlueprint(const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
     PoolId getMemberIdFromName(const char* name_);
+    void removeVariableBlueprint(PoolId variableBlueprintId_); // The variables after it move up, the ids of the others stay
 
     /*
         Shared checks of every set/get below: the member has to be of type T's GPU type and of the requested shape, and the repeat unit has to exist.
@@ -198,6 +207,9 @@ struct ReflectionLayout
 
 private:
     uint32_t getFirstAvailableByte();
+    uint32_t getNextOrderPosition();
+    void throwIfOrderPositionUsed(const char* name_, uint32_t orderPosition_);
     void updateSize();
+    void relayout();
 };
 }

@@ -61,6 +61,32 @@ struct Pool {
         return id;
     }
 
+	/*
+		Adds the object in slot slot_, for pools that mirror the slots of another one. Slots below it that don't exist yet are created dead (built from the same args, they only fill the gap and go to the free list), a dead slot_ is taken out of the free list.
+		Throws if slot_ is alive.
+	*/
+	template <typename... Args>
+	PoolId addAt(uint32_t slot_, Args&&... args)
+	{
+		while(this->objects.size() <= slot_)
+		{
+			this->objects.emplace_back(args...);
+			this->generation.emplace_back(0);
+			this->alive.emplace_back(false);
+			this->freeSlots.emplace_back(static_cast<uint32_t>(this->objects.size() - 1));
+		}
+		if(this->alive[slot_])
+		{
+			throw std::runtime_error(std::format("{} Pool: slot {} is already alive.", this->name, slot_));
+		}
+
+		std::erase(this->freeSlots, slot_);
+		this->objects[slot_] = T(std::forward<Args>(args)...);
+		this->alive[slot_] = true;
+		this->elementCount++;
+		return PoolId(slot_, this->generation[slot_]);
+	}
+
 	void remove(PoolId pId_) {
 		#ifdef ENGINE_DEBUG
 			this->isPoolIdValid(pId_);

@@ -31,6 +31,7 @@ struct VariableBlueprint
 	uint8_t alignmentRule; 
 	std::vector<RepeatLayer> repeatLayers; // One layer per dimension, outermost first (int a[2][3]: {2, stride of a row}, {3, stride of an element}). Empty if the variable isn't repeated.
 
+	uint32_t orderPosition = 0; // Declaration order inside its layout, unique there. The bytes are placed in this order (ReflectionLayout::relayout), not in the order of the slots.
 	size_t firstByteId; 
 	size_t lastByteId; 
 	size_t elementSize; // Bytes of one instance of the variable (what repeatLayers repeat), without the padding to its stride

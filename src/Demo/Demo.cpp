@@ -34,26 +34,35 @@ namespace Graphics
 			fragmentShaderId = addShader("Triangle Fragment Shader", "Assets/shaders/triangle/frag.spv");
 
 			vertexLayoutId = addVerticeLayout("Triangle Vertice Layout");
-			vertexVariableIds.positionId = addVariableToVerticeLayout(vertexLayoutId, "Position", VEC3);
-			vertexVariableIds.colorId = addVariableToVerticeLayout(vertexLayoutId, "Color", VEC4);
+			PoolId vertexUpdateId = beginVertexLayoutUpdate(vertexLayoutId);
+			vertexVariableIds.positionId = addVariableToVerticeLayout(vertexUpdateId, "Position", 0, VEC3);
+			vertexVariableIds.colorId = addVariableToVerticeLayout(vertexUpdateId, "Color", 1, VEC4);
+			commitVertexLayoutUpdate(vertexUpdateId);
 
-			/* Descriptors read by the vertex shader. The set number (0) and the binding numbers (MVP = 0, Objects = 1, Counter = 2) have to match shader.vert. Members follow the order of the blocks in shader.vert. */
+			/* Descriptors read by the vertex shader. The set number (0) and the binding numbers (MVP = 0, Objects = 1, Counter = 2) have to match shader.vert. The order positions of the members follow the order of the blocks in shader.vert. Nothing exists on the GPU yet, so the commits only write the layouts. */
 			dsLayoutId = addDescriptorSetLayout("DSLayout", 0, VK_SHADER_STAGE_VERTEX_BIT);
+			PoolId setLayoutUpdateId = beginSetLayoutUpdate(dsLayoutId);
 
-			vpDescriptorLayoutId = addBufferDescriptorLayout(dsLayoutId, "MVP", 0, UNIFORM_DESCRIPTOR);
-			vpMemberIds.projectionId = addMemberToDescriptorLayout(dsLayoutId, vpDescriptorLayoutId, "Projection", MAT4);
-			vpMemberIds.viewId = addMemberToDescriptorLayout(dsLayoutId, vpDescriptorLayoutId, "View", MAT4);
-
+			vpDescriptorLayoutId = addBufferDescriptorLayout(setLayoutUpdateId, "MVP", 0, UNIFORM_DESCRIPTOR);
+			PoolId vpUpdateId = beginDescriptorLayoutUpdate(dsLayoutId, vpDescriptorLayoutId);
+			vpMemberIds.projectionId = addMemberToDescriptorLayout(vpUpdateId, "Projection", 0, MAT4);
+			vpMemberIds.viewId = addMemberToDescriptorLayout(vpUpdateId, "View", 1, MAT4);
+			commitDescriptorLayoutUpdate(vpUpdateId);
 
 			/* Same shape as the block in shader.vert: states[2] followed by model, the whole block repeated once per triangle (dynamic unit). */
-			objectsDescriptorLayoutId = addDynamicDescriptorLayout(dsLayoutId, "Objects", 1, STORAGE_DESCRIPTOR, /*dynamicCount_*/ 2);
-			objectsMemberIds.statesId = addStructMemberToDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, "states", {2});
-			objectsMemberIds.colorId = addVariableToStructInDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, objectsMemberIds.statesId, "color", VEC4);
-			objectsMemberIds.rotationDirectionId = addVariableToStructInDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, objectsMemberIds.statesId, "rotationDirection", INT32);
-			objectsMemberIds.modelId = addMemberToDescriptorLayout(dsLayoutId, objectsDescriptorLayoutId, "model", MAT4);
+			objectsDescriptorLayoutId = addDynamicDescriptorLayout(setLayoutUpdateId, "Objects", 1, STORAGE_DESCRIPTOR, /*dynamicCount_*/ 2);
+			PoolId objectsUpdateId = beginDescriptorLayoutUpdate(dsLayoutId, objectsDescriptorLayoutId);
+			objectsMemberIds.statesId = addStructMemberToDescriptorLayout(objectsUpdateId, "states", 0, {2});
+			objectsMemberIds.colorId = addVariableToStructInDescriptorLayout(objectsUpdateId, objectsMemberIds.statesId, "color", 0, VEC4);
+			objectsMemberIds.rotationDirectionId = addVariableToStructInDescriptorLayout(objectsUpdateId, objectsMemberIds.statesId, "rotationDirection", 1, INT32);
+			objectsMemberIds.modelId = addMemberToDescriptorLayout(objectsUpdateId, "model", 1, MAT4);
+			commitDescriptorLayoutUpdate(objectsUpdateId);
 
-			counterDescriptorLayoutId = addBufferDescriptorLayout(dsLayoutId, "Counter", 2, UNIFORM_DESCRIPTOR);
-			counterMemberId = addMemberToDescriptorLayout(dsLayoutId, counterDescriptorLayoutId, "Value", UINT32);
+			counterDescriptorLayoutId = addBufferDescriptorLayout(setLayoutUpdateId, "Counter", 2, UNIFORM_DESCRIPTOR);
+			PoolId counterUpdateId = beginDescriptorLayoutUpdate(dsLayoutId, counterDescriptorLayoutId);
+			counterMemberId = addMemberToDescriptorLayout(counterUpdateId, "Value", 0, UINT32);
+			commitDescriptorLayoutUpdate(counterUpdateId);
+			commitSetLayoutUpdate(setLayoutUpdateId);
 
 			/* The shader declares the descriptor it reads, so drawMeshIndexed can skip the draw until its first data was copied. The pipeline builds its pipeline layout from these declarations, so they come before the pipeline is added. */
 			addDescriptorsToShader(vertexShaderId, dsLayoutId, {vpDescriptorLayoutId, objectsDescriptorLayoutId, counterDescriptorLayoutId});

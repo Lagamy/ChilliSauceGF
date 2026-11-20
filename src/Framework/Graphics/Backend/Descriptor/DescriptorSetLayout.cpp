@@ -42,29 +42,27 @@ namespace Graphics
 		throw std::runtime_error(std::format("Descriptor Set Layout {}: Image descriptor layout {} is not supported yet.", this->name, name_));
 	}
 
-	PoolId DescriptorSetLayout::addBufferDescriptorLayout(const char* name_, uint32_t binding_, DescriptorTypeEnum type_)
+	PoolId DescriptorSetLayout::addBufferDescriptorLayout(const char* name_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_)
 	{
-		return this->addBufferDescriptorLayoutBody(name_, binding_, type_, 0);
+		return this->addBufferDescriptorLayoutBody(name_, binding_, type_, 0, headroom_);
 	}
 
-	PoolId DescriptorSetLayout::addDynamicDescriptorLayout(const char* name_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_)
+	PoolId DescriptorSetLayout::addDynamicDescriptorLayout(const char* name_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_)
 	{
 		if(dynamicCount_ == 0)
 		{
 			throw std::runtime_error(std::format("Descriptor Set Layout {}: Dynamic buffer descriptor layout {} needs at least one dynamic unit.", this->name, name_));
 		}
-		return this->addBufferDescriptorLayoutBody(name_, binding_, type_, dynamicCount_);
+		return this->addBufferDescriptorLayoutBody(name_, binding_, type_, dynamicCount_, headroom_);
 	}
 
 	/* The members of the block are added afterwards through the DescriptorLayout. */
-	PoolId DescriptorSetLayout::addBufferDescriptorLayoutBody(const char* name_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_)
+	PoolId DescriptorSetLayout::addBufferDescriptorLayoutBody(const char* name_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_)
     {
 		if(type_ != UNIFORM_DESCRIPTOR && type_ != STORAGE_DESCRIPTOR)
 		{
 			throw std::runtime_error(std::format("Descriptor Set Layout {}: Buffer descriptor layout {} can only be UNIFORM_DESCRIPTOR or STORAGE_DESCRIPTOR.", this->name, name_));
 		}
-		this->throwIfSetsDerived("add a descriptor layout to");
-
 		/* Two bindings with the same number make an invalid VkDescriptorSetLayout, so it is caught here with the names. */
 		for(uint32_t i = 0; i < this->descriptorLayouts.allocatedSize(); i++)
 		{
@@ -75,41 +73,34 @@ namespace Graphics
 		}
 
 		BufferTypeEnum bufferType = descriptorBufferTypes[type_];
-		PoolId descriptorLayoutId = this->descriptorLayouts.add(name_, binding_, type_, dynamicCount_, bufferType);
-		if(dynamicCount_ > 0)
-		{
-			this->dynamic = true;
-		}
-
-        if(this->vkHandle != VK_NULL_HANDLE)
-        {
-            this->recreate();
-        }
+		PoolId descriptorLayoutId = this->descriptorLayouts.add(name_, binding_, type_, dynamicCount_, bufferType, headroom_);
+		this->descriptorLayouts[descriptorLayoutId].pending = true;
 		return descriptorLayoutId;
     }
 
 	void DescriptorSetLayout::removeDescriptorLayout(PoolId id_)
     {
-		this->throwIfSetsDerived("remove a descriptor layout from");
-
 		this->descriptorLayouts.remove(id_);
+		this->updateDynamicFlag();
+    } 
+
+	/* Pending descriptor layouts don't count: they take effect with the commit. */
+	void DescriptorSetLayout::updateDynamicFlag()
+	{
 		this->dynamic = false;
 		for(uint32_t i = 0; i < this->descriptorLayouts.allocatedSize(); i++)
 		{
-			if(this->descriptorLayouts.alive[i] && this->descriptorLayouts.objects[i].dynamic)
+			if(this->descriptorLayouts.alive[i] && !this->descriptorLayouts.objects[i].pending && this->descriptorLayouts.objects[i].dynamic)
 			{
 				this->dynamic = true;
 				break;
 			}
 		}
-		if(this->vkHandle != VK_NULL_HANDLE)
-        {
-            this->recreate();
-        }
-    } 
+	}
 
 	/*
 		Creates the set and one Descriptor per descriptor layout slot. Descriptor slot i belongs to descriptor layout slot i (its binding is DescriptorLayout::binding), so a removed descriptor layout slot still gets a descriptor.
+		A pending descriptor layout (not committed yet) is treated like a removed one, commitSetLayoutUpdate gives the sets their descriptor in that slot.
 		Those are removed only after every slot was added: a removed slot goes to the Pool's free list and the next add would take it, shifting the index of every later descriptor.
 	*/
 	PoolId DescriptorSetLayout::deriveDescriptorSet(const DescriptorSetCreateParams& rParams_)
@@ -124,7 +115,7 @@ namespace Graphics
 		{
 			PoolId descriptorLayoutId = PoolId(i, this->descriptorLayouts.generation[i]);
 			PoolId descriptorId = rSet.descriptors.add(rParams_.layoutId, rParams_.memoryVisability, setId, descriptorLayoutId);
-			if(this->descriptorLayouts.alive[i])
+			if(this->descriptorLayouts.alive[i] && !this->descriptorLayouts.objects[i].pending)
 			{
 				this->descriptorLayouts.getInternal(i).derivedDescriptors.emplace_back(setId);
 			}
@@ -148,7 +139,7 @@ namespace Graphics
 		bindings.reserve(this->descriptorLayouts.size());
 		for(uint32_t i = 0; i < this->descriptorLayouts.allocatedSize(); i++)
 		{
-			if(!this->descriptorLayouts.alive[i])
+			if(!this->descriptorLayouts.alive[i] || this->descriptorLayouts.objects[i].pending)
 			{
 				continue;
 			}
@@ -184,7 +175,7 @@ namespace Graphics
 		std::array<uint32_t, DescriptorTypesCount * 2> countPerKind = {}; // [type * 2 + dynamic]
 		for(uint32_t i = 0; i < this->descriptorLayouts.allocatedSize(); i++)
 		{
-			if(this->descriptorLayouts.alive[i])
+			if(this->descriptorLayouts.alive[i] && !this->descriptorLayouts.objects[i].pending)
 			{
 				countPerKind[this->descriptorLayouts.objects[i].type * 2 + (this->descriptorLayouts.objects[i].dynamic ? 1 : 0)]++;
 			}

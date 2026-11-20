@@ -44,15 +44,25 @@ void GraphicsPipeline::create()
 
 	/*
 		Every attribute location holds at most a vec4. A matrix type takes one location per column (a vector of rowCount floats) and a repeated variable one location per element (all dimensions, last one fastest), so a variable
-		can use several consecutive locations, which is how GLSL numbers the inputs. Arrays of matrices are the same, element by element. A matrix shaped variable (an array of arrays) can't be a vertex input.
+		can use several consecutive locations, which is how GLSL numbers the inputs. The variables are taken in the order of their orderPosition, not of their slots. Arrays of matrices are the same, element by element. A matrix shaped variable (an array of arrays) can't be a vertex input.
 	*/
-	uint32_t location = 0;
+	std::vector<uint32_t> variableSlots;
 	for(uint32_t i = 0; i < rVerticeLayout.variableBlueprints.allocatedSize(); i++)
 	{
-		VariableBlueprint& rVariableBlueprint = rVerticeLayout.variableBlueprints[{i, 0}]; 
+		if(rVerticeLayout.variableBlueprints.alive[i])
+		{
+			variableSlots.push_back(i);
+		}
+	}
+	std::sort(variableSlots.begin(), variableSlots.end(), [&](uint32_t a_, uint32_t b_) { return rVerticeLayout.variableBlueprints.objects[a_].orderPosition < rVerticeLayout.variableBlueprints.objects[b_].orderPosition; });
+
+	uint32_t location = 0;
+	for(uint32_t i : variableSlots)
+	{
+		VariableBlueprint& rVariableBlueprint = rVerticeLayout.variableBlueprints.objects[i]; 
 		if(rVariableBlueprint.shapeMetadata.shapeEnum == MATRIX)
 		{
-			throw std::runtime_error(std::format("Graphics Pipeline: Vertex layout variable {} is a matrix of elements, which can't be a vertex attribute.", rVerticeLayout.variableBlueprints.getName({i, 0})));
+			throw std::runtime_error(std::format("Graphics Pipeline: Vertex layout variable {} is a matrix of elements, which can't be a vertex attribute.", rVerticeLayout.variableBlueprints.names[i]));
 		}
 
 		uint32_t elementCount = 1;

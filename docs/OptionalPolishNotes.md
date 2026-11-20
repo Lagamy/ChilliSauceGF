@@ -57,9 +57,18 @@ compilation gets more expensive (dependency sorting, barrier generation).
 
 ## Descriptor sets bound in ONESHOT passes
 
-Status: not covered. `removeDescriptorSet` waits for the `FRAME` passes' fences
-(`PassesGraph::waitForFrame`), and the per-frame `CPU_SHARED` copy-in (`syncToFrame`) relies on the same fences. A `ONESHOT` pass has no per-frame fence, so a set bound in one is not protected.
+Status: partly covered. `removeDescriptorSet`, the loads and unloads of `updateLoading` and the layout update commits wait with `vkDeviceWaitIdle`, so a set bound in a `ONESHOT` pass is safe there, and `PassesGraph::enablePass` holds a `ONESHOT` pass until the descriptors its draws use are loaded and settled.
 
-Not needed now: `ONESHOT` passes are used for `GPU_LOCAL` transfers, and `CPU_SHARED` writes are plain `memcpy`.
-It matters once compute (or any `ONESHOT` pass that binds descriptor sets) is implemented. Then the set needs
-to remember the fence of the `ONESHOT` submit that used it and the write has to wait on it too.
+Not covered: the per-frame `CPU_SHARED` copy-in (`MemoryManager::syncCopiesToFrame`) and the write wait of a `CUSTOM_COPY_COUNT_WITH_WAIT` entry rely on the fences of the `FRAME` passes (`PassesGraph::waitForFrame`). A `ONESHOT` pass has no per-frame fence, so a copy it reads can be overwritten while it still runs.
+
+Not needed now: `ONESHOT` passes are used for `GPU_LOCAL` transfers. It matters once compute (or any `ONESHOT` pass that binds descriptor sets) is implemented. Then the entry needs to remember the fence of the `ONESHOT` submit that used it and the copy-in has to wait on it too (see also the compute note in `TODO.md`).
+
+## Separate vertex streams
+
+Status: not planned, only an alternative to look at if the vertex layout update cost turns out to hurt.
+
+Vertices are interleaved, so adding a member to a vertex layout changes the stride and every vertex moves. The plan is a GPU to GPU re-stride copy for `GPU_LOCAL` entries (new entry with room for the new members, `headroom` as padding inside the stride so a member that fits needs no copy at all) and a rewrite of the mapped memory for `CPU_SHARED`.
+
+Alternative: separate vertex streams, one buffer per group of members (Vulkan supports several vertex input bindings per pipeline). Adding a member group would then be a new buffer and a new binding, with no re-interleave and no copy of the existing vertices. Removing a group frees its buffer.
+
+Cost: it is a bigger model change and a new abstraction (a mesh owns several vertex entries, the vertex layout is split into stream groups, pipelines get one binding per stream, `Mesh::setVerticeVariable` has to pick the stream of the variable). Fetching from several buffers can also be slower than one interleaved buffer. Only worth it if re-striking big meshes at runtime is measured to be too slow.

@@ -1,8 +1,17 @@
 #pragma once
+#include <cstdint>
 #include <vulkan/vulkan.h>
 
 namespace Graphics
 {
+/* What the copy does, MemoryManager records a memory dependency wherever the kind switches (see uploadQueuedCopiesCMDs). */
+enum class PendingCopyKindEnum : uint8_t
+{
+	UPDATE, // staging range -> GPU Local entry buffer
+	READBACK, // GPU Local entry buffer -> readback range
+	ENTRY_COPY // GPU Local entry buffer -> another GPU Local entry buffer (MemoryManager::copyEntry)
+};
+
 struct PendingCopy
 {
 	VkBuffer srcBuffer = VK_NULL_HANDLE;
@@ -10,6 +19,6 @@ struct PendingCopy
 	VkDeviceSize srcOffset = 0;
 	VkDeviceSize dstOffset = 0;
 	VkDeviceSize size = 0;
-	bool isReadback = false; // The copy reads a GPU Local entry buffer into a readback range, instead of writing it.
+	PendingCopyKindEnum kind = PendingCopyKindEnum::UPDATE;
 };
 }

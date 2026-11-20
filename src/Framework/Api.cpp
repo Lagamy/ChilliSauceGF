@@ -324,6 +324,11 @@ namespace Graphics
 		Globals::renderer.memoryManager.updateEntry(uploadId_, data_, inSrcOffset_, inEntryOffset_, size_);
 	}
 
+	void copyMemoryEntry(MemoryEntryId srcEntryId_, MemoryEntryId dstEntryId_, const std::vector<MemoryCopyRegion>& regions_)
+	{
+		Globals::renderer.memoryManager.copyEntry(srcEntryId_, dstEntryId_, regions_);
+	}
+
 	ReadbackId requestMemoryEntryReadback(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_)
 	{
 		return Globals::renderer.memoryManager.requestReadback(entryId_, inEntryOffset_, size_);
@@ -344,19 +349,34 @@ namespace Graphics
 		Globals::renderer.memoryManager.releaseReadback(readbackId_);
 	}
 
-	PoolId addVerticeLayout(const char* name_)
+	PoolId addVerticeLayout(const char* name_, uint32_t headroom_)
 	{
-		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX_BUFFER - 1].add(name_); 
+		return Globals::renderer.reflectionSystem.layoutsPerBufferType[VERTEX_BUFFER - 1].add(name_, NONE, headroom_); 
 	}
 
-	PoolId addVariableToVerticeLayout(PoolId layoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId beginVertexLayoutUpdate(PoolId verticeLayoutId_)
 	{
-		return getVerticeLayout(layoutId_).addVariableBlueprint(name_, dataType_, repeatCountPerDimension_);
+		return Globals::renderer.reflectionSystem.beginVertexLayoutUpdate(verticeLayoutId_);
 	}
 
-	PoolId addVariableToVerticeLayout(PoolId layoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return getVerticeLayout(layoutId_).addVariableBlueprint(name_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+		return Globals::renderer.reflectionSystem.addVariableToVerticeLayout(updateId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+	}
+
+	PoolId addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	{
+		return Globals::renderer.reflectionSystem.addVariableToVerticeLayout(updateId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+	}
+
+	void removeVariableFromVerticeLayout(PoolId updateId_, PoolId variableId_)
+	{
+		Globals::renderer.reflectionSystem.removeVariableFromVerticeLayout(updateId_, variableId_);
+	}
+
+	void commitVertexLayoutUpdate(PoolId updateId_)
+	{
+		Globals::renderer.reflectionSystem.commitVertexLayoutUpdate(updateId_);
 	}
 
 	PoolId addMesh(const char* name_, PoolId verticeLayoutId_, uint32_t repeatCount_)
@@ -374,44 +394,79 @@ namespace Graphics
 		return Globals::renderer.descriptorsManager.getLayoutId(layoutName_);
 	}
 
-	PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
+	PoolId beginSetLayoutUpdate(PoolId layoutId_)
 	{
-		return Globals::renderer.descriptorsManager.addBufferDescriptorLayout(layoutId_, descriptorLayoutName_, binding_, type_);
+		return Globals::renderer.descriptorsManager.beginSetLayoutUpdate(layoutId_);
 	}
 
-	PoolId addDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_)
+	PoolId beginDescriptorLayoutUpdate(PoolId layoutId_, PoolId descriptorLayoutId_)
 	{
-		return Globals::renderer.descriptorsManager.addDynamicDescriptorLayout(layoutId_, descriptorLayoutName_, binding_, type_, dynamicCount_);
+		return Globals::renderer.descriptorsManager.beginDescriptorLayoutUpdate(layoutId_, descriptorLayoutId_);
 	}
 
-	PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
+	void commitSetLayoutUpdate(PoolId updateId_)
 	{
-		return Globals::renderer.descriptorsManager.addImageDescriptorLayout(layoutId_, descriptorLayoutName_, binding_, type_);
+		Globals::renderer.descriptorsManager.commitSetLayoutUpdate(updateId_);
 	}
 
-	PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	void commitDescriptorLayoutUpdate(PoolId updateId_)
 	{
-		return Globals::renderer.descriptorsManager.addMemberToDescriptorLayout(layoutId_, descriptorLayoutId_, name_, dataType_, repeatCountPerDimension_);
+		Globals::renderer.descriptorsManager.commitDescriptorLayoutUpdate(updateId_);
 	}
 
-	PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addBufferDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_)
 	{
-		return Globals::renderer.descriptorsManager.addMemberToDescriptorLayout(layoutId_, descriptorLayoutId_, name_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+		return Globals::renderer.descriptorsManager.addBufferDescriptorLayout(setLayoutUpdateId_, descriptorLayoutName_, binding_, type_, headroom_);
 	}
 
-	PoolId addStructMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addDynamicDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_)
 	{
-		return Globals::renderer.descriptorsManager.addStructMemberToDescriptorLayout(layoutId_, descriptorLayoutId_, name_, repeatCountPerDimension_);
+		return Globals::renderer.descriptorsManager.addDynamicDescriptorLayout(setLayoutUpdateId_, descriptorLayoutName_, binding_, type_, dynamicCount_, headroom_);
 	}
 
-	PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addImageDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
 	{
-		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(layoutId_, descriptorLayoutId_, structMemberId_, name_, dataType_, repeatCountPerDimension_);
+		return Globals::renderer.descriptorsManager.addImageDescriptorLayout(setLayoutUpdateId_, descriptorLayoutName_, binding_, type_);
 	}
 
-	PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	void removeDescriptorLayout(PoolId setLayoutUpdateId_, PoolId descriptorLayoutId_)
 	{
-		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(layoutId_, descriptorLayoutId_, structMemberId_, name_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+		Globals::renderer.descriptorsManager.removeDescriptorLayout(setLayoutUpdateId_, descriptorLayoutId_);
+	}
+
+	PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	{
+		return Globals::renderer.descriptorsManager.addMemberToDescriptorLayout(descriptorLayoutUpdateId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+	}
+
+	PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	{
+		return Globals::renderer.descriptorsManager.addMemberToDescriptorLayout(descriptorLayoutUpdateId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+	}
+
+	PoolId addStructMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
+	{
+		return Globals::renderer.descriptorsManager.addStructMemberToDescriptorLayout(descriptorLayoutUpdateId_, name_, orderPosition_, repeatCountPerDimension_, headroom_);
+	}
+
+	PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	{
+		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(descriptorLayoutUpdateId_, structMemberId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+	}
+
+	PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	{
+		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(descriptorLayoutUpdateId_, structMemberId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+	}
+
+	void removeMemberFromDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId memberId_)
+	{
+		Globals::renderer.descriptorsManager.removeMemberFromDescriptorLayout(descriptorLayoutUpdateId_, memberId_);
+	}
+
+	void removeVariableFromStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId variableId_)
+	{
+		Globals::renderer.descriptorsManager.removeVariableFromStructInDescriptorLayout(descriptorLayoutUpdateId_, variableId_);
 	}
 
 	PoolId addDescriptorSet(const DescriptorSetCreateParams& rParams_)
@@ -424,14 +479,24 @@ namespace Graphics
 		Globals::renderer.descriptorsManager.loadDescriptor(setId_, descriptorId_);
 	}
 
+	MemoryEntryId getDescriptorMemoryEntry(PoolId setId_, PoolId descriptorId_)
+	{
+		return Globals::renderer.descriptorsManager.getDescriptorMemoryEntry(setId_, descriptorId_);
+	}
+
+	void saveDescriptorToDisk(PoolId setId_, PoolId descriptorId_)
+	{
+		Globals::renderer.descriptorsManager.saveDescriptorToDisk(setId_, descriptorId_);
+	}
+
+	void changeDescriptorLayoutOnDisk(PoolId setId_, PoolId descriptorId_)
+	{
+		Globals::renderer.descriptorsManager.changeDescriptorLayoutOnDisk(setId_, descriptorId_);
+	}
+
 	void unloadDescriptor(PoolId setId_, PoolId descriptorId_)
 	{
 		Globals::renderer.descriptorsManager.unloadDescriptor(setId_, descriptorId_);
-	}
-
-	void removeDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_)
-	{
-		Globals::renderer.descriptorsManager.removeDescriptorLayout(layoutId_, descriptorLayoutId_);
 	}
 
 	void removeDescriptorSet(PoolId setId_)

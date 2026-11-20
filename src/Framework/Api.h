@@ -8,6 +8,7 @@
 #include "PassId.h"
 #include "Pass.h"
 #include "MemoryEntryId.h"
+#include "EntryCopyRequest.h"
 #include "MemoryEntryCreateParams.h"
 #include "ProjectManager.h"
 #include "Utilities.h"
@@ -98,29 +99,54 @@ namespace Graphics
 
 	MemoryEntryId allocateMemoryEntryRaw(const MemoryEntryCreateParams& rParams_);
 	void updateMemoryEntry(MemoryEntryId uploadId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
+	void copyMemoryEntry(MemoryEntryId srcEntryId_, MemoryEntryId dstEntryId_, const std::vector<MemoryCopyRegion>& regions_ = {}); // Copies ranges of one GPU_LOCAL entry (without copies) into another on the GPU. Empty regions_ = the first min(src size, dst size) bytes, a MemoryCopyRegion is {srcOffset, dstOffset, size} in entry bytes, destination ranges can't overlap, regions that touch in both entries are merged into one copy. Takes the source as it is after every write requested before it. The destination is pending until the copy completed (a draw using it skips, readbacks and updates wait behind it), the source can't be removed or overwritten before it. The destination can have writes pending, the copy goes after them
 	ReadbackId requestMemoryEntryReadback(MemoryEntryId entryId_, uint64_t inEntryOffset_, uint64_t size_);
 	bool isReadbackReady(ReadbackId readbackId_);
 	ReadbackDataContainer mapReadback(ReadbackId readbackId_);
 	void releaseReadback(ReadbackId readbackId_);
 
-	PoolId addVerticeLayout(const char* name_);
-	PoolId addVariableToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {});
-	PoolId addVariableToVerticeLayout(PoolId verticeLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	PoolId addVerticeLayout(const char* name_, uint32_t headroom_ = 0); // headroom_: bytes of one vertex (the stride) are at least this many, so a variable added later that fits in it changes no vertex bytes. 0 = exactly what the variables take
+	/*
+		Runtime editing of vertex layouts, same model as the descriptor layouts: beginVertexLayoutUpdate opens an update of a layout, the add / remove functions edit it (they take the update id) and commitVertexLayoutUpdate applies it and consumes it. Ids of added variables are valid at once, survivors keep theirs.
+		orderPosition_ is the place of the variable in the vertex (its bytes and its attribute location follow this order, so it has to match the shader's inputs), unique in the layout, can be sparse.
+		Before any mesh or pipeline uses the layout a commit only writes it. With live ones it waits for the device and gives every uploaded mesh of the layout a new vertex entry when its bytes moved or the stride changed (GPU_LOCAL: copied on the GPU, others rewritten on the CPU), then recreates the pipelines that use it.
+		The bytes of added variables are 0 after the commit (not the headroom or other unused bytes). A STATIC_ALLOCATOR mesh, or a mesh whose upload wasn't committed, that needs a new entry makes the commit throw (before anything changes). Not while recording.
+	*/
+	PoolId beginVertexLayoutUpdate(PoolId verticeLayoutId_);
+	PoolId addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {});
+	PoolId addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	void removeVariableFromVerticeLayout(PoolId updateId_, PoolId variableId_);
+	void commitVertexLayoutUpdate(PoolId updateId_);
 	PoolId addDescriptorSetLayout(const char* name_, uint32_t setIndex_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_ = DescriptorSetsPerPool); // setIndex_ is the set number of the shader (layout(set = setIndex_, ...)): shader declarations and bindDescriptorSet use it, so a pipeline's shaders can't declare two different layouts with the same one. The layout adds Descriptor Pools by itself as sets are derived, each one sized for setsPerPool_ sets
 	PoolId getLayoutId(const char* layoutName_); // id of the Descriptor Set Layout added with that name, throws if there is none
-	PoolId addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_); // binding_ is the binding number of the shader (layout(set = N, binding = binding_)), unique in the set layout, throws otherwise. type_: UNIFORM_DESCRIPTOR or STORAGE_DESCRIPTOR, a set can mix both. The members of the block are added with addMemberToDescriptorLayout / addStructMemberToDescriptorLayout + addVariableToStructInDescriptorLayout
-	PoolId addDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_); // same, but the whole block is repeated dynamicCount_ times and one of them is picked per bind (bindDescriptorSet dynamicUnitIds_) and written with setDynamicDescriptorMember...
-	PoolId addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_); // TEXTURE_DESCRIPTOR / SAMPLER_DESCRIPTOR. Not supported yet, throws
-	PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable directly in the block (mat4 model;). Returns the variable id the setters take
-	PoolId addStructMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, const std::vector<uint32_t>& repeatCountPerDimension_); // A struct in the block repeated per layer, outermost first ({2, 3} = states[2][3], {1} = a single struct). Returns the struct member id, its variables are added with addVariableToStructInDescriptorLayout
-	PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable of a struct member. Returns the variable id the setters take
-	PoolId addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
-	PoolId addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	/*
+		Runtime editing of descriptor layouts. addDescriptorSetLayout only creates the empty set layout, what is in it is edited through updates: beginSetLayoutUpdate opens an update of the bindings of a set layout, beginDescriptorLayoutUpdate one of the members of a binding, the add / remove functions below take the update id (it knows its layout), and commitSetLayoutUpdate / commitDescriptorLayoutUpdate apply it and consume it. Nothing changes in the layout that is used until the commit (ids of added things are valid at once).
+		Before anything of the layout exists (define* of a scene) a commit only writes the changes into the layouts. With live sets and memory a commit waits for the device and reallocates, copies and rewrites what the change touches: a member change gives every descriptor a new entry and carries its bytes over (a loaded GPU_LOCAL descriptor of a dynamic set by a GPU side copy, any other from the CPU copy of the set or loadFromDisk), no descriptor is changed on disk (see saveDescriptorToDisk), a binding change recreates the VkDescriptorSetLayout, the VkDescriptorSets of its sets and the pipeline layouts and pipelines that use it. Expensive, don't call it every frame. Not while recording. STATIC_ALLOCATOR sets with memory can't take a change (throws).
+		Only one update of a layout is open at a time, the update of a binding added by an open set layout update has to be committed before it. A shader that declared a removed binding has to be changed by the application.
+	*/
+	PoolId beginSetLayoutUpdate(PoolId layoutId_);
+	PoolId beginDescriptorLayoutUpdate(PoolId layoutId_, PoolId descriptorLayoutId_);
+	void commitSetLayoutUpdate(PoolId updateId_);
+	void commitDescriptorLayoutUpdate(PoolId updateId_);
+	PoolId addBufferDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_ = 0); // binding_ is the binding number of the shader (layout(set = N, binding = binding_)), unique in the set layout, throws otherwise. type_: UNIFORM_DESCRIPTOR or STORAGE_DESCRIPTOR, a set can mix both. headroom_: bytes one block (one dynamic unit) is at least big, 0 = what the members take. A member added later that fits in it doesn't change the size of the descriptor's entry, so a live commit keeps the entry (no new allocation, no copy). The members of the block are added with a DescriptorLayoutUpdate (beginDescriptorLayoutUpdate, addMemberToDescriptorLayout / addStructMemberToDescriptorLayout + addVariableToStructInDescriptorLayout)
+	PoolId addDynamicDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_ = 0); // same, but the whole block is repeated dynamicCount_ times and one of them is picked per bind (bindDescriptorSet dynamicUnitIds_) and written with setDynamicDescriptorMember...
+	PoolId addImageDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_); // TEXTURE_DESCRIPTOR / SAMPLER_DESCRIPTOR. Not supported yet, throws
+	void removeDescriptorLayout(PoolId setLayoutUpdateId_, PoolId descriptorLayoutId_); // the binding and the descriptors of its sets go at the commit
+	PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable directly in the block (mat4 model;). orderPosition_ is its place in the declaration order of the shader's block (can be sparse, unique among the members, throws otherwise, the bytes are placed in this order whatever order they were added in). Returns the variable id the setters take
+	PoolId addStructMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_ = 0); // A struct in the block (orderPosition_ as for addMemberToDescriptorLayout) repeated per layer, outermost first ({2, 3} = states[2][3], {1} = a single struct). Returns the struct member id, its variables are added with addVariableToStructInDescriptorLayout. headroom_: bytes the struct is at least big (0 = what its variables take), variables added later that fit in it don't change its size, so the elements of a struct array don't move
+	PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable of a struct member, orderPosition_ is its place inside the struct (unique there). Returns the variable id the setters take
+	PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	void removeMemberFromDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId memberId_); // a whole member (a struct member with its variables), the other members keep their ids. 
+	void removeVariableFromStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId variableId_); // one variable of a struct member (a variable directly in the block goes with removeMemberFromDescriptorLayout), the variables after it move up and keep their ids
 	PoolId addDescriptorSet(const DescriptorSetCreateParams& rParams_); // see DescriptorSetCreateParams: the set's descriptors are loaded and unloaded on demand
 	/* The engine already loads a descriptor when a draw or pass uses it and unloads it after absenceSecondsCount seconds without use (DescriptorSetCreateParams), so these two are only for an application that wants to decide itself. descriptorId_ is the descriptor layout id. They wait for the device and are not allowed while recording. Only DYNAMIC_ALLOCATOR sets can unload; an unloaded descriptor can't be written until it was loaded again. */
 	void loadDescriptor(PoolId setId_, PoolId descriptorId_);
 	void unloadDescriptor(PoolId setId_, PoolId descriptorId_);
-	void removeDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_);
+	MemoryEntryId getDescriptorMemoryEntry(PoolId setId_, PoolId descriptorId_); // the entry of a loaded descriptor (for requestMemoryEntryReadback, e.g. in saveToDisk), throws when it is unloaded. A load and a layout update that reallocates give it a new one, so ask again after them
+	/* The two functions of DescriptorSetCreateParams that belong to loadFromDisk. The engine never calls them (a conversion that failed half way would already have rewritten the files): call them after the whole conversion succeeded, saveDescriptorToDisk writes the data, changeDescriptorLayoutOnDisk rewrites the file for the current layout. */
+	void saveDescriptorToDisk(PoolId setId_, PoolId descriptorId_);
+	void changeDescriptorLayoutOnDisk(PoolId setId_, PoolId descriptorId_);
 	void removeDescriptorSet(PoolId setId_);
 	void removeDescriptorSetLayout(PoolId layoutId_);
 	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 

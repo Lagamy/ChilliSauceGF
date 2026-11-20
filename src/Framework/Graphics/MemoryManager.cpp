@@ -62,14 +62,15 @@ void uploadQueuedCopiesCMDs(VkCommandBuffer& cmdBuffer_)
 
 	/*
 		Copies of one batch run in recorded order with no implicit ordering between them. A readback copy reads an entry buffer that an update copy in the same batch may write
-		(a write after a read), so a TRANSFER -> TRANSFER memory dependency is recorded wherever the kind of copy switches.
+		(a write after a read), and an entry copy reads one that an update may have written (a read after a write) and writes one that a readback or entry copy may still read,
+		so a TRANSFER -> TRANSFER memory dependency is recorded wherever the kind of copy switches. Entry copies of one request have no such hazard between them: the destination is only written by the request, and a request never reads an entry that is still the destination of an unfinished one (resolvePendingOperations waits for it).
 	*/
 	bool hasReadback = false;
 	bool hasUpdate = false;
 	for(uint32_t i = 0; i < pBatch->recordedCopies.size(); i++)
 	{
 		const PendingCopy& rCopy = pBatch->recordedCopies[i];
-		if(i > 0 && rCopy.isReadback != pBatch->recordedCopies[i - 1].isReadback)
+		if(i > 0 && rCopy.kind != pBatch->recordedCopies[i - 1].kind)
 		{
 			VkMemoryBarrier barrier = {};
 			barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
@@ -77,8 +78,8 @@ void uploadQueuedCopiesCMDs(VkCommandBuffer& cmdBuffer_)
 			barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 			vkCmdPipelineBarrier(cmdBuffer_, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 		}
-		hasReadback = hasReadback || rCopy.isReadback;
-		hasUpdate = hasUpdate || !rCopy.isReadback;
+		hasReadback = hasReadback || rCopy.kind == PendingCopyKindEnum::READBACK;
+		hasUpdate = hasUpdate || rCopy.kind != PendingCopyKindEnum::READBACK;
 
 		VkBufferCopy bufferCopyRegion = {};
 		bufferCopyRegion.srcOffset = rCopy.srcOffset;
@@ -265,11 +266,55 @@ void MemoryManager::resolvePendingOperations()
 				i--;
 			}
 		}
+		else if(rPendingOperation.type == COPY_ENTRY)
+		{
+			EntryCopyRequest& rRequest = this->entryCopyRequests[rPendingOperation.id];
+			MemoryEntry& rSrcEntry = this->getEntry(rRequest.srcEntryId);
+			MemoryEntry& rDstEntry = this->getEntry(rRequest.dstEntryId);
+
+			/*
+				The copy snapshots the source as it was when it was requested, so it waits for an upload in flight and for every UPDATE of the source requested before it that is still waiting (those come earlier in the list).
+				An earlier UPDATE of the destination also goes first, or the copy would be overwritten by it.
+				Updates requested after it wait for it through the source's readbackBatchId, which queueEntryCopy sets.
+			*/
+			bool earlierUpdateWaits = false;
+			for(uint32_t j = 0; j < i && !earlierUpdateWaits; j++)
+			{
+				const Operation& rEarlier = this->pendingOperationsInOrder[j];
+				if(rEarlier.type == UPDATE)
+				{
+					const MemoryEntryId& rUpdated = this->entriesPendingForUpdate[rEarlier.id].memoryEntryId;
+					earlierUpdateWaits = (rUpdated.allocatorType == rRequest.srcEntryId.allocatorType && rUpdated.id == rRequest.srcEntryId.id) || (rUpdated.allocatorType == rRequest.dstEntryId.allocatorType && rUpdated.id == rRequest.dstEntryId.id);
+				}
+			}
+
+			if(!rSrcEntry.isPendingUpload() && !earlierUpdateWaits)
+			{
+				this->queueEntryCopy(rRequest, rSrcEntry, rDstEntry);
+				this->entryCopyRequests.remove(rPendingOperation.id);
+				this->pendingOperationsInOrder.erase(this->pendingOperationsInOrder.begin() + i);
+				i--;
+			}
+		}
 		else 
 		{
-			MemoryEntry& rMemoryEntry = this->getEntry(this->entriesPendingForRemoval[rPendingOperation.id]); 
+			const MemoryEntryId& rRemovedId = this->entriesPendingForRemoval[rPendingOperation.id];
+			MemoryEntry& rMemoryEntry = this->getEntry(rRemovedId); 
+
+			/* An entry copy that is requested but not queued yet will read this entry's buffer too (its readbackBatchId is only set once it is queued). */
+			bool entryCopyWaits = false;
+			for(uint32_t j = 0; j < i && !entryCopyWaits; j++)
+			{
+				const Operation& rEarlier = this->pendingOperationsInOrder[j];
+				if(rEarlier.type == COPY_ENTRY)
+				{
+					const MemoryEntryId& rSrcId = this->entryCopyRequests[rEarlier.id].srcEntryId;
+					entryCopyWaits = rSrcId.allocatorType == rRemovedId.allocatorType && rSrcId.id == rRemovedId.id;
+				}
+			}
+
 			/* A queued or in-flight readback copy still reads the entry's buffer, and destroying a buffer that pending commands use is invalid. So removal also waits for the readback batch. */
-			if(!rMemoryEntry.isPendingUpload() && !rMemoryEntry.isPendingReadback()) // Then we can remove it.
+			if(!rMemoryEntry.isPendingUpload() && !rMemoryEntry.isPendingReadback() && !entryCopyWaits) // Then we can remove it.
 			{
 				this->dynamicAllocator.removeGPULocalEntry(this->entriesPendingForRemoval[rPendingOperation.id].id); 
 				this->entriesPendingForRemoval.remove(rPendingOperation.id);
@@ -283,6 +328,165 @@ void MemoryManager::resolvePendingOperations()
 	this->updateUploadBatches();
 }
 
+
+/*
+	One PendingCopy per region. A static entry lives inside a big buffer, so its offset in that buffer is added, a dynamic one owns its whole buffer.
+	The source remembers the batch in readbackBatchId (the copy reads its buffer: removal and updates of it wait), the destination takes it as its upload batch, so it is pending until the batch completes
+	(drawMeshIndexed skips, descriptors count as unsettled, readbacks and updates wait behind it).
+*/
+void MemoryManager::queueEntryCopy(const EntryCopyRequest& rRequest_, MemoryEntry& rSrcEntry_, MemoryEntry& rDstEntry_)
+{
+	VkBuffer srcBuffer = this->getBuffer(rSrcEntry_).get();
+	VkBuffer dstBuffer = this->getBuffer(rDstEntry_).get();
+	uint64_t srcBase = rSrcEntry_.isForDynamic ? 0 : rSrcEntry_.inBufferFirstByte;
+	uint64_t dstBase = rDstEntry_.isForDynamic ? 0 : rDstEntry_.inBufferFirstByte;
+
+	uint64_t batchId = 0;
+	for(const MemoryCopyRegion& rRegion : rRequest_.regions)
+	{
+		PendingCopy pendingCopy = {};
+		pendingCopy.kind = PendingCopyKindEnum::ENTRY_COPY;
+		pendingCopy.srcBuffer = srcBuffer;
+		pendingCopy.srcOffset = srcBase + rRegion.srcOffset;
+		pendingCopy.dstBuffer = dstBuffer;
+		pendingCopy.dstOffset = dstBase + rRegion.dstOffset;
+		pendingCopy.size = rRegion.size;
+		batchId = this->queueCopy(pendingCopy);
+	}
+	rSrcEntry_.readbackBatchId = batchId;
+	rDstEntry_.uploadBatchId = batchId;
+}
+
+/*
+    CPU_SHARED entries and entries with copies are written in memory (the shadow, or the mapped block), a reserved entry that wasn't committed writes into its whole-entry staging range.
+    Any other GPU_LOCAL entry is zeroed on the GPU: a small entry of zeros is the source of one copyEntry (the same source bytes for every range, copies have no alignment rule, unlike vkCmdFillBuffer's 4 byte multiples),
+    removed right after, its removal waits for the copy. A readOnly entry is locked, which copyEntry refuses, so the lock is lifted for the request: the copy is not a write of the application.
+*/
+void MemoryManager::zeroEntryRanges(MemoryEntryId entryId_, const std::vector<MemoryCopyRegion>& rRanges_)
+{
+    if(rRanges_.empty())
+    {
+        return;
+    }
+
+    uint64_t maxSize = 0;
+    for(const MemoryCopyRegion& rRange : rRanges_)
+    {
+        maxSize = std::max(maxSize, rRange.size);
+    }
+    std::vector<char> zeros(maxSize, 0);
+
+    MemoryEntry& rEntry = this->getEntry(entryId_);
+    if(rEntry.memoryVisability != GPU_LOCAL || rEntry.hasShadow)
+    {
+        for(const MemoryCopyRegion& rRange : rRanges_)
+        {
+            this->writeShared(rEntry, rRange.dstOffset, zeros.data(), rRange.size);
+        }
+        return;
+    }
+    if(rEntry.awaitingCommit)
+    {
+        StagingDataContainer container = this->getStagingContainer(entryId_, 0, rEntry.size);
+        for(const MemoryCopyRegion& rRange : rRanges_)
+        {
+            container.write(rRange.dstOffset, zeros.data(), rRange.size);
+        }
+        return;
+    }
+
+    std::string zeroName = std::format("{} Zero source", rEntry.name);
+    MemoryEntryCreateParams zeroParams = {};
+    zeroParams.name = zeroName.c_str();
+    zeroParams.allocatorType = DYNAMIC_ALLOCATOR;
+    zeroParams.memoryVisability = GPU_LOCAL;
+    zeroParams.bufferType = rEntry.bufferType;
+    zeroParams.size = maxSize;
+    zeroParams.data = zeros.data();
+    zeroParams.access.accessMode = MemoryAccessModeEnum::READ_ONLY;
+    MemoryEntryId zeroEntryId = this->addEntry(zeroParams);
+
+    MemoryEntry& rTarget = this->getEntry(entryId_);
+    bool wasLocked = rTarget.locked;
+    rTarget.locked = false;
+    this->copyEntry(zeroEntryId, entryId_, rRanges_);
+    this->getEntry(entryId_).locked = wasLocked;
+    this->removeDynamicEntry(zeroEntryId);
+}
+
+/*
+	Both entries are GPU_LOCAL without copies (an entry with copies is copied copy by copy, CPU_SHARED has writeShared). The copy is deferred like a readback: it is queued by resolvePendingOperations
+	once the source has no upload in flight and no earlier UPDATE of the source or the destination waits. The destination is pending (OpenBatchId) from here on, then its upload batch is the copy's, which is never earlier than a batch it had before
+	(one batch is in flight at a time, so batches complete in order).
+	A region needs both ranges inside their entries, and the destination ranges can't overlap (the order of copies in a batch is not defined).
+*/
+void MemoryManager::copyEntry(MemoryEntryId srcEntryId_, MemoryEntryId dstEntryId_, const std::vector<MemoryCopyRegion>& regions_)
+{
+	MemoryEntry& rSrcEntry = this->getEntry(srcEntryId_);
+	MemoryEntry& rDstEntry = this->getEntry(dstEntryId_);
+	if(srcEntryId_.allocatorType == dstEntryId_.allocatorType && srcEntryId_.id == dstEntryId_.id)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Can't copy entry {} into itself.", rSrcEntry.name));
+	}
+	if(rSrcEntry.memoryVisability != GPU_LOCAL || rDstEntry.memoryVisability != GPU_LOCAL || rSrcEntry.hasShadow || rDstEntry.hasShadow)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Can't copy entry {} into {}, both have to be GPU_LOCAL without copies.", rSrcEntry.name, rDstEntry.name));
+	}
+	if(rSrcEntry.awaitingCommit || rDstEntry.awaitingCommit)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Can't copy entry {} into {}, one of them is reserved and was not committed.", rSrcEntry.name, rDstEntry.name));
+	}
+	if(rDstEntry.locked)
+	{
+		throw std::runtime_error(std::format("Memory Manager: Entry {} is locked (readOnly), it can't be written.", rDstEntry.name));
+	}
+	EntryCopyRequest request;
+	request.srcEntryId = srcEntryId_;
+	request.dstEntryId = dstEntryId_;
+	request.regions = regions_;
+	if(request.regions.empty())
+	{
+		request.regions.push_back({0, 0, std::min<uint64_t>(rSrcEntry.size, rDstEntry.size)});
+	}
+
+	std::vector<MemoryCopyRegion> byDst = request.regions;
+	std::sort(byDst.begin(), byDst.end(), [](const MemoryCopyRegion& a_, const MemoryCopyRegion& b_) { return a_.dstOffset < b_.dstOffset; });
+	for(uint32_t i = 0; i < byDst.size(); i++)
+	{
+		const MemoryCopyRegion& rRegion = byDst[i];
+		if(rRegion.size == 0 || rRegion.srcOffset + rRegion.size > rSrcEntry.size || rRegion.dstOffset + rRegion.size > rDstEntry.size)
+		{
+			throw std::runtime_error(std::format("Memory Manager: Copy region of {} bytes ({} -> {}) from entry {} to entry {} is empty or doesn't fit into them.", rRegion.size, rRegion.srcOffset, rRegion.dstOffset, rSrcEntry.name, rDstEntry.name));
+		}
+		if(i > 0 && byDst[i - 1].dstOffset + byDst[i - 1].size > rRegion.dstOffset)
+		{
+			throw std::runtime_error(std::format("Memory Manager: Copy regions into entry {} overlap at byte {}.", rDstEntry.name, rRegion.dstOffset));
+		}
+	}
+
+	/*
+		Regions that follow each other in the destination and also in the source are one copy (e.g. neighbouring members of a vertex that keep their distance), so a bulk copy of many small regions costs one vkCmdCopyBuffer per contiguous run.
+		byDst is sorted by destination offset and has no overlaps, so only the previous merged region can be extended.
+	*/
+	request.regions.clear();
+	for(const MemoryCopyRegion& rRegion : byDst)
+	{
+		if(!request.regions.empty())
+		{
+			MemoryCopyRegion& rPrevious = request.regions.back();
+			if(rPrevious.dstOffset + rPrevious.size == rRegion.dstOffset && rPrevious.srcOffset + rPrevious.size == rRegion.srcOffset)
+			{
+				rPrevious.size += rRegion.size;
+				continue;
+			}
+		}
+		request.regions.push_back(rRegion);
+	}
+
+	rDstEntry.uploadBatchId = OpenBatchId;
+	PoolId requestId = this->entryCopyRequests.add(request);
+	this->pendingOperationsInOrder.emplace_back(COPY_ENTRY, requestId);
+}
 
 MemoryEntryId MemoryManager::addEntry(const MemoryEntryCreateParams& rParams_)
 {

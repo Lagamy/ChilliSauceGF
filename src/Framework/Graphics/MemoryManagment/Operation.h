@@ -5,7 +5,8 @@ enum MemoryOperationTypeEnum
 {
     UPDATE, 
     REMOVE,
-    READBACK_COPY
+    READBACK_COPY,
+    COPY_ENTRY
 }; 
 
 struct Operation 

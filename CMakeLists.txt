@@ -69,7 +69,7 @@ add_executable(ChilliSauceGF
 	"src/Framework/Misc/Bool.cpp"
 
 	# Reflection 
-	"src/Framework/Graphics/Reflection/Layout.cpp" "src/Framework/Graphics/Reflection/VariableBlueprint.cpp"
+	"src/Framework/Graphics/Reflection/Layout.cpp" "src/Framework/Graphics/Reflection/VariableBlueprint.cpp" "src/Framework/Graphics/Reflection/VertexLayoutUpdate.cpp" "src/Framework/Graphics/ReflectionSystem.cpp"
 	"src/Framework/Graphics/Reflection/GPUDataContainer.cpp"
 
 	#Memory Managment 
@@ -80,7 +80,7 @@ add_executable(ChilliSauceGF
  	"src/Framework/Graphics/MemoryManagment/StagingAllocator.cpp" "src/Framework/Graphics/MemoryManagment/Pages/StagingPage.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/FreeSpace.cpp"
  	"src/Framework/Graphics/MemoryManagment/Heaps/GPULocalHeap.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/CPUSharedHeap.cpp"
- 	src/Framework/Graphics/Backend/Descriptor/DescriptorLayout.cpp src/Framework/Graphics/Backend/Descriptor/Descriptor.cpp
+ 	src/Framework/Graphics/Backend/Descriptor/DescriptorLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorLayoutUpdate.cpp src/Framework/Graphics/Backend/Descriptor/Descriptor.cpp
  	src/Framework/Graphics/Backend/Descriptor/DescriptorSetLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSet.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSetCreateParams.cpp
  	src/Framework/Graphics/Backend/Descriptor/DescriptorPool.cpp src/Framework/Graphics/DescriptorsManager.cpp
 )

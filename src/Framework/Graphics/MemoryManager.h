@@ -10,6 +10,7 @@
 #include "PendingCopy.h"
 #include "UploadBatch.h"
 #include "ReadbackRequest.h"
+#include "EntryCopyRequest.h"
 #include "Utilities.h"
 #include "Operation.h"
 #include "GPUDataContainer.h"
@@ -34,6 +35,7 @@ struct MemoryManager
 	Pool<UpdateRequest> entriesPendingForUpdate;
 	Pool<MemoryEntryId> entriesPendingForRemoval;
 	Pool<ReadbackRequest> readbackRequests; // Alive from requestReadback until releaseReadback.
+	Pool<EntryCopyRequest> entryCopyRequests; // Alive from copyEntry until its copies are queued.
 
 	std::vector<Operation> pendingOperationsInOrder;
 	std::vector<MemoryEntryId> copiedEntryIds; // Entries with a shadow (CPU_SHARED or GPU_LOCAL), the ones syncCopiesToFrame walks.
@@ -59,6 +61,9 @@ struct MemoryManager
 	bool hasPendingWrite(MemoryEntryId memoryEntryId_); // an upload is queued or in flight, or an UPDATE waits to be queued
 	void updateEntry(MemoryEntryId entryId_, const void* data_, uint64_t inSrcOffset_, uint64_t inEntryOffset_, uint64_t size_);
 	void removeDynamicEntry(MemoryEntryId entryId_); 
+	void queueEntryCopy(const EntryCopyRequest& rRequest_, MemoryEntry& rSrcEntry_, MemoryEntry& rDstEntry_);
+	void copyEntry(MemoryEntryId srcEntryId_, MemoryEntryId dstEntryId_, const std::vector<MemoryCopyRegion>& regions_); // GPU Local -> GPU Local on the GPU, deferred like a readback. Empty regions = the first min(src size, dst size) bytes. The destination can have writes pending, the copy goes after them
+	void zeroEntryRanges(MemoryEntryId entryId_, const std::vector<MemoryCopyRegion>& rRanges_); // Sets the byte ranges (MemoryCopyRegion::dstOffset, size) of an entry to 0: in memory for CPU_SHARED and entries with a shadow, into the staging range of a reserved entry, otherwise on the GPU
 	MemoryEntryId allocateEntry(const MemoryEntryCreateParams& rParams_); // params.data has to be nullptr
 	MemoryEntryId reserveEntry(const MemoryEntryCreateParams& rParams_); // params.data has to be nullptr
 	void commitEntry(MemoryEntryId entryId_);

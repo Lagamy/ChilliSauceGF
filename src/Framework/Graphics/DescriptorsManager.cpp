@@ -18,54 +18,236 @@ namespace Graphics
         return this->layouts.getIdByName(layoutName_);
     }
 
-    PoolId DescriptorsManager::addBufferDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
+    /* The staged copy is taken here: the live layout is not touched until the commit, so writes through its ids keep working while the update is open. */
+    PoolId DescriptorsManager::beginSetLayoutUpdate(PoolId layoutId_)
     {
-        return this->layouts[layoutId_].addBufferDescriptorLayout(descriptorLayoutName_, binding_, type_);
+        DescriptorSetLayout& rLayout = this->layouts[layoutId_];
+        if(rLayout.updateOpen)
+        {
+            throw std::runtime_error(std::format("Descriptor Set Layout {}: An update of it is already open, commit it first.", rLayout.name));
+        }
+        rLayout.updateOpen = true;
+        return this->setLayoutUpdates.add(layoutId_);
     }
 
-    PoolId DescriptorsManager::addDynamicDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_)
+    PoolId DescriptorsManager::beginDescriptorLayoutUpdate(PoolId layoutId_, PoolId descriptorLayoutId_)
     {
-        return this->layouts[layoutId_].addDynamicDescriptorLayout(descriptorLayoutName_, binding_, type_, dynamicCount_);
+        DescriptorLayout& rLayout = this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_);
+        if(rLayout.updateOpen)
+        {
+            throw std::runtime_error(std::format("Descriptor Layout {}: An update of it is already open, commit it first.", rLayout.name));
+        }
+        rLayout.updateOpen = true;
+        return this->descriptorLayoutUpdates.add(layoutId_, descriptorLayoutId_, rLayout);
     }
 
-    PoolId DescriptorsManager::addImageDescriptorLayout(PoolId layoutId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
+    PoolId DescriptorsManager::addBufferDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_)
     {
-        return this->layouts[layoutId_].addImageDescriptorLayout(descriptorLayoutName_, binding_, type_);
+        SetLayoutUpdate& rUpdate = this->setLayoutUpdates[setLayoutUpdateId_];
+        PoolId descriptorLayoutId = this->layouts[rUpdate.setLayoutId].addBufferDescriptorLayout(descriptorLayoutName_, binding_, type_, headroom_);
+        rUpdate.addedDescriptorLayoutIds.push_back(descriptorLayoutId);
+        return descriptorLayoutId;
     }
 
-    PoolId DescriptorsManager::addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorsManager::addDynamicDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_)
     {
-        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addMemberBlueprint(name_, dataType_, repeatCountPerDimension_);
+        SetLayoutUpdate& rUpdate = this->setLayoutUpdates[setLayoutUpdateId_];
+        PoolId descriptorLayoutId = this->layouts[rUpdate.setLayoutId].addDynamicDescriptorLayout(descriptorLayoutName_, binding_, type_, dynamicCount_, headroom_);
+        rUpdate.addedDescriptorLayoutIds.push_back(descriptorLayoutId);
+        return descriptorLayoutId;
     }
 
-    PoolId DescriptorsManager::addMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorsManager::addImageDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
     {
-        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addMemberBlueprint(name_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+        return this->layouts[this->setLayoutUpdates[setLayoutUpdateId_].setLayoutId].addImageDescriptorLayout(descriptorLayoutName_, binding_, type_);
     }
 
-    PoolId DescriptorsManager::addStructMemberToDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, const char* name_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    /* A descriptor layout added by the same update never existed for the sets, so it just goes. Anything else is removed by the commit. */
+    void DescriptorsManager::removeDescriptorLayout(PoolId setLayoutUpdateId_, PoolId descriptorLayoutId_)
     {
-        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addStructMemberBlueprint(name_, repeatCountPerDimension_);
+        SetLayoutUpdate& rUpdate = this->setLayoutUpdates[setLayoutUpdateId_];
+        DescriptorSetLayout& rLayout = this->layouts[rUpdate.setLayoutId];
+        rLayout.getDescriptorLayout(descriptorLayoutId_);
+        auto added = std::find(rUpdate.addedDescriptorLayoutIds.begin(), rUpdate.addedDescriptorLayoutIds.end(), descriptorLayoutId_);
+        if(added != rUpdate.addedDescriptorLayoutIds.end())
+        {
+            rUpdate.addedDescriptorLayoutIds.erase(added);
+            rLayout.removeDescriptorLayout(descriptorLayoutId_);
+        }
+        else if(std::find(rUpdate.removedDescriptorLayoutIds.begin(), rUpdate.removedDescriptorLayoutIds.end(), descriptorLayoutId_) == rUpdate.removedDescriptorLayoutIds.end())
+        {
+            rUpdate.removedDescriptorLayoutIds.push_back(descriptorLayoutId_);
+        }
     }
 
-    PoolId DescriptorsManager::addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorsManager::addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
-        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addVariable(structMemberId_, name_, dataType_, repeatCountPerDimension_);
+        return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addMemberBlueprint(name_, orderPosition_, dataType_, repeatCountPerDimension_);
     }
 
-    PoolId DescriptorsManager::addVariableToStructInDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_, PoolId structMemberId_, const char* name_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorsManager::addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
-        return this->layouts[layoutId_].getDescriptorLayout(descriptorLayoutId_).addVariable(structMemberId_, name_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+        return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addMemberBlueprint(name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+    }
+
+    PoolId DescriptorsManager::addStructMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
+    {
+        return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addStructMemberBlueprint(name_, orderPosition_, repeatCountPerDimension_, headroom_);
+    }
+
+    PoolId DescriptorsManager::addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    {
+        return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addVariable(structMemberId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+    }
+
+    PoolId DescriptorsManager::addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    {
+        return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addVariable(structMemberId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+    }
+
+    void DescriptorsManager::removeMemberFromDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId memberId_)
+    {
+        this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.removeMemberBlueprint(memberId_);
+    }
+
+    void DescriptorsManager::removeVariableFromStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId variableId_)
+    {
+        this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.removeVariableFromStruct(variableId_);
+    }
+
+    /*
+        The staged members replace the live ones. The sets derived from the layout whose memory exists are reshaped one by one (DescriptorSet::reshapeDescriptor: new entry, bytes carried over, bindings rewritten), after the device is idle: the old entries are destroyed and the bindings of the sets are updated, which no submitted command may overlap
+        (VUID-vkDestroyBuffer-buffer-00922, VUID-vkUpdateDescriptorSets-None-03047). The binding itself doesn't change, so the VkDescriptorSetLayout and the pipelines stay.
+        A static set can't be reshaped (static entries can't be removed), which is checked before anything changes. Sets that were not allocated yet take the new block when they are.
+    */
+    void DescriptorsManager::commitDescriptorLayoutUpdate(PoolId updateId_)
+    {
+        DescriptorLayoutUpdate& rUpdate = this->descriptorLayoutUpdates[updateId_];
+        DescriptorLayout& rLayout = this->layouts[rUpdate.setLayoutId].getDescriptorLayout(rUpdate.descriptorLayoutId);
+
+        std::vector<PoolId> liveSetIds;
+        for(const PoolId& rSetId : rLayout.derivedDescriptors)
+        {
+            DescriptorSet& rSet = this->descriptorSet[rSetId];
+            if(!rSet.descriptorsMemoryAllocated)
+            {
+                continue;
+            }
+            if(!rSet.canUnload())
+            {
+                throw std::runtime_error(std::format("Descriptor Layout {}: Can't change the block, a derived STATIC_ALLOCATOR set already has its memory and static entries can't be removed.", rLayout.name));
+            }
+            liveSetIds.push_back(rSetId);
+        }
+
+        if(liveSetIds.empty())
+        {
+            rLayout.members = std::move(rUpdate.staged.members);
+            rLayout.variables = std::move(rUpdate.staged.variables);
+        }
+        else
+        {
+            this->waitForGpu();
+            DescriptorLayout oldLayout = rLayout;
+            std::vector<DescriptorShape> oldShapes;
+            for(const PoolId& rSetId : liveSetIds)
+            {
+                oldShapes.push_back(this->descriptorSet[rSetId].descriptors.getInternal(rUpdate.descriptorLayoutId.id).shape);
+            }
+            rLayout.members = std::move(rUpdate.staged.members);
+            rLayout.variables = std::move(rUpdate.staged.variables);
+            for(uint32_t i = 0; i < liveSetIds.size(); i++)
+            {
+                this->descriptorSet[liveSetIds[i]].reshapeDescriptor(rUpdate.descriptorLayoutId, oldLayout, oldShapes[i]);
+            }
+            getMemoryManager().resolvePendingOperations();
+        }
+        rLayout.updateOpen = false;
+        this->descriptorLayoutUpdates.remove(updateId_);
+    }
+
+    /*
+        Removed descriptor layouts go first (their descriptors in every derived set, then the layout), then the pending ones become real, and a layout whose handle exists is recreated (DescriptorSetLayout::recreate also rebuilds the pipeline layouts and pipelines that use it).
+        A VkDescriptorSet belongs to the VkDescriptorSetLayout it was allocated with, so every created derived set gets new ones (DescriptorSet::rebuildHandles) that point at the entries again. New descriptors of a set with memory get their entry; a STATIC_ALLOCATOR set can't (checked first, nothing changes before that).
+        Shaders that declared a removed descriptor layout have to be changed by the application, nothing here edits them.
+    */
+    void DescriptorsManager::commitSetLayoutUpdate(PoolId updateId_)
+    {
+        SetLayoutUpdate& rUpdate = this->setLayoutUpdates[updateId_];
+        DescriptorSetLayout& rLayout = this->layouts[rUpdate.setLayoutId];
+        for(const PoolId& rAddedId : rUpdate.addedDescriptorLayoutIds)
+        {
+            if(rLayout.getDescriptorLayout(rAddedId).updateOpen)
+            {
+                throw std::runtime_error(std::format("Descriptor Set Layout {}: Descriptor layout {} has an uncommitted DescriptorLayoutUpdate, commit it before the set layout update.", rLayout.name, rLayout.getDescriptorLayout(rAddedId).name));
+            }
+        }
+
+        std::vector<PoolId> setIds;
+        for(uint32_t i = 0; i < rLayout.descriptorLayouts.allocatedSize(); i++)
+        {
+            if(!rLayout.descriptorLayouts.alive[i])
+            {
+                continue;
+            }
+            for(const PoolId& rSetId : rLayout.descriptorLayouts.getInternal(i).derivedDescriptors)
+            {
+                if(std::find(setIds.begin(), setIds.end(), rSetId) == setIds.end())
+                {
+                    setIds.push_back(rSetId);
+                }
+            }
+        }
+        for(const PoolId& rSetId : setIds)
+        {
+            DescriptorSet& rSet = this->descriptorSet[rSetId];
+            if(!rUpdate.addedDescriptorLayoutIds.empty() && rSet.descriptorsMemoryAllocated && !rSet.canUnload())
+            {
+                throw std::runtime_error(std::format("Descriptor Set Layout {}: Can't add a descriptor layout, a derived STATIC_ALLOCATOR set already has its memory and static entries have to be added before the static allocation.", rLayout.name));
+            }
+        }
+
+        if(rLayout.vkHandle != VK_NULL_HANDLE || !setIds.empty())
+        {
+            this->waitForGpu();
+        }
+        for(const PoolId& rRemovedId : rUpdate.removedDescriptorLayoutIds)
+        {
+            for(const PoolId& rSetId : setIds)
+            {
+                this->descriptorSet[rSetId].removeDescriptor(rRemovedId);
+            }
+            rLayout.removeDescriptorLayout(rRemovedId);
+        }
+        for(const PoolId& rAddedId : rUpdate.addedDescriptorLayoutIds)
+        {
+            rLayout.getDescriptorLayout(rAddedId).pending = false;
+            for(const PoolId& rSetId : setIds)
+            {
+                this->descriptorSet[rSetId].addDescriptor(rSetId, rAddedId);
+            }
+        }
+        rLayout.updateDynamicFlag();
+
+        if(rLayout.vkHandle != VK_NULL_HANDLE)
+        {
+            rLayout.recreate();
+            for(const PoolId& rSetId : setIds)
+            {
+                if(!this->descriptorSet[rSetId].vkHandles.empty())
+                {
+                    this->descriptorSet[rSetId].rebuildHandles();
+                }
+            }
+        }
+        getMemoryManager().resolvePendingOperations();
+        rLayout.updateOpen = false;
+        this->setLayoutUpdates.remove(updateId_);
     }
 
     PoolId DescriptorsManager::addDescriptorSet(const DescriptorSetCreateParams& rParams_)
     {
         return this->layouts[rParams_.layoutId].deriveDescriptorSet(rParams_);
-    }
-
-    void DescriptorsManager::removeDescriptorLayout(PoolId layoutId_, PoolId descriptorLayoutId_)
-    {
-        this->layouts[layoutId_].removeDescriptorLayout(descriptorLayoutId_);
     }
 
     /*
@@ -263,6 +445,32 @@ namespace Graphics
             this->loadsToWaitFor.push_back({setId_, descriptorId_});
         }
         getMemoryManager().resolvePendingOperations();
+    }
+
+    MemoryEntryId DescriptorsManager::getDescriptorMemoryEntry(PoolId setId_, PoolId descriptorId_)
+    {
+        return this->descriptorSet[setId_].getDescriptorEntryId(descriptorId_);
+    }
+
+    void DescriptorsManager::saveDescriptorToDisk(PoolId setId_, PoolId descriptorId_)
+    {
+        DescriptorSet& rSet = this->descriptorSet[setId_];
+        if(rSet.params.saveToDisk == nullptr)
+        {
+            throw std::runtime_error("Descriptors Manager: the set has no saveToDisk, it needs loadFromDisk.");
+        }
+        rSet.params.saveToDisk(setId_, descriptorId_);
+    }
+
+    void DescriptorsManager::changeDescriptorLayoutOnDisk(PoolId setId_, PoolId descriptorId_)
+    {
+        DescriptorSet& rSet = this->descriptorSet[setId_];
+        if(rSet.params.changeLayoutOnDisk == nullptr)
+        {
+            throw std::runtime_error("Descriptors Manager: the set has no changeLayoutOnDisk, it needs loadFromDisk.");
+        }
+        rSet.params.changeLayoutOnDisk(setId_, descriptorId_);
+        rSet.markDiskLayoutChanged(descriptorId_);
     }
 
     void DescriptorsManager::unloadDescriptor(PoolId setId_, PoolId descriptorId_)

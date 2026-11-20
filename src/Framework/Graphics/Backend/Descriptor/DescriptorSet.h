@@ -233,6 +233,16 @@ struct DescriptorSet
 	*/
 	void loadDescriptor(PoolId descriptorId_);
 	void unloadDescriptor(PoolId descriptorId_);
+	/*
+		Applying a committed layout update (DescriptorsManager::commitDescriptorLayoutUpdate / commitSetLayoutUpdate), after waiting for the device. Not while recording.
+		reshapeDescriptor: the block of the descriptor changed. addDescriptor / removeDescriptor: a descriptor layout was added to / removed from the set's layout (setId_ is the id of this set). rebuildHandles: the set's VkDescriptorSetLayout was recreated.
+	*/
+	void reshapeDescriptor(PoolId descriptorId_, const DescriptorLayout& rOldLayout_, const DescriptorShape& rOldShape_);
+	void addDescriptor(PoolId setId_, PoolId descriptorLayoutId_);
+	void removeDescriptor(PoolId descriptorLayoutId_);
+	void rebuildHandles();
+	void markDiskLayoutChanged(PoolId descriptorId_); // changeLayoutOnDisk was called for the descriptor: loadFromDisk may be used again
+	MemoryEntryId getDescriptorEntryId(PoolId descriptorId_); // the entry of a loaded descriptor (copy 0 of a per frame one), throws when unloaded. It is replaced by a load and by a layout update that reallocates, so ask again after those
 	void markUsed(PoolId descriptorId_); // a draw or pass uses the descriptor now: restarts its absence time and requests a load when it is unloaded
 	bool canUnload() const; // DYNAMIC_ALLOCATOR sets only
 	bool unloadsAutomatically() const; // canUnload and an absenceSecondsCount
@@ -240,8 +250,12 @@ struct DescriptorSet
 	private:
 	Descriptor& getDescriptor(PoolId descriptorId_);
 	void validateShape(Descriptor& rDescriptor_); // the uniform range limit, see the .cpp
+	void setupDescriptorMemory(Descriptor& rDescriptor_); // shape, entry and backup of one descriptor
+	void checkDynamicLimits(); // the dynamic descriptor counts of the set against the device limits
 	void allocateDescriptorMemory(Descriptor& rDescriptor_); // the memory entry (and its copies) of one descriptor, used by allocateDescriptorsMemory and loadDescriptor
 	VkWriteDescriptorSet makeBindingWrite(Descriptor& rDescriptor_, uint32_t copy_, VkDescriptorBufferInfo& rBufferInfo_); // fills rBufferInfo_ from copy copy_ of the descriptor's entry, the write keeps a pointer to it
+	void rewriteBindings(Descriptor& rDescriptor_); // points every VkDescriptorSet copy at the descriptor's current entry
+	void moveDescriptorEntry(Descriptor& rDescriptor_, const DescriptorLayout& rOldLayout_, const DescriptorShape& rOldShape_, const DescriptorShape& rNewShape_); // reshapeDescriptor of a loaded GPU_LOCAL descriptor without copies: a new entry filled by a GPU side copy
 	void restoreBackup(Descriptor& rDescriptor_);
 	bool keepsBackup() const; // canUnload and no loadFromDisk: the set mirrors every write into Descriptor::backup
 	const VariableBlueprint& getVariable(PoolId descriptorId_, PoolId variableId_);

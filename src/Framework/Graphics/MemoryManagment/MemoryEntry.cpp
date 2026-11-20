@@ -91,7 +91,7 @@ namespace Graphics
 		StagingHeap& rStagingHeap = getMemoryManager().getStagingHeap(rStagingData_);
 
 		PendingCopy pendingCopy = {};
-		pendingCopy.isReadback = true;
+		pendingCopy.kind = PendingCopyKindEnum::READBACK;
 		pendingCopy.srcBuffer = getMemoryManager().getBuffer(*this).get();
 		if(this->isForDynamic)
 		{
