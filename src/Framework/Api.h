@@ -157,6 +157,27 @@ namespace Graphics
 	void removeDescriptorSet(PoolId setId_);
 	void removeDescriptorSetLayout(PoolId layoutId_);
 	PoolId addGraphicsPipelineLayout(const char* name_, PoolId vertexShaderId_, PoolId fragmentShaderId_, PoolId verticeLayoutId_, VkPrimitiveTopology primitiveType_, VkPolygonMode polygonMode_, RenderPass& rRenderpass_, uint32_t subpassId_); 
+
+	/*
+		Push constants: a PushConstantLayout is the block of a push constant range (layout(push_constant) uniform ...), built like a descriptor layout (members, struct members, variables with an orderPosition, std430) and edited through updates like one: beginPushConstantLayoutUpdate opens an update, the add / remove functions below take the update id (it knows its layout, the ids they return are valid at once and after the commit) and commitPushConstantLayoutUpdate applies it and consumes it. The layout that is used stays as it was until the commit. A commit of a layout whose pipelines were created waits for the device and creates their pipeline layouts and pipelines again, throwing (nothing changed, the update stays open) when the blocks no longer fit. It is attached to a graphics pipeline for some shader stages after the pipeline was added and before createAllPipelines,
+		a pipeline can have several layouts as long as their stages don't overlap (one range per stage) and together they fit limits.maxPushConstantsSize. The framework places the blocks one after another when the pipeline layout is created and throws (naming every layout and its size) if they don't fit,
+		getPushConstantOffset gives the offset to declare in the shader (layout(push_constant, offset = N)). The values are pushed by CommandList::addSetPushConstantMemberValue.
+	*/
+	PoolId addPushConstantLayout(const char* name_); // names are unique (PoolMap)
+	PoolId getGraphicsPipelineId(const char* name_); // id of the graphics pipeline added with that name (addGraphicsPipelineLayout), throws if there is none
+	PushConstantLayout& getPushConstantLayout(PoolId pushConstantLayoutId_);
+	PoolId beginPushConstantLayoutUpdate(PoolId pushConstantLayoutId_);
+	void commitPushConstantLayoutUpdate(PoolId updateId_);
+	PoolId addMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable directly in the block (mat4 model;). Returns the variable id the commands take (the commands also take its orderPosition_, see VariableSelector)
+	PoolId addMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	PoolId addStructMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_ = 0); // A struct in the block repeated per layer, see addStructMemberToDescriptorLayout. Returns the struct member id
+	PoolId addVariableToStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // A variable of a struct member. Returns the variable id the commands take
+	PoolId addVariableToStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
+	void removeMemberFromPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId memberId_); // a whole member (a struct member with its variables).
+	void removeVariableFromStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId variableId_); // one variable of a struct member
+	void addPushConstantLayoutToGraphicsPipeline(PoolId graphicsPipelineId_, PoolId pushConstantLayoutId_, VkShaderStageFlags stages_); // stages_: the graphics stages that read the block (VK_SHADER_STAGE_VERTEX_BIT | ...). Throws once the pipeline was created, or when the stages overlap another layout of the pipeline
+	PoolId getPushConstantLayoutId(PoolId graphicsPipelineId_, const char* name_); // the layout attached to the pipeline that was added with that name (addPushConstantLayout), throws if there is none
+	uint32_t getPushConstantOffset(PoolId graphicsPipelineId_, PoolId pushConstantLayoutId_); // the offset of the block in the pipeline's push constant range, valid after createAllPipelines (throws before)
 	void addPageForStagingReadbacks(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_);
 	void addPageForStagingUploads(uint32_t upperBoundForRangeSize_, StorageUnitEnum upperBoundUnit_, uint32_t heapSize_, StorageUnitEnum heapSizeUnit_, uint32_t maxDormantHeaps_);
 	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_);
@@ -195,6 +216,7 @@ namespace Graphics
 	void beginPresentationRenderPass(VkCommandBuffer& cmdBuffer_); // viewport, scissor and the presentation render pass on the current swapchain image
 	void bindGraphicsPipeline(PoolId graphicsPipelineId_, VkCommandBuffer& cmdBuffer_); 
 	void bindDescriptorSet(PoolId descriptorSetId_, PoolId graphicsPipelineId_, VkCommandBuffer& cmdBuffer_, std::span<const uint32_t> dynamicUnitIds_ = {}); // binds at the set index of the set's layout. dynamicUnitIds_ is optional, see the definition
+	void setPushConstantMemberValue(const SetPushConstantMemberValueParams& rParams_, PoolId graphicsPipelineId_, VkCommandBuffer& cmdBuffer_); // pushes the params with the layout of the pipeline: the value read now for a pointer, the cached bytes for a value
 	void drawMeshIndexed(PoolId meshId_, uint32_t instanceCount_, VkCommandBuffer& cmdBuffer_, uint32_t firstInstance_ = 0); // firstInstance_ is optional: gl_InstanceIndex runs from firstInstance_ to firstInstance_ + instanceCount_ - 1, so a draw can pick its repeat unit(s) of an SSBO descriptor.
 	void endCMDsRecording(VkCommandBuffer& cmdBuffer_); // endRenderPass + endCommandBuffer
 	void endRenderPass(VkCommandBuffer& cmdBuffer_);

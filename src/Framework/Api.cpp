@@ -539,6 +539,81 @@ namespace Graphics
 		return Globals::renderer.pipelinesManager.addGraphicsPipeline(name_, vertexShaderId_, fragmentShaderId_, verticeLayoutId_, primitiveType_, polygonMode_, rRenderpass_, subpassId_);
 	} 
 
+	PoolId addPushConstantLayout(const char* name_)
+	{
+		return Globals::renderer.pipelinesManager.pushConstantLayouts.add(name_, name_);
+	}
+
+	PoolId getGraphicsPipelineId(const char* name_)
+	{
+		return Globals::renderer.pipelinesManager.graphicsPipelines.getIdByName(name_);
+	}
+
+	PushConstantLayout& getPushConstantLayout(PoolId pushConstantLayoutId_)
+	{
+		return Globals::renderer.pipelinesManager.pushConstantLayouts[pushConstantLayoutId_];
+	}
+
+	PoolId beginPushConstantLayoutUpdate(PoolId pushConstantLayoutId_)
+	{
+		return Globals::renderer.pipelinesManager.beginPushConstantLayoutUpdate(pushConstantLayoutId_);
+	}
+
+	void commitPushConstantLayoutUpdate(PoolId updateId_)
+	{
+		Globals::renderer.pipelinesManager.commitPushConstantLayoutUpdate(updateId_);
+	}
+
+	PoolId addMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	{
+		return Globals::renderer.pipelinesManager.addMemberToPushConstantLayout(pushConstantLayoutUpdateId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+	}
+
+	PoolId addMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	{
+		return Globals::renderer.pipelinesManager.addMemberToPushConstantLayout(pushConstantLayoutUpdateId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+	}
+
+	PoolId addStructMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
+	{
+		return Globals::renderer.pipelinesManager.addStructMemberToPushConstantLayout(pushConstantLayoutUpdateId_, name_, orderPosition_, repeatCountPerDimension_, headroom_);
+	}
+
+	PoolId addVariableToStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	{
+		return Globals::renderer.pipelinesManager.addVariableToStructInPushConstantLayout(pushConstantLayoutUpdateId_, structMemberId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+	}
+
+	PoolId addVariableToStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	{
+		return Globals::renderer.pipelinesManager.addVariableToStructInPushConstantLayout(pushConstantLayoutUpdateId_, structMemberId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+	}
+
+	void removeMemberFromPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId memberId_)
+	{
+		Globals::renderer.pipelinesManager.removeMemberFromPushConstantLayout(pushConstantLayoutUpdateId_, memberId_);
+	}
+
+	void removeVariableFromStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId variableId_)
+	{
+		Globals::renderer.pipelinesManager.removeVariableFromStructInPushConstantLayout(pushConstantLayoutUpdateId_, variableId_);
+	}
+
+	void addPushConstantLayoutToGraphicsPipeline(PoolId graphicsPipelineId_, PoolId pushConstantLayoutId_, VkShaderStageFlags stages_)
+	{
+		Globals::renderer.pipelinesManager.addPushConstantLayoutToPipeline(graphicsPipelineId_, pushConstantLayoutId_, stages_);
+	}
+
+	PoolId getPushConstantLayoutId(PoolId graphicsPipelineId_, const char* name_)
+	{
+		return Globals::renderer.pipelinesManager.getPushConstantLayoutId(graphicsPipelineId_, name_);
+	}
+
+	uint32_t getPushConstantOffset(PoolId graphicsPipelineId_, PoolId pushConstantLayoutId_)
+	{
+		return Globals::renderer.pipelinesManager.getPushConstantOffset(graphicsPipelineId_, pushConstantLayoutId_);
+	}
+
 	void addPageForDynamicMemoryEntries(MemoryVisabilityEnum memoryVisability_, uint32_t upperBoundForEntrySize_, StorageUnitEnum upperBoundUnit_, uint32_t memoryBlockSize_, StorageUnitEnum memoryBlockSizeUnit_)
 	{
 		getMemoryManager().dynamicAllocator.addPage(memoryVisability_, upperBoundForEntrySize_, upperBoundUnit_, memoryBlockSize_, memoryBlockSizeUnit_);
@@ -709,6 +784,26 @@ namespace Graphics
 		std::vector<uint32_t> dynamicOffsets = rSet.getDynamicOffsets(dynamicUnitIds_);
 		VkDescriptorSet descriptorSet = rSet.get();
 		vkCmdBindDescriptorSets(cmdBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, setIndex, 1, &descriptorSet, static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+	}
+
+	/*
+		Pushes with the layout of the pipeline, with the shader stages of the use (VUID-vkCmdPushConstants-offset-01795 / 01796: every byte of the pushed range has to be in a range of the layout that has every stage in stageFlags, and stageFlags has to contain all stages of the ranges that overlap it, so the use's own stages are passed whole).
+		A command added with a pointer makes the bytes now, so they hold the value of the variable at this recording; one added with a value pushes the bytes it took when it was added. A column is pushed as one run per element. Pushed values stay valid for pipelines with a compatible layout; binding a pipeline whose push constant ranges differ invalidates them (pipeline layout compatibility), which is why the command goes after the bind of its pipeline.
+	*/
+	void setPushConstantMemberValue(const SetPushConstantMemberValueParams& rParams_, PoolId graphicsPipelineId_, VkCommandBuffer& cmdBuffer_)
+	{
+		PipelineLayout& rPipelineLayout = getPipelinesManager().pipelineLayouts[getGraphicsPipeline(graphicsPipelineId_).pipelineLayoutId];
+		const PushConstantUse& rUse = rPipelineLayout.getPushConstantUse(rParams_.pushConstantLayoutId);
+		std::vector<PushConstantBytes> runs;
+		if(!rParams_.cached)
+		{
+			runs = getPipelinesManager().pushConstantLayouts[rParams_.pushConstantLayoutId].makeBytes(rParams_.write);
+		}
+		const std::vector<PushConstantBytes>& rValue = rParams_.cached ? rParams_.cachedBytes : runs;
+		for(const PushConstantBytes& rRun : rValue)
+		{
+			vkCmdPushConstants(cmdBuffer_, rPipelineLayout.get(), rUse.stages, rUse.offset + static_cast<uint32_t>(rRun.inBlockOffset), static_cast<uint32_t>(rRun.bytes.size()), rRun.bytes.data());
+		}
 	}
 
 	/* The set bound at setIndex in the command buffer being recorded. Throws when a shader declares a descriptor of a set index nothing was bound to, since the draw would read an unbound set. */

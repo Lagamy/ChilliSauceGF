@@ -67,9 +67,9 @@ namespace Graphics
         return this->members[memberId_];
     }
 
-    const VariableRef& DescriptorLayout::getVariable(PoolId variableId_)
+    const VariableRef& DescriptorLayout::getVariable(const VariableSelector& rVariable_)
     {
-        return this->variables[variableId_];
+        return resolveVariable(this->members, this->variables, rVariable_, this->name.c_str());
     }
 
     PoolId DescriptorLayout::addMemberBlueprint(const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_) 

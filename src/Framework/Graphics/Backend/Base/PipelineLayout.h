@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <format>
 #include "DescriptorSetLayout.h"
+#include "PushConstantLayout.h"
 
 namespace Graphics
 {
@@ -12,6 +13,7 @@ struct PipelineLayout {
 	std::vector<PoolId> usedByGraphicsPipelineIds; 
 	std::vector<PoolId> usedByComputePipelineIds; 
 	std::vector<PoolId> descriptorSetLayoutIds;
+	std::vector<PushConstantUse> pushConstantUses; // sorted by stages, one range per use. The offsets are placed by PushConstantStorage in create()
 
 	void validateLimits() const; // throws a readable error when the sets of this layout break a device limit, called by create()
 	void create(); // creates pipelineLayout on GPU side.
@@ -19,5 +21,6 @@ struct PipelineLayout {
 	void destroy();
 	
 	VkPipelineLayout get() const;
+	const PushConstantUse& getPushConstantUse(PoolId pushConstantLayoutId_) const; // throws if the layout is not one of its uses
 };
 }

@@ -7,7 +7,9 @@
 #include "PipelineLayout.h"
 #include "Fence.h"
 #include "Utilities.h"
+#include "PushConstantLayout.h"
 #include <cstdint>
+#include <vector>
 #include <vulkan/vulkan_core.h>
   
 namespace Graphics
@@ -15,6 +17,7 @@ namespace Graphics
 struct GraphicsPipeline {
 	VkPipeline vkHandle = VK_NULL_HANDLE;
 	PoolId pipelineLayoutId;
+	std::vector<PushConstantUse> pushConstantUses; // the push constant layouts attached with PipelinesManager::addPushConstantLayoutToPipeline, sorted by stages. The offsets are in PipelineLayout::pushConstantUses
  
 	// In order to have a cached info for pipeline recreation 
 	VkPrimitiveTopology primitiveType; // What Primitive do verticies represent(Points, lines, triangle, etc) 
@@ -26,8 +29,6 @@ struct GraphicsPipeline {
 	uint32_t subpassId = 0; 
 
 	PoolId notInUseFenceId; // So we don't rebuild Pipeline, Descriptors and the sets when they are used by the GPU  
-	
-	// void createPipelineLayout(VkPushConstantRange* pushConstRangeList_, uint32_t pushConstRangeCount_, std::string context);
 	
 	//void create(const std::string& vertexShaderPath_, const std::string& fragmentShaderPath_, VkPrimitiveTopology _primitiveToUse, VkPolygonMode _howToRasterizePrimirives, PipelineLayout& _pipelineLayout, RenderPass& _renderPass, uint32_t _subpassIndex);
 	void create();

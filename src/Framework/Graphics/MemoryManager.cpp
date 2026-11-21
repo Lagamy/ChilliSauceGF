@@ -121,6 +121,7 @@ void MemoryManager::setup()
 		uploadQueuedCopiesCMDs orders the batch against draws with barriers when TRANSFER and GRAPHICS share a queue, and with semaphores when they do not.
 	*/
 	this->queueTransferSync.setup();
+	this->pushConstantStorage.setup();
 
 	this->dynamicAllocator.init();
 	this->stagingAllocator.init();

@@ -53,7 +53,7 @@ namespace Graphics
 		return this->descriptors.getInternal(descriptorId_.id);
 	}
 
-	const VariableBlueprint& DescriptorSet::getVariable(PoolId descriptorId_, PoolId variableId_)
+	const VariableBlueprint& DescriptorSet::getVariable(PoolId descriptorId_, VariableSelector variableId_)
 	{
 		DescriptorLayout& rDescriptorLayout = this->getDescriptor(descriptorId_).getDescriptorLayout();
 		const VariableRef& rVariableRef = rDescriptorLayout.getVariable(variableId_);
@@ -63,7 +63,7 @@ namespace Graphics
 	/*
 		A variable directly in the block has no repeat layer of its own, a variable of a struct member has one per layer of the struct. The repeatUnitId_ overloads of the setters are the one-layer case, so for a variable without layers it has to be 0 and no id is passed on.
 	*/
-	std::vector<uint32_t> DescriptorSet::makeSingleLayerIds(PoolId descriptorId_, PoolId variableId_, uint32_t repeatUnitId_)
+	std::vector<uint32_t> DescriptorSet::makeSingleLayerIds(PoolId descriptorId_, VariableSelector variableId_, uint32_t repeatUnitId_)
 	{
 		DescriptorLayout& rDescriptorLayout = this->getDescriptor(descriptorId_).getDescriptorLayout();
 		const MemberBlueprint& rMember = rDescriptorLayout.getMember(rDescriptorLayout.getVariable(variableId_).memberId);

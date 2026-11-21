@@ -31,12 +31,9 @@ namespace Demo {
 
 	inline PoolId dsLayoutId;
 	inline PoolId vpDescriptorLayoutId;
-
-	inline PoolId counterDescriptorLayoutId;  
-	inline PoolId counterMemberId; 
 	inline PoolId objectsDescriptorLayoutId; 
-	inline Objects objectsMemberIds; 
-
+	inline Objects objectsMemberIds;
+	inline PoolId counterPCLayoutId;
 
 	inline MVPMemberIds vpMemberIds;
 	inline PoolId descriptorSetId;

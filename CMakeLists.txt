@@ -80,9 +80,10 @@ add_executable(ChilliSauceGF
  	"src/Framework/Graphics/MemoryManagment/StagingAllocator.cpp" "src/Framework/Graphics/MemoryManagment/Pages/StagingPage.cpp"
  	"src/Framework/Graphics/MemoryManagment/Pages/FreeSpace.cpp"
  	"src/Framework/Graphics/MemoryManagment/Heaps/GPULocalHeap.cpp" "src/Framework/Graphics/MemoryManagment/Heaps/CPUSharedHeap.cpp"
- 	src/Framework/Graphics/Backend/Descriptor/DescriptorLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorLayoutUpdate.cpp src/Framework/Graphics/Backend/Descriptor/Descriptor.cpp
+ 	src/Framework/Graphics/Backend/Descriptor/DescriptorLayout.cpp src/Framework/Graphics/Backend/Descriptor/MemberBlueprint.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorLayoutUpdate.cpp src/Framework/Graphics/Backend/Descriptor/Descriptor.cpp
  	src/Framework/Graphics/Backend/Descriptor/DescriptorSetLayout.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSet.cpp src/Framework/Graphics/Backend/Descriptor/DescriptorSetCreateParams.cpp src/Framework/Graphics/Residency/Residency.cpp src/Framework/Graphics/ResourcesManager.cpp
  	src/Framework/Graphics/Backend/Descriptor/DescriptorPool.cpp src/Framework/Graphics/DescriptorsManager.cpp
+ 	src/Framework/Graphics/Backend/PushConstant/PushConstantLayout.cpp src/Framework/Graphics/MemoryManagment/PushConstantStorage.cpp
 )
 
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -106,6 +107,7 @@ set(COMMANDBUFFER_DIR "${BACKEND_DIR}/CommandBuffer")
 set(SUBMISSION_DIR "${BACKEND_DIR}/Submission") 
 
 set(DESCRIPTOR_DIR "${BACKEND_DIR}/Descriptor")
+set(PUSH_CONSTANT_DIR "${BACKEND_DIR}/PushConstant")
 set(SYNCHRONISATION_DIR "${BACKEND_DIR}/Synchronisation")
 set(VALIDATION_DIR "${BACKEND_DIR}/ValidationLayers")
 set(MEMORY_MANAGMENT_DIR "${GRAPHICS_DIR}/MemoryManagment")
@@ -135,7 +137,7 @@ target_include_directories(ChilliSauceGF PRIVATE
 
 	# Graphics
 	${BACKEND_DIR} ${IMAGE_DIR} ${BASE_DIR} ${COMMANDBUFFER_DIR} ${RESOURCES_DIR} ${PASS_DIR}
-	${DESCRIPTOR_DIR} 
+	${DESCRIPTOR_DIR} ${PUSH_CONSTANT_DIR}
 	${SYNCHRONISATION_DIR} ${VALIDATION_DIR} ${MEMORY_MANAGMENT_DIR} ${SUBMISSION_DIR}
 
 	# Demos

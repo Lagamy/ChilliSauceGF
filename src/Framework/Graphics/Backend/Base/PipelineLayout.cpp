@@ -100,13 +100,28 @@ void PipelineLayout::create()
 		descriptorLayouts.emplace_back(getDescriptorsManager().layouts[layoutId].get()); 
 	}
 
+	/*
+		One range per use, every use has its own shader stages (a pipeline layout can have only one range per stage, PipelinesManager::addPushConstantLayoutToPipeline throws on overlapping stages).
+		The offsets come from PushConstantStorage, which also throws when the ranges together are more than maxPushConstantsSize.
+	*/
+	getMemoryManager().pushConstantStorage.place(this->pushConstantUses);
+	std::vector<VkPushConstantRange> pushConstantRanges;
+	pushConstantRanges.reserve(this->pushConstantUses.size());
+	for(const PushConstantUse& rUse : this->pushConstantUses)
+	{
+		VkPushConstantRange range = {};
+		range.stageFlags = rUse.stages;
+		range.offset = rUse.offset;
+		range.size = static_cast<uint32_t>(getPipelinesManager().pushConstantLayouts[rUse.layoutId].makeShape().blockSize);
+		pushConstantRanges.emplace_back(range);
+	}
 
 	VkPipelineLayoutCreateInfo layoutCreateInfo = {};
 	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layoutCreateInfo.setLayoutCount = descriptorLayouts.size();
 	layoutCreateInfo.pSetLayouts = descriptorLayouts.data();
-	layoutCreateInfo.pushConstantRangeCount = 0;
-	layoutCreateInfo.pPushConstantRanges = nullptr;
+	layoutCreateInfo.pushConstantRangeCount = pushConstantRanges.size();
+	layoutCreateInfo.pPushConstantRanges = pushConstantRanges.data();
 
 	VkResult result = vkCreatePipelineLayout(getMainDevice().logicalDevice, &layoutCreateInfo, nullptr, &vkHandle);
 	if (result != VK_SUCCESS)
@@ -143,5 +158,17 @@ void PipelineLayout::destroy()
 VkPipelineLayout PipelineLayout::get() const
 {
 	return this->vkHandle;
+}
+
+const PushConstantUse& PipelineLayout::getPushConstantUse(PoolId pushConstantLayoutId_) const
+{
+	for(const PushConstantUse& rUse : this->pushConstantUses)
+	{
+		if(rUse.layoutId == pushConstantLayoutId_)
+		{
+			return rUse;
+		}
+	}
+	throw std::runtime_error("Pipeline Layout: the push constant layout is not attached to the pipeline.");
 }
 }

@@ -240,22 +240,6 @@ void GraphicsPipeline::create()
 	}
 }
 
-//void GraphicsPipeline::createPipelineLayout( VkPushConstantRange* _pushConstRangeList, uint32_t _pushConstRangeCount, std::string _context) 
-//{
-//	VkPipelineLayoutCreateInfo layoutCreateInfo = {};
-//	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-//	layoutCreateInfo.setLayoutCount = 2;
-//	layoutCreateInfo.pSetLayouts = desSetLayouts.data();
-//	layoutCreateInfo.pushConstantRangeCount = _pushConstRangeCount;
-//	layoutCreateInfo.pPushConstantRanges = _pushConstRangeList;
-//
-//	VkResult result = vkCreatePipelineLayout(AppGlobals::mainDevice.logicalDevice, &layoutCreateInfo, nullptr, &pipelineLayout.get());
-//	if (result != VK_SUCCESS)
-//	{
-//		throw std::runtime_error(std::format("Failed to create Loyaut for Graphics Pipeline for {}!", _context));
-//	}
-//}
-
 void GraphicsPipeline::destroy() 
 {
 	if(vkHandle != VK_NULL_HANDLE)

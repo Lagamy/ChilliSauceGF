@@ -57,16 +57,18 @@ namespace Graphics
 			objectsMemberIds.rotationDirectionId = addVariableToStructInDescriptorLayout(objectsUpdateId, objectsMemberIds.statesId, "rotationDirection", 1, INT32);
 			objectsMemberIds.modelId = addMemberToDescriptorLayout(objectsUpdateId, "model", 1, MAT4);
 			commitDescriptorLayoutUpdate(objectsUpdateId);
-
-			counterDescriptorLayoutId = addBufferDescriptorLayout(setLayoutUpdateId, "Counter", 2, UNIFORM_DESCRIPTOR);
-			PoolId counterUpdateId = beginDescriptorLayoutUpdate(dsLayoutId, counterDescriptorLayoutId);
-			counterMemberId = addMemberToDescriptorLayout(counterUpdateId, "Value", 0, UINT32);
-			commitDescriptorLayoutUpdate(counterUpdateId);
 			commitSetLayoutUpdate(setLayoutUpdateId);
 
 			/* The shader declares the descriptor it reads, so drawMeshIndexed can skip the draw until its first data was copied. The pipeline builds its pipeline layout from these declarations, so they come before the pipeline is added. */
-			addDescriptorsToShader(vertexShaderId, dsLayoutId, {vpDescriptorLayoutId, objectsDescriptorLayoutId, counterDescriptorLayoutId});
+			addDescriptorsToShader(vertexShaderId, dsLayoutId, {vpDescriptorLayoutId, objectsDescriptorLayoutId});
 			graphicsPipelineId = addGraphicsPipelineLayout("Draw Triangle", vertexShaderId, fragmentShaderId, vertexLayoutId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, getPresentationRenderPass(), 0);
+			
+			counterPCLayoutId = addPushConstantLayout("Counter"); 
+			PoolId CounterPCLayoutUpdateId = beginPushConstantLayoutUpdate(counterPCLayoutId); 
+			addMemberToPushConstantLayout(CounterPCLayoutUpdateId, "value", 0, UINT32); 
+			commitPushConstantLayoutUpdate(CounterPCLayoutUpdateId);
+
+			addPushConstantLayoutToGraphicsPipeline(graphicsPipelineId, counterPCLayoutId, VK_SHADER_STAGE_VERTEX_BIT); 
 		}
 
 		void defineResources()
@@ -95,6 +97,7 @@ namespace Graphics
 			CommandList& rCommandList = getCommandList(drawTriangleCommandListId);
 			rCommandList.addBeginPresentationRenderPass();
 			rCommandList.addBindGraphicsPipeline(graphicsPipelineId);
+			rCommandList.addSetPushConstantMemberValue(counterPCLayoutId, 0, &counter); 
 			std::array<uint32_t, 1> firstTriangleUnitIds = {0};
 			rCommandList.addBindDescriptorSet(descriptorSetId, firstTriangleUnitIds);
 			rCommandList.addDrawMeshIndexed(triangle.meshId);
@@ -144,7 +147,6 @@ namespace Graphics
 
 			counter++;
 			if(counter > 14000) counter = 0;                        // reset on the CPU, as now
-			rSet.setDescriptorMemberValue(counterDescriptorLayoutId, counterMemberId, counter);   // per frame
 			
 			/* The projection depends on the swapchain aspect ratio, so it is rebuilt when the extent changes (a resize recreates the swapchain). perspectiveRH_ZO gives the 0..1 depth range Vulkan uses. Vulkan's clip space has Y pointing down, unlike GLM's, so [1][1] is negated to keep +Y up on screen. */
 			const VkExtent2D& rExtent = getSwapchain().extent;

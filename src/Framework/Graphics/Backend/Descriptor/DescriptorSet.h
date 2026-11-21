@@ -37,13 +37,13 @@ struct DescriptorSet
 	DescriptorSet(const DescriptorSetCreateParams& rParams_);
 
 	/* 
-		Writes one variable of the descriptor: variableId_ is the id addMemberBlueprint / addVariable returned. A variable of a struct member (Object states[2]) takes one id per repeat layer of the struct (repeatUnitId_, 0 by default, is the one-layer case, or one id per layer through the std::vector<uint32_t> overloads), a variable directly in the block takes none. Those are for descriptors without a dynamic layer: a dynamic descriptor layout (addDynamicDescriptorLayout) is written through the setDynamicDescriptorMember... variants, which take the dynamic unit id (the block, padded to the offset alignment) and optionally the ids of the struct's layers. descriptorId_ is the id of the descriptor layout the descriptor was derived from (they share the slot). Only valid after allocateDescriptorsMemory.
+		Writes one variable of the descriptor: variableId_ is a VariableSelector: the id addMemberBlueprint / addVariable returned, the orderPosition of a variable directly in the block (1), or the orderPosition of the struct member and of the variable inside it ({0, 1}). A variable of a struct member (Object states[2]) takes one id per repeat layer of the struct (repeatUnitId_, 0 by default, is the one-layer case, or one id per layer through the std::vector<uint32_t> overloads), a variable directly in the block takes none. Those are for descriptors without a dynamic layer: a dynamic descriptor layout (addDynamicDescriptorLayout) is written through the setDynamicDescriptorMember... variants, which take the dynamic unit id (the block, padded to the offset alignment) and optionally the ids of the struct's layers. descriptorId_ is the id of the descriptor layout the descriptor was derived from (they share the slot). Only valid after allocateDescriptorsMemory.
 		GPU_LOCAL descriptors are written as updates through staging. A per-frame descriptor (Descriptor::isPerFrame) writes its entry's shadow (MemoryManager::writeShared), so it never waits and may be called at any time, even while recording: MemoryManager::syncCopiesToFrame copies it into the frame's copy. Other CPU_SHARED descriptors (readOnly) are written directly into the mapped memory without waiting: they are only legal until the submit that first recorded a draw reading them (lockReadOnlyDescriptor), a write to a readOnly descriptor after that throws.
 		A variable declared with repeatCountPerDimension (int a[2][3]) takes repeatIdPerDimension_ in every setter, one id per dimension, outermost first (empty for a variable that isn't repeated), after the struct ids.
 		The functions below write a part of a MATRIX variable the same way. Each GPU_LOCAL write is its own staging range and update, covering only the bytes it replaces (an element, a row), so a column is written element by element.
 	*/
 	template<typename T>
-	void setDescriptorMemberValue(PoolId descriptorId_, PoolId variableId_, T data_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberValue(PoolId descriptorId_, VariableSelector variableId_, T data_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		this->writeMemberRange(descriptorId_, variableId_, idsPerLayer_, false, rVariable.getRepeatOffset(repeatIdPerDimension_), rVariable.elementSize, [&](ReflectionLayout& rLayout_, PoolId inLayoutId_, auto& rContainer_)
@@ -53,7 +53,7 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDynamicDescriptorMemberValue(PoolId descriptorId_, PoolId variableId_, T data_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDynamicDescriptorMemberValue(PoolId descriptorId_, VariableSelector variableId_, T data_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		this->writeMemberRange(descriptorId_, variableId_, this->makeDynamicIds(dynamicUnitId_, innerIdsPerLayer_), true, rVariable.getRepeatOffset(repeatIdPerDimension_), rVariable.elementSize, [&](ReflectionLayout& rLayout_, PoolId inLayoutId_, auto& rContainer_)
@@ -63,13 +63,13 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDescriptorMemberValue(PoolId descriptorId_, PoolId variableId_, T data_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberValue(PoolId descriptorId_, VariableSelector variableId_, T data_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		this->setDescriptorMemberValue(descriptorId_, variableId_, data_, this->makeSingleLayerIds(descriptorId_, variableId_, repeatUnitId_), repeatIdPerDimension_);
 	}
 
 	template<typename T>
-	void setDescriptorMemberMatrixElement(PoolId descriptorId_, PoolId variableId_, uint32_t rowId_, uint32_t columnId_, T data_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixElement(PoolId descriptorId_, VariableSelector variableId_, uint32_t rowId_, uint32_t columnId_, T data_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		this->writeMemberRange(descriptorId_, variableId_, idsPerLayer_, false, rVariable.getRepeatOffset(repeatIdPerDimension_) + rVariable.getMatrixElementOffset(rowId_, columnId_), rVariable.getElementStride(), [&](ReflectionLayout& rLayout_, PoolId inLayoutId_, auto& rContainer_)
@@ -79,7 +79,7 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDynamicDescriptorMemberMatrixElement(PoolId descriptorId_, PoolId variableId_, uint32_t rowId_, uint32_t columnId_, T data_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDynamicDescriptorMemberMatrixElement(PoolId descriptorId_, VariableSelector variableId_, uint32_t rowId_, uint32_t columnId_, T data_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		this->writeMemberRange(descriptorId_, variableId_, this->makeDynamicIds(dynamicUnitId_, innerIdsPerLayer_), true, rVariable.getRepeatOffset(repeatIdPerDimension_) + rVariable.getMatrixElementOffset(rowId_, columnId_), rVariable.getElementStride(), [&](ReflectionLayout& rLayout_, PoolId inLayoutId_, auto& rContainer_)
@@ -89,14 +89,14 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDescriptorMemberMatrixElement(PoolId descriptorId_, PoolId variableId_, uint32_t rowId_, uint32_t columnId_, T data_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixElement(PoolId descriptorId_, VariableSelector variableId_, uint32_t rowId_, uint32_t columnId_, T data_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		this->setDescriptorMemberMatrixElement(descriptorId_, variableId_, rowId_, columnId_, data_, this->makeSingleLayerIds(descriptorId_, variableId_, repeatUnitId_), repeatIdPerDimension_);
 	}
 
 	/* Replaces a whole row. The Array must have one element per column of the member. */
 	template<typename T>
-	void setDescriptorMemberMatrixRow(PoolId descriptorId_, PoolId variableId_, uint32_t rowId_, const Array<T>& rSrcArray_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixRow(PoolId descriptorId_, VariableSelector variableId_, uint32_t rowId_, const Array<T>& rSrcArray_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		this->writeMemberRange(descriptorId_, variableId_, idsPerLayer_, false, rVariable.getRepeatOffset(repeatIdPerDimension_) + rVariable.getMatrixElementOffset(rowId_, 0), rVariable.getRowStride(), [&](ReflectionLayout& rLayout_, PoolId inLayoutId_, auto& rContainer_)
@@ -106,7 +106,7 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDynamicDescriptorMemberMatrixRow(PoolId descriptorId_, PoolId variableId_, uint32_t rowId_, const Array<T>& rSrcArray_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDynamicDescriptorMemberMatrixRow(PoolId descriptorId_, VariableSelector variableId_, uint32_t rowId_, const Array<T>& rSrcArray_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		this->writeMemberRange(descriptorId_, variableId_, this->makeDynamicIds(dynamicUnitId_, innerIdsPerLayer_), true, rVariable.getRepeatOffset(repeatIdPerDimension_) + rVariable.getMatrixElementOffset(rowId_, 0), rVariable.getRowStride(), [&](ReflectionLayout& rLayout_, PoolId inLayoutId_, auto& rContainer_)
@@ -116,14 +116,14 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDescriptorMemberMatrixRow(PoolId descriptorId_, PoolId variableId_, uint32_t rowId_, const Array<T>& rSrcArray_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixRow(PoolId descriptorId_, VariableSelector variableId_, uint32_t rowId_, const Array<T>& rSrcArray_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		this->setDescriptorMemberMatrixRow(descriptorId_, variableId_, rowId_, rSrcArray_, this->makeSingleLayerIds(descriptorId_, variableId_, repeatUnitId_), repeatIdPerDimension_);
 	}
 
 	/* Replaces a whole row with row srcRowId_ of a Matrix. The Matrix must have as many columns as the member. */
 	template<typename T>
-	void setDescriptorMemberMatrixRow(PoolId descriptorId_, PoolId variableId_, uint32_t rowId_, const Matrix<T>& rSrcMatrix_, uint32_t srcRowId_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixRow(PoolId descriptorId_, VariableSelector variableId_, uint32_t rowId_, const Matrix<T>& rSrcMatrix_, uint32_t srcRowId_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		this->writeMemberRange(descriptorId_, variableId_, idsPerLayer_, false, rVariable.getRepeatOffset(repeatIdPerDimension_) + rVariable.getMatrixElementOffset(rowId_, 0), rVariable.getRowStride(), [&](ReflectionLayout& rLayout_, PoolId inLayoutId_, auto& rContainer_)
@@ -133,7 +133,7 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDynamicDescriptorMemberMatrixRow(PoolId descriptorId_, PoolId variableId_, uint32_t rowId_, const Matrix<T>& rSrcMatrix_, uint32_t srcRowId_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDynamicDescriptorMemberMatrixRow(PoolId descriptorId_, VariableSelector variableId_, uint32_t rowId_, const Matrix<T>& rSrcMatrix_, uint32_t srcRowId_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		this->writeMemberRange(descriptorId_, variableId_, this->makeDynamicIds(dynamicUnitId_, innerIdsPerLayer_), true, rVariable.getRepeatOffset(repeatIdPerDimension_) + rVariable.getMatrixElementOffset(rowId_, 0), rVariable.getRowStride(), [&](ReflectionLayout& rLayout_, PoolId inLayoutId_, auto& rContainer_)
@@ -143,14 +143,14 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDescriptorMemberMatrixRow(PoolId descriptorId_, PoolId variableId_, uint32_t rowId_, const Matrix<T>& rSrcMatrix_, uint32_t srcRowId_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixRow(PoolId descriptorId_, VariableSelector variableId_, uint32_t rowId_, const Matrix<T>& rSrcMatrix_, uint32_t srcRowId_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		this->setDescriptorMemberMatrixRow(descriptorId_, variableId_, rowId_, rSrcMatrix_, srcRowId_, this->makeSingleLayerIds(descriptorId_, variableId_, repeatUnitId_), repeatIdPerDimension_);
 	}
 
 	/* Replaces a whole column. The Array must have one element per row of the member. */
 	template<typename T>
-	void setDescriptorMemberMatrixColumn(PoolId descriptorId_, PoolId variableId_, uint32_t columnId_, const Array<T>& rSrcArray_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixColumn(PoolId descriptorId_, VariableSelector variableId_, uint32_t columnId_, const Array<T>& rSrcArray_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		if(rSrcArray_.size() != rVariable.shapeMetadata.rowCount)
@@ -164,7 +164,7 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDynamicDescriptorMemberMatrixColumn(PoolId descriptorId_, PoolId variableId_, uint32_t columnId_, const Array<T>& rSrcArray_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDynamicDescriptorMemberMatrixColumn(PoolId descriptorId_, VariableSelector variableId_, uint32_t columnId_, const Array<T>& rSrcArray_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		if(rSrcArray_.size() != rVariable.shapeMetadata.rowCount)
@@ -178,14 +178,14 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDescriptorMemberMatrixColumn(PoolId descriptorId_, PoolId variableId_, uint32_t columnId_, const Array<T>& rSrcArray_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixColumn(PoolId descriptorId_, VariableSelector variableId_, uint32_t columnId_, const Array<T>& rSrcArray_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		this->setDescriptorMemberMatrixColumn(descriptorId_, variableId_, columnId_, rSrcArray_, this->makeSingleLayerIds(descriptorId_, variableId_, repeatUnitId_), repeatIdPerDimension_);
 	}
 
 	/* Replaces a whole column with column srcColumnId_ of a Matrix. The Matrix must have as many rows as the member. */
 	template<typename T>
-	void setDescriptorMemberMatrixColumn(PoolId descriptorId_, PoolId variableId_, uint32_t columnId_, const Matrix<T>& rSrcMatrix_, uint32_t srcColumnId_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixColumn(PoolId descriptorId_, VariableSelector variableId_, uint32_t columnId_, const Matrix<T>& rSrcMatrix_, uint32_t srcColumnId_, const std::vector<uint32_t>& idsPerLayer_, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		if(rSrcMatrix_.getRowCount() != rVariable.shapeMetadata.rowCount || srcColumnId_ >= rSrcMatrix_.getColumnCount())
@@ -199,7 +199,7 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDynamicDescriptorMemberMatrixColumn(PoolId descriptorId_, PoolId variableId_, uint32_t columnId_, const Matrix<T>& rSrcMatrix_, uint32_t srcColumnId_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDynamicDescriptorMemberMatrixColumn(PoolId descriptorId_, VariableSelector variableId_, uint32_t columnId_, const Matrix<T>& rSrcMatrix_, uint32_t srcColumnId_, uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIdsPerLayer_ = {}, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		const VariableBlueprint& rVariable = this->getVariable(descriptorId_, variableId_);
 		if(rSrcMatrix_.getRowCount() != rVariable.shapeMetadata.rowCount || srcColumnId_ >= rSrcMatrix_.getColumnCount())
@@ -213,7 +213,7 @@ struct DescriptorSet
 	}
 
 	template<typename T>
-	void setDescriptorMemberMatrixColumn(PoolId descriptorId_, PoolId variableId_, uint32_t columnId_, const Matrix<T>& rSrcMatrix_, uint32_t srcColumnId_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
+	void setDescriptorMemberMatrixColumn(PoolId descriptorId_, VariableSelector variableId_, uint32_t columnId_, const Matrix<T>& rSrcMatrix_, uint32_t srcColumnId_, uint32_t repeatUnitId_ = 0, const std::vector<uint32_t>& repeatIdPerDimension_ = {})
 	{
 		this->setDescriptorMemberMatrixColumn(descriptorId_, variableId_, columnId_, rSrcMatrix_, srcColumnId_, this->makeSingleLayerIds(descriptorId_, variableId_, repeatUnitId_), repeatIdPerDimension_);
 	}
@@ -260,8 +260,8 @@ struct DescriptorSet
 	void restoreBackup(Descriptor& rDescriptor_);
 	bool entryHasShadow(const Descriptor& rDescriptor_) const; // the entry of the descriptor has copies, so a CPU shadow (a per frame descriptor with more than one frame in flight), known without an entry since an unloaded descriptor has none
 	bool mirrorsWrites(const Descriptor& rDescriptor_) const; // the set unloads by itself (an absenceSecondsCount), has no loadFromDisk and the entry has no shadow: every write is mirrored into Residency::backup. Otherwise unloadDescriptor gets the bytes when it runs: the shadow is moved into the backup, a CPU_SHARED entry is read, anything else can't unload without loadFromDisk
-	const VariableBlueprint& getVariable(PoolId descriptorId_, PoolId variableId_);
-	std::vector<uint32_t> makeSingleLayerIds(PoolId descriptorId_, PoolId variableId_, uint32_t repeatUnitId_);
+	const VariableBlueprint& getVariable(PoolId descriptorId_, VariableSelector variableId_);
+	std::vector<uint32_t> makeSingleLayerIds(PoolId descriptorId_, VariableSelector variableId_, uint32_t repeatUnitId_);
 	/* Plain setters are for descriptors without a dynamic layer, setDynamic... ones for dynamic descriptor layouts. Throws on a mismatch. */
 	static void checkDynamic(Descriptor& rDescriptor_, bool dynamic_);
 	static std::vector<uint32_t> makeDynamicIds(uint32_t dynamicUnitId_, const std::vector<uint32_t>& innerIds_);
@@ -272,7 +272,7 @@ struct DescriptorSet
 		See setDescriptorMemberValue for the three cases.
 	*/
 	template<typename F>
-	void writeMemberRange(PoolId descriptorId_, PoolId variableId_, const std::vector<uint32_t>& idsPerLayer_, bool dynamic_, uint64_t inVariableOffset_, uint64_t size_, F&& write_)
+	void writeMemberRange(PoolId descriptorId_, VariableSelector variableId_, const std::vector<uint32_t>& idsPerLayer_, bool dynamic_, uint64_t inVariableOffset_, uint64_t size_, F&& write_)
 	{
 		Descriptor& rDescriptor = this->getDescriptor(descriptorId_);
 		if(!rDescriptor.residency.loaded)

@@ -2,6 +2,8 @@
 #include <string>
 #include <vector> 
 #include "Layout.h"
+#include "Pool.h"
+#include "VariableSelector.h"
 #include "Utilities.h"
 
 namespace Graphics
@@ -32,4 +34,10 @@ namespace Graphics
 
         VariableRef(PoolId memberId_, PoolId variableId_) : memberId(memberId_), variableId(variableId_) {};
     };
+
+    /*
+        The variable a selector picks in the members and variables of a DescriptorLayout or PushConstantLayout (both keep them the same way): an id is the slot of rVariables_, a position is looked up by the orderPosition of the member (a variable directly in the block, SELECT_BY_POSITION)
+        or of the struct member and of the variable inside it (SELECT_BY_STRUCT_POSITION). Throws, naming rLayoutName_, when there is no such variable.
+    */
+    const VariableRef& resolveVariable(Pool<MemberBlueprint>& rMembers_, Pool<VariableRef>& rVariables_, const VariableSelector& rSelector_, const char* layoutName_);
 }

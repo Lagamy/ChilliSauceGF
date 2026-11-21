@@ -18,9 +18,9 @@ layout(set = 0, binding = 1, std430) readonly buffer Objects
     mat4 model;                // one per triangle, not part of the states
 } objects;                     // NOT an array of descriptors: the bind already picked the triangle
 
-layout(set = 0, binding = 2) uniform Counter { uint value; } counter;
+// layout(set = 0, binding = 2) uniform Counter { uint value; } counter;
 
-// layout(push_constant) uniform Counter { uint value; } counter; 
+layout(push_constant) uniform Counter { uint value; } counter; 
 
 // to fragment shader
 layout(location = 0) out vec4 fragCol; 

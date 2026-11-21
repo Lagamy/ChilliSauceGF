@@ -1,5 +1,6 @@
 #pragma once
 #include "PoolId.h"
+#include "PushConstantLayout.h"
 #include "Utilities.h"
 #include <cstdint>
 #include <vector>
@@ -14,7 +15,8 @@ namespace Graphics
 		CMD_BIND_GRAPHICS_PIPELINE,
 		CMD_BIND_DESCRIPTOR_SET,
 		CMD_DRAW_MESH_INDEXED,
-	CMD_UPLOAD_QUEUED_COPIES
+	CMD_UPLOAD_QUEUED_COPIES,
+		CMD_SET_PUSH_CONSTANT_MEMBER_VALUE
 	};
 
 	struct BindGraphicsPipelineParams
@@ -34,5 +36,18 @@ namespace Graphics
 		PoolId meshId = UninitializedPoolId;
 		uint32_t instanceCount = 1;
 		uint32_t firstInstance = 0;
+	};
+
+	/*
+		Pushes one variable (or an element, row or column of a matrix variable) of a push constant layout (vkCmdPushConstants) with the pipeline bound before it, see PushConstantWrite for what it holds.
+		A command added with a pointer (cached false) keeps a non owning pointer to the application's variable: the value is read every time the command is recorded, so the application keeps the variable alive and at the same address while the list is replayed.
+		A command added with a value (cached true) took the bytes when it was added (cachedBytes, one run per range to push) and never reads anything again, pWrite.pData is null.
+	*/
+	struct SetPushConstantMemberValueParams
+	{
+		PoolId pushConstantLayoutId = UninitializedPoolId;
+		PushConstantWrite write;
+		bool cached = false;
+		std::vector<PushConstantBytes> cachedBytes;
 	};
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "VariableSelector.h"
 #include "PoolMap.h"
 #include "DataContainerConcepts.h"
 #include "VariableBlueprint.h"
@@ -34,6 +35,7 @@ struct ReflectionLayout
     PoolId addVariableBlueprint(const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Scalar
     PoolId addVariableBlueprint(const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_ = {}); // Matrix
     PoolId getMemberIdFromName(const char* name_);
+    PoolId getVariableId(const VariableSelector& rSelector_); // the id of the selected variable: an id as it is, a position looked up (throws if there is none, and for a struct position, a layout has no structs)
     void removeVariableBlueprint(PoolId variableBlueprintId_); // The variables after it move up, the ids of the others stay
 
     /*

@@ -67,6 +67,26 @@ void ReflectionLayout::removeVariableBlueprint(PoolId variableBlueprintId_)
     this->updateSize();
 }
 
+PoolId ReflectionLayout::getVariableId(const VariableSelector& rSelector_)
+{
+    if(rSelector_.kind == SELECT_BY_ID)
+    {
+        return rSelector_.id;
+    }
+    if(rSelector_.kind == SELECT_BY_STRUCT_POSITION)
+    {
+        throw std::runtime_error("Layout: a struct position can only select a variable of a descriptor or push constant layout.");
+    }
+    for(uint32_t i = 0; i < this->variableBlueprints.allocatedSize(); i++)
+    {
+        if(this->variableBlueprints.alive[i] && this->variableBlueprints.objects[i].orderPosition == rSelector_.position)
+        {
+            return PoolId(i, this->variableBlueprints.generation[i]);
+        }
+    }
+    throw std::runtime_error(std::format("Layout: no variable at position {}.", rSelector_.position));
+}
+
 uint32_t ReflectionLayout::getNextOrderPosition()
 {
     uint32_t next = 0;

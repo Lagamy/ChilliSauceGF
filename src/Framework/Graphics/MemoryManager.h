@@ -6,6 +6,7 @@
 #include "StaticAllocator.h"
 #include "StagingAllocator.h"
 #include "QueueTransferSync.h"
+#include "PushConstantStorage.h"
 #include "UpdateRequest.h"
 #include "PendingCopy.h"
 #include "UploadBatch.h"
@@ -30,6 +31,7 @@ struct MemoryManager
 
 	StagingAllocator stagingAllocator; // Staging ranges for initial uploads and updates. 
 	QueueTransferSync queueTransferSync; // sharing mode of GPU_LOCAL buffers, set first in setup
+	PushConstantStorage pushConstantStorage; // the push constant budget of the device, pipeline layouts place their push constant ranges in it
 
 	// Only for GPU Local ones. 
 	Pool<UpdateRequest> entriesPendingForUpdate;

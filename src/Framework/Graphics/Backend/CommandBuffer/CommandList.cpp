@@ -35,6 +35,25 @@ namespace Graphics
 		this->drawMeshIndexedParams.push_back({meshId_, instanceCount_, firstInstance_});
 	}
 
+	/*
+		The bytes are made once here so a wrong type, shape or id throws where the command is added. A command added with a value keeps them (and forgets the pointer, which is only valid during the call), a command added with a pointer makes them again every time it is recorded to read the value of that moment.
+	*/
+	void CommandList::addPushConstantValue(PoolId pushConstantLayoutId_, const PushConstantWrite& rWrite_, bool cache_)
+	{
+		SetPushConstantMemberValueParams params;
+		params.pushConstantLayoutId = pushConstantLayoutId_;
+		params.write = rWrite_;
+		params.cached = cache_;
+		std::vector<PushConstantBytes> bytes = getPipelinesManager().pushConstantLayouts[pushConstantLayoutId_].makeBytes(rWrite_);
+		if(cache_)
+		{
+			params.cachedBytes = std::move(bytes);
+			params.write.pData = nullptr;
+		}
+		this->order.push_back({CMD_SET_PUSH_CONSTANT_MEMBER_VALUE, static_cast<uint32_t>(this->setPushConstantMemberValueParams.size())});
+		this->setPushConstantMemberValueParams.push_back(std::move(params));
+	}
+
 	void CommandList::addUploadQueuedCopies()
 	{
 		this->order.push_back({CMD_UPLOAD_QUEUED_COPIES, UninitializedId});
@@ -46,11 +65,12 @@ namespace Graphics
 		this->bindGraphicsPipelineParams.clear();
 		this->bindDescriptorSetParams.clear();
 		this->drawMeshIndexedParams.clear();
+		this->setPushConstantMemberValueParams.clear();
 	}
 
 	/*
 		Replays the commands in order through the same Api functions a hand written record function calls, so the draw skipping and descriptor locking of drawMeshIndexed apply unchanged. The Vulkan command buffer is begun and ended here, a list only holds the work between.
-		A bind descriptor set command uses the pipeline bound before it, the one drawMeshIndexed reads too, so it needs a bind graphics pipeline command first.
+		A bind descriptor set command and a set push constant member value command use the pipeline bound before it, the one drawMeshIndexed reads too, so they need a bind graphics pipeline command first.
 	*/
 	void CommandList::record(VkCommandBuffer& cmdBuffer_) const
 	{
@@ -93,6 +113,15 @@ namespace Graphics
 				case CMD_UPLOAD_QUEUED_COPIES:
 				{
 					uploadQueuedCopiesCMDs(cmdBuffer_);
+					break;
+				}
+				case CMD_SET_PUSH_CONSTANT_MEMBER_VALUE:
+				{
+					if(Globals::renderer.recordingPipelineId == UninitializedPoolId)
+					{
+						throw std::runtime_error("Command List: a set push constant member value command needs a bind graphics pipeline command before it.");
+					}
+					setPushConstantMemberValue(this->setPushConstantMemberValueParams[rEntry.paramsId], Globals::renderer.recordingPipelineId, cmdBuffer_);
 					break;
 				}
 			}

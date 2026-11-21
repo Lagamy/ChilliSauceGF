@@ -49,7 +49,7 @@ namespace Graphics
             and the dynamic layer, whose stride is the block size padded to dynamicAlignment_. Throws on a block without members or a member without variables.
         */
         DescriptorShape makeShape(uint64_t dynamicAlignment_); // not const: Pool::allocatedSize isn't
-        const VariableRef& getVariable(PoolId variableId_);
+        const VariableRef& getVariable(const VariableSelector& rVariable_); // by id or by position, see VariableSelector
         MemberBlueprint& getMember(PoolId memberId_);
 
     private:
