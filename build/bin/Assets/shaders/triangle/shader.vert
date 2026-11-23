@@ -18,9 +18,11 @@ layout(set = 0, binding = 1, std430) readonly buffer Objects
     mat4 model;                // one per triangle, not part of the states
 } objects;                     // NOT an array of descriptors: the bind already picked the triangle
 
-// layout(set = 0, binding = 2) uniform Counter { uint value; } counter;
-
-layout(push_constant) uniform Counter { uint value; } counter; 
+layout(push_constant) uniform PC 
+{ 
+    uint counter; 
+    float posOffsetY;
+} pc; 
 
 // to fragment shader
 layout(location = 0) out vec4 fragCol; 
@@ -39,11 +41,13 @@ mat4 rotateBy(mat4 m, float angle) {
 void main() 
 {
 	uint id = 0; 
-	if(counter.value > 7000)
+	if(pc.counter > 7000)
 	{	
 		id = 1; 
 	}
 	fragCol = col * objects.states[id].color;
-	mat4 model = rotateBy(objects.model, float(counter.value) * float(objects.states[id].rotationDir) / 500.0f);
-	gl_Position = vp.projection * vp.view * model * vec4(pos, 1.0);
+    mat4 model = rotateBy(objects.model, float(pc.counter) * float(objects.states[id].rotationDir) / 500.0f);
+    model[3].y += pc.posOffsetY;
+
+    gl_Position = vp.projection * vp.view * model * vec4(pos, 1.0);
 }

@@ -63,12 +63,13 @@ namespace Graphics
 			addDescriptorsToShader(vertexShaderId, dsLayoutId, {vpDescriptorLayoutId, objectsDescriptorLayoutId});
 			graphicsPipelineId = addGraphicsPipelineLayout("Draw Triangle", vertexShaderId, fragmentShaderId, vertexLayoutId, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, getPresentationRenderPass(), 0);
 			
-			counterPCLayoutId = addPushConstantLayout("Counter"); 
-			PoolId CounterPCLayoutUpdateId = beginPushConstantLayoutUpdate(counterPCLayoutId); 
-			addMemberToPushConstantLayout(CounterPCLayoutUpdateId, "value", 0, UINT32); 
-			commitPushConstantLayoutUpdate(CounterPCLayoutUpdateId);
+			pcLayoutId = addPushConstantLayout("Counter"); 
+			PoolId pcLayoutUpdateId = beginPushConstantLayoutUpdate(pcLayoutId); 
+			addMemberToPushConstantLayout(pcLayoutUpdateId, "counter", 0, UINT32); 
+			addMemberToPushConstantLayout(pcLayoutUpdateId, "posOffsetY", 1, FLOAT);
+			commitPushConstantLayoutUpdate(pcLayoutUpdateId);
 
-			addPushConstantLayoutToGraphicsPipeline(graphicsPipelineId, counterPCLayoutId, VK_SHADER_STAGE_VERTEX_BIT); 
+			addPushConstantLayoutToGraphicsPipeline(graphicsPipelineId, pcLayoutId, VK_SHADER_STAGE_VERTEX_BIT); 
 		}
 
 		void defineResources()
@@ -97,12 +98,14 @@ namespace Graphics
 			CommandList& rCommandList = getCommandList(drawTriangleCommandListId);
 			rCommandList.addBeginPresentationRenderPass();
 			rCommandList.addBindGraphicsPipeline(graphicsPipelineId);
-			rCommandList.addSetPushConstantMemberValue(counterPCLayoutId, 0, &counter); 
+			rCommandList.addSetPushConstantMemberValue(pcLayoutId, 0, &counter); 
 			std::array<uint32_t, 1> firstTriangleUnitIds = {0};
 			rCommandList.addBindDescriptorSet(descriptorSetId, firstTriangleUnitIds);
+			rCommandList.addSetPushConstantMemberValue(pcLayoutId, 1, 0.4f); 
 			rCommandList.addDrawMeshIndexed(triangle.meshId);
 			std::array<uint32_t, 1> secondTriangleUnitIds = {1};
 			rCommandList.addBindDescriptorSet(descriptorSetId, secondTriangleUnitIds);
+			rCommandList.addSetPushConstantMemberValue(pcLayoutId, 1, -0.4f); 
 			rCommandList.addDrawMeshIndexed(triangle.meshId);
 			rCommandList.addEndRenderPass();
 			

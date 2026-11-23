@@ -33,7 +33,7 @@ namespace Demo {
 	inline PoolId vpDescriptorLayoutId;
 	inline PoolId objectsDescriptorLayoutId; 
 	inline Objects objectsMemberIds;
-	inline PoolId counterPCLayoutId;
+	inline PoolId pcLayoutId;
 
 	inline MVPMemberIds vpMemberIds;
 	inline PoolId descriptorSetId;
