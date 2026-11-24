@@ -20,7 +20,6 @@
 #include "ProjectManager.h"
 #include "ShadersManager.h"
 #include "ReflectionSystem.h"
-#include "ImagesManager.h"
 #include <limits>
 #include <vulkan/vulkan_core.h>
 #include <cstdint>
@@ -37,7 +36,6 @@ struct Renderer {
 	MemoryManager memoryManager;
 	SyncManager syncManager; 
 	ShadersManager shadersManager;
-	ImagesManager imagesManager; 
 	ResourceManager resourcesManager; 
 	PipelinesManager pipelinesManager;
 	DescriptorsManager descriptorsManager; 

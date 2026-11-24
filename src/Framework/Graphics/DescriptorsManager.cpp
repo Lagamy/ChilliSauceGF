@@ -41,7 +41,7 @@ namespace Graphics
         return this->descriptorLayoutUpdates.add(layoutId_, descriptorLayoutId_, rLayout);
     }
 
-    PoolId DescriptorsManager::addBufferDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_)
+    PoolId DescriptorsManager::addBufferDescriptorLayout(const char* descriptorLayoutName_, PoolId setLayoutUpdateId_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_)
     {
         SetLayoutUpdate& rUpdate = this->setLayoutUpdates[setLayoutUpdateId_];
         PoolId descriptorLayoutId = this->layouts[rUpdate.setLayoutId].addBufferDescriptorLayout(descriptorLayoutName_, binding_, type_, headroom_);
@@ -49,7 +49,7 @@ namespace Graphics
         return descriptorLayoutId;
     }
 
-    PoolId DescriptorsManager::addDynamicDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_)
+    PoolId DescriptorsManager::addDynamicDescriptorLayout(const char* descriptorLayoutName_, PoolId setLayoutUpdateId_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_)
     {
         SetLayoutUpdate& rUpdate = this->setLayoutUpdates[setLayoutUpdateId_];
         PoolId descriptorLayoutId = this->layouts[rUpdate.setLayoutId].addDynamicDescriptorLayout(descriptorLayoutName_, binding_, type_, dynamicCount_, headroom_);
@@ -57,7 +57,7 @@ namespace Graphics
         return descriptorLayoutId;
     }
 
-    PoolId DescriptorsManager::addImageDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
+    PoolId DescriptorsManager::addImageDescriptorLayout(const char* descriptorLayoutName_, PoolId setLayoutUpdateId_, uint32_t binding_, DescriptorTypeEnum type_)
     {
         return this->layouts[this->setLayoutUpdates[setLayoutUpdateId_].setLayoutId].addImageDescriptorLayout(descriptorLayoutName_, binding_, type_);
     }
@@ -80,29 +80,29 @@ namespace Graphics
         }
     }
 
-    PoolId DescriptorsManager::addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorsManager::addMemberToDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
         return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addMemberBlueprint(name_, orderPosition_, dataType_, repeatCountPerDimension_);
     }
 
-    PoolId DescriptorsManager::addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorsManager::addMemberToDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
         return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addMemberBlueprint(name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
     }
 
-    PoolId DescriptorsManager::addStructMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
+    PoolId DescriptorsManager::addStructMemberToDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
     {
         return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addStructMemberBlueprint(name_, orderPosition_, repeatCountPerDimension_, headroom_);
     }
 
-    PoolId DescriptorsManager::addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorsManager::addVariableToStructInDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
-        return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addVariable(structMemberId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+        return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addVariable(name_, structMemberId_, orderPosition_, dataType_, repeatCountPerDimension_);
     }
 
-    PoolId DescriptorsManager::addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorsManager::addVariableToStructInDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
-        return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addVariable(structMemberId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+        return this->descriptorLayoutUpdates[descriptorLayoutUpdateId_].staged.addVariable(name_, structMemberId_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
     }
 
     void DescriptorsManager::removeMemberFromDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId memberId_)

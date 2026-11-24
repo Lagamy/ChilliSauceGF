@@ -146,29 +146,29 @@ PoolId PipelinesManager::beginPushConstantLayoutUpdate(PoolId pushConstantLayout
     return this->pushConstantLayoutUpdates.add(pushConstantLayoutId_, rLayout);
 }
 
-PoolId PipelinesManager::addMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+PoolId PipelinesManager::addMemberToPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 {
     return this->pushConstantLayoutUpdates[pushConstantLayoutUpdateId_].staged.addMemberBlueprint(name_, orderPosition_, dataType_, repeatCountPerDimension_);
 }
 
-PoolId PipelinesManager::addMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+PoolId PipelinesManager::addMemberToPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
 {
     return this->pushConstantLayoutUpdates[pushConstantLayoutUpdateId_].staged.addMemberBlueprint(name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
 }
 
-PoolId PipelinesManager::addStructMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
+PoolId PipelinesManager::addStructMemberToPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
 {
     return this->pushConstantLayoutUpdates[pushConstantLayoutUpdateId_].staged.addStructMemberBlueprint(name_, orderPosition_, repeatCountPerDimension_, headroom_);
 }
 
-PoolId PipelinesManager::addVariableToStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+PoolId PipelinesManager::addVariableToStructInPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 {
-    return this->pushConstantLayoutUpdates[pushConstantLayoutUpdateId_].staged.addVariable(structMemberId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+    return this->pushConstantLayoutUpdates[pushConstantLayoutUpdateId_].staged.addVariable(name_, structMemberId_, orderPosition_, dataType_, repeatCountPerDimension_);
 }
 
-PoolId PipelinesManager::addVariableToStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+PoolId PipelinesManager::addVariableToStructInPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
 {
-    return this->pushConstantLayoutUpdates[pushConstantLayoutUpdateId_].staged.addVariable(structMemberId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+    return this->pushConstantLayoutUpdates[pushConstantLayoutUpdateId_].staged.addVariable(name_, structMemberId_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
 }
 
 void PipelinesManager::removeMemberFromPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId memberId_)
@@ -239,7 +239,7 @@ void PipelinesManager::commitPushConstantLayoutUpdate(PoolId updateId_)
 }
 
 /* The layout attached to the pipeline that was added with that name (the layout names are unique, a layout can be attached once per pipeline). */
-PoolId PipelinesManager::getPushConstantLayoutId(PoolId graphicsPipelineId_, const char* name_)
+PoolId PipelinesManager::getPushConstantLayoutId(const char* name_, PoolId graphicsPipelineId_)
 {
     for(const PushConstantUse& rUse : this->graphicsPipelines[graphicsPipelineId_].pushConstantUses)
     {

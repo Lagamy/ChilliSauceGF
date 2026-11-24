@@ -3,7 +3,7 @@
 
 namespace Graphics
 {
-	void Buffer::create(VkDeviceSize bufferSize_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, const char* name_)
+	void Buffer::create(const char* name_, VkDeviceSize bufferSize_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_)
 	{
 		if(bufferSize_ != 0)
 		{
@@ -61,8 +61,8 @@ namespace Graphics
 		return this->vkHandle;
 	}
 
-	Buffer::Buffer(VkDeviceSize size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_, const char* name_)
+	Buffer::Buffer(const char* name_, VkDeviceSize size_, VkBufferUsageFlags bufferUsageFlags_, VkSharingMode bufferSharingMode_)
 	{
-		this->create(size_, bufferUsageFlags_, bufferSharingMode_, name_);
+		this->create(name_, size_, bufferUsageFlags_, bufferSharingMode_);
 	}
 }

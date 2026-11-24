@@ -102,13 +102,13 @@ namespace Graphics
         return this->members.add(name_, STRUCT_MEMBER, alignment, orderPosition_, repeatCountPerDimension_, headroom_);
     }
 
-    PoolId DescriptorLayout::addVariable(PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorLayout::addVariable(const char* name_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
         MemberBlueprint& rMember = this->getStructMember(structMemberId_);
         return this->registerVariable(structMemberId_, rMember.layout.addVariableBlueprint(name_, orderPosition_, dataType_, repeatCountPerDimension_));
     }
 
-    PoolId DescriptorLayout::addVariable(PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId DescriptorLayout::addVariable(const char* name_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
         MemberBlueprint& rMember = this->getStructMember(structMemberId_);
         return this->registerVariable(structMemberId_, rMember.layout.addVariableBlueprint(name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_));

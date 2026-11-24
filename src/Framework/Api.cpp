@@ -359,14 +359,14 @@ namespace Graphics
 		return Globals::renderer.reflectionSystem.beginVertexLayoutUpdate(verticeLayoutId_);
 	}
 
-	PoolId addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addVariableToVerticeLayout(const char* name_, PoolId updateId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.reflectionSystem.addVariableToVerticeLayout(updateId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+		return Globals::renderer.reflectionSystem.addVariableToVerticeLayout(name_, updateId_, orderPosition_, dataType_, repeatCountPerDimension_);
 	}
 
-	PoolId addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addVariableToVerticeLayout(const char* name_, PoolId updateId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.reflectionSystem.addVariableToVerticeLayout(updateId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+		return Globals::renderer.reflectionSystem.addVariableToVerticeLayout(name_, updateId_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
 	}
 
 	void removeVariableFromVerticeLayout(PoolId updateId_, PoolId variableId_)
@@ -383,6 +383,18 @@ namespace Graphics
 	{
 		return Globals::renderer.resourcesManager.meshes.add(name_, name_, verticeLayoutId_, repeatCount_); 
 	} 
+
+	PoolId addImage(const char* name_, bool perFrameInFlight_, VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_)
+	{
+		PoolId imagePackId = Globals::renderer.resourcesManager.imagePacks.add(name_, perFrameInFlight_);
+		Globals::renderer.resourcesManager.imagePacks[imagePackId].init(name_, usageFlags_, format_, extent_, imageType_, mipLevelCount_, arrayLayerCount_, flags_, cpuBitmapEdits_);
+		return imagePackId;
+	}
+
+	Image& getImage(PoolId imagePackId_)
+	{
+		return Globals::renderer.resourcesManager.imagePacks[imagePackId_].get();
+	}
 
 	PoolId addDescriptorSetLayout(const char* name_, uint32_t setIndex_, VkShaderStageFlags shaderStages_, uint32_t setsPerPool_)
 	{
@@ -414,19 +426,19 @@ namespace Graphics
 		Globals::renderer.descriptorsManager.commitDescriptorLayoutUpdate(updateId_);
 	}
 
-	PoolId addBufferDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_)
+	PoolId addBufferDescriptorLayout(const char* descriptorLayoutName_, PoolId setLayoutUpdateId_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_)
 	{
-		return Globals::renderer.descriptorsManager.addBufferDescriptorLayout(setLayoutUpdateId_, descriptorLayoutName_, binding_, type_, headroom_);
+		return Globals::renderer.descriptorsManager.addBufferDescriptorLayout(descriptorLayoutName_, setLayoutUpdateId_, binding_, type_, headroom_);
 	}
 
-	PoolId addDynamicDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_)
+	PoolId addDynamicDescriptorLayout(const char* descriptorLayoutName_, PoolId setLayoutUpdateId_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_)
 	{
-		return Globals::renderer.descriptorsManager.addDynamicDescriptorLayout(setLayoutUpdateId_, descriptorLayoutName_, binding_, type_, dynamicCount_, headroom_);
+		return Globals::renderer.descriptorsManager.addDynamicDescriptorLayout(descriptorLayoutName_, setLayoutUpdateId_, binding_, type_, dynamicCount_, headroom_);
 	}
 
-	PoolId addImageDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_)
+	PoolId addImageDescriptorLayout(const char* descriptorLayoutName_, PoolId setLayoutUpdateId_, uint32_t binding_, DescriptorTypeEnum type_)
 	{
-		return Globals::renderer.descriptorsManager.addImageDescriptorLayout(setLayoutUpdateId_, descriptorLayoutName_, binding_, type_);
+		return Globals::renderer.descriptorsManager.addImageDescriptorLayout(descriptorLayoutName_, setLayoutUpdateId_, binding_, type_);
 	}
 
 	void removeDescriptorLayout(PoolId setLayoutUpdateId_, PoolId descriptorLayoutId_)
@@ -434,29 +446,29 @@ namespace Graphics
 		Globals::renderer.descriptorsManager.removeDescriptorLayout(setLayoutUpdateId_, descriptorLayoutId_);
 	}
 
-	PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addMemberToDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.descriptorsManager.addMemberToDescriptorLayout(descriptorLayoutUpdateId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+		return Globals::renderer.descriptorsManager.addMemberToDescriptorLayout(name_, descriptorLayoutUpdateId_, orderPosition_, dataType_, repeatCountPerDimension_);
 	}
 
-	PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addMemberToDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.descriptorsManager.addMemberToDescriptorLayout(descriptorLayoutUpdateId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+		return Globals::renderer.descriptorsManager.addMemberToDescriptorLayout(name_, descriptorLayoutUpdateId_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
 	}
 
-	PoolId addStructMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
+	PoolId addStructMemberToDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
 	{
-		return Globals::renderer.descriptorsManager.addStructMemberToDescriptorLayout(descriptorLayoutUpdateId_, name_, orderPosition_, repeatCountPerDimension_, headroom_);
+		return Globals::renderer.descriptorsManager.addStructMemberToDescriptorLayout(name_, descriptorLayoutUpdateId_, orderPosition_, repeatCountPerDimension_, headroom_);
 	}
 
-	PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addVariableToStructInDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(descriptorLayoutUpdateId_, structMemberId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(name_, descriptorLayoutUpdateId_, structMemberId_, orderPosition_, dataType_, repeatCountPerDimension_);
 	}
 
-	PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addVariableToStructInDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(descriptorLayoutUpdateId_, structMemberId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+		return Globals::renderer.descriptorsManager.addVariableToStructInDescriptorLayout(name_, descriptorLayoutUpdateId_, structMemberId_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
 	}
 
 	void removeMemberFromDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId memberId_)
@@ -564,29 +576,29 @@ namespace Graphics
 		Globals::renderer.pipelinesManager.commitPushConstantLayoutUpdate(updateId_);
 	}
 
-	PoolId addMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addMemberToPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.pipelinesManager.addMemberToPushConstantLayout(pushConstantLayoutUpdateId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+		return Globals::renderer.pipelinesManager.addMemberToPushConstantLayout(name_, pushConstantLayoutUpdateId_, orderPosition_, dataType_, repeatCountPerDimension_);
 	}
 
-	PoolId addMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addMemberToPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.pipelinesManager.addMemberToPushConstantLayout(pushConstantLayoutUpdateId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+		return Globals::renderer.pipelinesManager.addMemberToPushConstantLayout(name_, pushConstantLayoutUpdateId_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
 	}
 
-	PoolId addStructMemberToPushConstantLayout(PoolId pushConstantLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
+	PoolId addStructMemberToPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_)
 	{
-		return Globals::renderer.pipelinesManager.addStructMemberToPushConstantLayout(pushConstantLayoutUpdateId_, name_, orderPosition_, repeatCountPerDimension_, headroom_);
+		return Globals::renderer.pipelinesManager.addStructMemberToPushConstantLayout(name_, pushConstantLayoutUpdateId_, orderPosition_, repeatCountPerDimension_, headroom_);
 	}
 
-	PoolId addVariableToStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addVariableToStructInPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.pipelinesManager.addVariableToStructInPushConstantLayout(pushConstantLayoutUpdateId_, structMemberId_, name_, orderPosition_, dataType_, repeatCountPerDimension_);
+		return Globals::renderer.pipelinesManager.addVariableToStructInPushConstantLayout(name_, pushConstantLayoutUpdateId_, structMemberId_, orderPosition_, dataType_, repeatCountPerDimension_);
 	}
 
-	PoolId addVariableToStructInPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+	PoolId addVariableToStructInPushConstantLayout(const char* name_, PoolId pushConstantLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
 	{
-		return Globals::renderer.pipelinesManager.addVariableToStructInPushConstantLayout(pushConstantLayoutUpdateId_, structMemberId_, name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
+		return Globals::renderer.pipelinesManager.addVariableToStructInPushConstantLayout(name_, pushConstantLayoutUpdateId_, structMemberId_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
 	}
 
 	void removeMemberFromPushConstantLayout(PoolId pushConstantLayoutUpdateId_, PoolId memberId_)
@@ -604,9 +616,9 @@ namespace Graphics
 		Globals::renderer.pipelinesManager.addPushConstantLayoutToPipeline(graphicsPipelineId_, pushConstantLayoutId_, stages_);
 	}
 
-	PoolId getPushConstantLayoutId(PoolId graphicsPipelineId_, const char* name_)
+	PoolId getPushConstantLayoutId(const char* name_, PoolId graphicsPipelineId_)
 	{
-		return Globals::renderer.pipelinesManager.getPushConstantLayoutId(graphicsPipelineId_, name_);
+		return Globals::renderer.pipelinesManager.getPushConstantLayoutId(name_, graphicsPipelineId_);
 	}
 
 	uint32_t getPushConstantOffset(PoolId graphicsPipelineId_, PoolId pushConstantLayoutId_)
@@ -654,9 +666,9 @@ namespace Graphics
 		return Globals::renderer.passesGraph.addPass(name_, cmdType_, queueFamily_, signalFenceRetrivalFunc_);
 	} 
 
-	uint32_t addTaskToPass(PassId passId_, const char* name_, PoolId commandListId_)
+	uint32_t addTaskToPass(const char* name_, PassId passId_, PoolId commandListId_)
 	{
-		return Globals::renderer.passesGraph.addTaskToPass(passId_, name_, commandListId_);
+		return Globals::renderer.passesGraph.addTaskToPass(name_, passId_, commandListId_);
 	}
 
 	void setTaskCommandList(PassId passId_, uint32_t taskId_, PoolId commandListId_)

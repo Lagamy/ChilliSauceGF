@@ -150,7 +150,7 @@ void Renderer::destroyDeviceObjects()
 /*
 	Destroying the Vulkan objects leaves the CPU side of the managers behind (entries, passes, layouts, ids). Rebuilding on top of it would add everything twice, so it is reset here.
 	Pools are cleared, not recreated, so their generations keep growing and an id from before the reset stays invalid.
-	Runs after destroyDeviceObjects and before the device is destroyed: clearing the image pools still calls vkDestroyImage.
+	Runs after destroyDeviceObjects and before the device is destroyed: clearing the image packs still calls vkDestroyImage.
 */
 void Renderer::resetDeviceState()
 {
@@ -164,11 +164,7 @@ void Renderer::resetDeviceState()
 		rLayouts.clear();
 	}
 	this->resourcesManager.meshes.clear();
-	this->resourcesManager.textures.clear();
-	this->imagesManager.cubemaps.clear();
-	this->imagesManager.volumetrics.clear();
-	this->imagesManager.textures.clear();
-	this->imagesManager.renderTargets.clear();
+	this->resourcesManager.imagePacks.clear();
 	this->presentationRenderPass = RenderPass();
 	this->swapchain.renderTargets.clear();
 	this->swapchain.framebuffers.clear();

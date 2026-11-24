@@ -35,27 +35,27 @@ namespace Graphics
 
 			vertexLayoutId = addVerticeLayout("Triangle Vertice Layout");
 			PoolId vertexUpdateId = beginVertexLayoutUpdate(vertexLayoutId);
-			vertexVariableIds.positionId = addVariableToVerticeLayout(vertexUpdateId, "Position", 0, VEC3);
-			vertexVariableIds.colorId = addVariableToVerticeLayout(vertexUpdateId, "Color", 1, VEC4);
+			vertexVariableIds.positionId = addVariableToVerticeLayout("Position", vertexUpdateId, 0, VEC3);
+			vertexVariableIds.colorId = addVariableToVerticeLayout("Color", vertexUpdateId, 1, VEC4);
 			commitVertexLayoutUpdate(vertexUpdateId);
 
 			/* Descriptors read by the vertex shader. The set number (0) and the binding numbers (MVP = 0, Objects = 1, Counter = 2) have to match shader.vert. The order positions of the members follow the order of the blocks in shader.vert. Nothing exists on the GPU yet, so the commits only write the layouts. */
 			dsLayoutId = addDescriptorSetLayout("DSLayout", 0, VK_SHADER_STAGE_VERTEX_BIT);
 			PoolId setLayoutUpdateId = beginSetLayoutUpdate(dsLayoutId);
 
-			vpDescriptorLayoutId = addBufferDescriptorLayout(setLayoutUpdateId, "MVP", 0, UNIFORM_DESCRIPTOR);
+			vpDescriptorLayoutId = addBufferDescriptorLayout("MVP", setLayoutUpdateId, 0, UNIFORM_DESCRIPTOR);
 			PoolId vpUpdateId = beginDescriptorLayoutUpdate(dsLayoutId, vpDescriptorLayoutId);
-			vpMemberIds.projectionId = addMemberToDescriptorLayout(vpUpdateId, "Projection", 0, MAT4);
-			vpMemberIds.viewId = addMemberToDescriptorLayout(vpUpdateId, "View", 1, MAT4);
+			vpMemberIds.projectionId = addMemberToDescriptorLayout("Projection", vpUpdateId, 0, MAT4);
+			vpMemberIds.viewId = addMemberToDescriptorLayout("View", vpUpdateId, 1, MAT4);
 			commitDescriptorLayoutUpdate(vpUpdateId);
 
 			/* Same shape as the block in shader.vert: states[2] followed by model, the whole block repeated once per triangle (dynamic unit). */
-			objectsDescriptorLayoutId = addDynamicDescriptorLayout(setLayoutUpdateId, "Objects", 1, STORAGE_DESCRIPTOR, /*dynamicCount_*/ 2);
+			objectsDescriptorLayoutId = addDynamicDescriptorLayout("Objects", setLayoutUpdateId, 1, STORAGE_DESCRIPTOR, /*dynamicCount_*/ 2);
 			PoolId objectsUpdateId = beginDescriptorLayoutUpdate(dsLayoutId, objectsDescriptorLayoutId);
-			objectsMemberIds.statesId = addStructMemberToDescriptorLayout(objectsUpdateId, "states", 0, {2});
-			objectsMemberIds.colorId = addVariableToStructInDescriptorLayout(objectsUpdateId, objectsMemberIds.statesId, "color", 0, VEC4);
-			objectsMemberIds.rotationDirectionId = addVariableToStructInDescriptorLayout(objectsUpdateId, objectsMemberIds.statesId, "rotationDirection", 1, INT32);
-			objectsMemberIds.modelId = addMemberToDescriptorLayout(objectsUpdateId, "model", 1, MAT4);
+			objectsMemberIds.statesId = addStructMemberToDescriptorLayout("states", objectsUpdateId, 0, {2});
+			objectsMemberIds.colorId = addVariableToStructInDescriptorLayout("color", objectsUpdateId, objectsMemberIds.statesId, 0, VEC4);
+			objectsMemberIds.rotationDirectionId = addVariableToStructInDescriptorLayout("rotationDirection", objectsUpdateId, objectsMemberIds.statesId, 1, INT32);
+			objectsMemberIds.modelId = addMemberToDescriptorLayout("model", objectsUpdateId, 1, MAT4);
 			commitDescriptorLayoutUpdate(objectsUpdateId);
 			commitSetLayoutUpdate(setLayoutUpdateId);
 
@@ -65,8 +65,8 @@ namespace Graphics
 			
 			pcLayoutId = addPushConstantLayout("Counter"); 
 			PoolId pcLayoutUpdateId = beginPushConstantLayoutUpdate(pcLayoutId); 
-			addMemberToPushConstantLayout(pcLayoutUpdateId, "counter", 0, UINT32); 
-			addMemberToPushConstantLayout(pcLayoutUpdateId, "posOffsetY", 1, FLOAT);
+			addMemberToPushConstantLayout("counter", pcLayoutUpdateId, 0, UINT32); 
+			addMemberToPushConstantLayout("posOffsetY", pcLayoutUpdateId, 1, FLOAT);
 			commitPushConstantLayoutUpdate(pcLayoutUpdateId);
 
 			addPushConstantLayoutToGraphicsPipeline(graphicsPipelineId, pcLayoutId, VK_SHADER_STAGE_VERTEX_BIT); 
@@ -109,7 +109,7 @@ namespace Graphics
 			rCommandList.addDrawMeshIndexed(triangle.meshId);
 			rCommandList.addEndRenderPass();
 			
-			uint32_t taskId = addTaskToPass(passId, "Draw Triangle", drawTriangleCommandListId);
+			uint32_t taskId = addTaskToPass("Draw Triangle", passId, drawTriangleCommandListId);
 			addDynamicWaitSemaphoreToTask(passId, taskId, getCurrentFrameImageIsAcquiredSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 			addDynamicSignalSemaphoreToTask(passId, taskId, getCurrentSwapchainImageUseFinishedSemaphore);
 			enablePass(passId); 

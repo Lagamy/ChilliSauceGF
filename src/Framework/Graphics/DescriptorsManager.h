@@ -27,15 +27,15 @@ struct DescriptorsManager
     */
     PoolId beginSetLayoutUpdate(PoolId layoutId_);
     PoolId beginDescriptorLayoutUpdate(PoolId layoutId_, PoolId descriptorLayoutId_);
-    PoolId addBufferDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_ = 0);
-    PoolId addDynamicDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_ = 0);
-    PoolId addImageDescriptorLayout(PoolId setLayoutUpdateId_, const char* descriptorLayoutName_, uint32_t binding_, DescriptorTypeEnum type_);
+    PoolId addBufferDescriptorLayout(const char* descriptorLayoutName_, PoolId setLayoutUpdateId_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t headroom_ = 0);
+    PoolId addDynamicDescriptorLayout(const char* descriptorLayoutName_, PoolId setLayoutUpdateId_, uint32_t binding_, DescriptorTypeEnum type_, uint32_t dynamicCount_, uint32_t headroom_ = 0);
+    PoolId addImageDescriptorLayout(const char* descriptorLayoutName_, PoolId setLayoutUpdateId_, uint32_t binding_, DescriptorTypeEnum type_);
     void removeDescriptorLayout(PoolId setLayoutUpdateId_, PoolId descriptorLayoutId_); // takes effect at the commit
-    PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
-    PoolId addMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
-    PoolId addStructMemberToDescriptorLayout(PoolId descriptorLayoutUpdateId_, const char* name_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_ = 0);
-    PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
-    PoolId addVariableToStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
+    PoolId addMemberToDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
+    PoolId addMemberToDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
+    PoolId addStructMemberToDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, uint32_t orderPosition_, const std::vector<uint32_t>& repeatCountPerDimension_, uint32_t headroom_ = 0);
+    PoolId addVariableToStructInDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
+    PoolId addVariableToStructInDescriptorLayout(const char* name_, PoolId descriptorLayoutUpdateId_, PoolId structMemberId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_); // Matrix
     void removeMemberFromDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId memberId_); // a whole member and its variables
     void removeVariableFromStructInDescriptorLayout(PoolId descriptorLayoutUpdateId_, PoolId variableId_); // one variable of a struct member
     void commitSetLayoutUpdate(PoolId updateId_);

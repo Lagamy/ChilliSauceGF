@@ -38,7 +38,7 @@ struct PassesGraph
     PassId addPass(const char* name_, CmdLifetimeEnum cmdType_, QueueFamilyEnum queueFamily_, SyncRetrivalFunc singalFenceFunc_);
 
     Pass& getPass(PassId passId_);
-    uint32_t addTaskToPass(PassId passId_, const char* name_, PoolId commandListId_); // the task is recorded from that CommandList
+    uint32_t addTaskToPass(const char* name_, PassId passId_, PoolId commandListId_); // the task is recorded from that CommandList
     void setTaskCommandList(PassId passId_, uint32_t taskId_, PoolId commandListId_); // Takes effect at the next recording, not while recording
     void registerTaskCmdBuffers(PassId passId_, uint32_t taskId_); // adds the task's command buffers to the pools (not allocated yet)
     void record(const CmdRecorder& rRecorder_, VkCommandBuffer& cmdBuffer_);

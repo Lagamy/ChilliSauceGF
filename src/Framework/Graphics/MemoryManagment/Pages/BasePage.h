@@ -38,7 +38,7 @@ struct BasePage
 	
 	void addBufferInternal(PoolId memoryId_, PoolId bufferId_, VkDeviceSize bufferFirstByteOffset_);
 	void removeBufferInternal(PoolId bufferId_);
-	BufferCreationResult addBuffer(VkDeviceSize size_, BufferTypeEnum bufferType_, const char* uploadName_);
+	BufferCreationResult addBuffer(const char* uploadName_, VkDeviceSize size_, BufferTypeEnum bufferType_);
 	void removeBuffer(PoolId bufferId_, PoolId memoryBlockId_); // Adds free Mem Intervals
 	void removeMemoryBlock(PoolId memoryBlockId_); 
 

@@ -1,5 +1,6 @@
 #include "Image.h"
 #include "Api.h"
+#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 /*
 	createImage() does not allocate memory, and youll need vkAllocateMemory + vkBindImageMemory before using the image.
@@ -7,7 +8,7 @@
 
 namespace Graphics
 {
-void Image::init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_) {
+void Image::initMetadata(const char* name_, VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_) {
 	metadata = {}; 
 	metadata.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	metadata.pNext = NULL; // is NULL or a pointer to a structure extending this structure.
@@ -90,7 +91,17 @@ void Image::init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D ext
 	metadata.tiling = cpuBitmapEdits_ ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL; // VK_IMAGE_TILING_OPTIMAL = GPU driver chooses best memory layout for GPU side performance. 
 	metadata.usage = usageFlags_ /* | additionalUsageFlags_ */;
 	this->imageUseFinishedSemaphoreId = addSemaphore(); 
+	this->name = name_; 
 	this->initialized = true; 
+}
+
+void Image::create() 
+{
+	if(!this->initialized)
+	{
+		throw std::runtime_error(std::format("Image {}: Can't create uninitialized Image.", this->name)); 
+	}
+	
 }
 
 void Image::setImage(VkImage& srcImage_)

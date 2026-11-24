@@ -14,8 +14,8 @@ struct ReflectionSystem
     Pool<VertexLayoutUpdate> vertexLayoutUpdates = ("Vertex Layout Updates");
 
     PoolId beginVertexLayoutUpdate(PoolId verticeLayoutId_);
-    PoolId addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
-    PoolId addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_);
+    PoolId addVariableToVerticeLayout(const char* name_, PoolId updateId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_);
+    PoolId addVariableToVerticeLayout(const char* name_, PoolId updateId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_);
     void removeVariableFromVerticeLayout(PoolId updateId_, PoolId variableId_);
     void commitVertexLayoutUpdate(PoolId updateId_);
 };

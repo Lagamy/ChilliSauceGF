@@ -10,10 +10,10 @@ void CPUSharedHeap::create(MemoryVisabilityEnum memoryVisability_)
 	if(this->bufferSizes[INDEX_BUFFER] != 0 || this->bufferSizes[VERTEX_BUFFER] != 0 || this->bufferSizes[UNIFORM_BUFFER] != 0 || this->bufferSizes[STORAGE_BUFFER])
 	{
 			
-		this->buffers[INDEX_BUFFER].create(this->bufferSizes[INDEX_BUFFER], VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, "Index Buffer");
-		this->buffers[VERTEX_BUFFER].create(this->bufferSizes[VERTEX_BUFFER], VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, "Vertex Buffer");
-		this->buffers[UNIFORM_BUFFER].create(this->bufferSizes[UNIFORM_BUFFER],VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, "Uniform Buffer");
-		this->buffers[STORAGE_BUFFER].create(this->bufferSizes[STORAGE_BUFFER], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, "Storage Buffer");
+		this->buffers[INDEX_BUFFER].create("Index Buffer", this->bufferSizes[INDEX_BUFFER], VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
+		this->buffers[VERTEX_BUFFER].create("Vertex Buffer", this->bufferSizes[VERTEX_BUFFER], VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
+		this->buffers[UNIFORM_BUFFER].create("Uniform Buffer", this->bufferSizes[UNIFORM_BUFFER],VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
+		this->buffers[STORAGE_BUFFER].create("Storage Buffer", this->bufferSizes[STORAGE_BUFFER], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
 			
 		std::array<VkMemoryRequirements, BufferTypesCount> memReqs;	
 

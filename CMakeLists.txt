@@ -47,7 +47,7 @@ add_executable(ChilliSauceGF
 	"src/Framework/Graphics/FrameResources.cpp" "src/Framework/Graphics/Backend/Base/Shader.cpp"
 	"src/Framework/Graphics/Backend/Base/Device.cpp" "src/Framework/Graphics/Backend/Base/Instance.cpp" 
    	"src/Framework/Graphics/Backend/Base/Swapchain.cpp" "src/Framework/Graphics/Renderer.cpp"	
-	"src/Framework/Graphics/Backend/Base/Surface.cpp" "src/Framework/Graphics/Backend/Image/Image.cpp"
+	"src/Framework/Graphics/Backend/Base/Surface.cpp" "src/Framework/Graphics/Backend/Image/Image.cpp" "src/Framework/Graphics/Resources/ImagePack.cpp"
 	"src/Framework/Graphics/Backend/Base/MemoryBlock.cpp" "src/Framework/Graphics/Backend/Base/Buffer.cpp" 
 	"src/Framework/Graphics/Backend/Base/RenderPass.cpp" "src/Framework/Graphics/Backend/Base/Framebuffer.cpp"
 	# "src/Graphics/Backend/DescriptorSet/DescriptorSetLayout.cpp" "src/Graphics/Backend/DescriptorSet/BindingLayout.cpp"

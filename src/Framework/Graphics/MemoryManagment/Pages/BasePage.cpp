@@ -7,7 +7,7 @@
 
 namespace Graphics 
 {
-	BufferCreationResult BasePage::addBuffer(VkDeviceSize size_, BufferTypeEnum bufferType_, const char* uploadName_)
+	BufferCreationResult BasePage::addBuffer(const char* uploadName_, VkDeviceSize size_, BufferTypeEnum bufferType_)
 	{
 		/* 
 			The real buffer is created first. Its memory requirements (size and alignment) can differ from the requested size and from the ghost buffers, 
@@ -19,7 +19,7 @@ namespace Graphics
 		{
 			usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		}
-		PoolId bufferId = this->buffers.add(size_, usage, this->memoryVisability == GPU_LOCAL ? getMemoryManager().queueTransferSync.gpuLocalSharingMode : VK_SHARING_MODE_EXCLUSIVE, uploadName_); 
+		PoolId bufferId = this->buffers.add(uploadName_, size_, usage, this->memoryVisability == GPU_LOCAL ? getMemoryManager().queueTransferSync.gpuLocalSharingMode : VK_SHARING_MODE_EXCLUSIVE); 
 		VkMemoryRequirements bufferReqs = this->buffers[bufferId].memoryReqs;
 		if(bufferReqs.size > this->memoryBlockSize)
 		{

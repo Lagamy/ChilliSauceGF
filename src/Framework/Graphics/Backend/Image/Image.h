@@ -29,6 +29,7 @@ Depth/stencil separation:
 namespace Graphics
 {
 struct Image {
+	std::string name; 
 	VkImage vkHandle = VK_NULL_HANDLE; // How data will be laid out in memory. 
 	VkImageCreateInfo metadata; 
 	bool allocated = false; 
@@ -40,7 +41,8 @@ struct Image {
 	std::vector<VkImageViewCreateInfo> viewMetadatas; 
 	PoolId imageUseFinishedSemaphoreId; 
 
-	void init(VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_);
+	void create(); 
+	void initMetadata(const char* name_, VkImageUsageFlags usageFlags_, VkFormat format_, VkExtent3D extent_, VkImageType imageType_, uint32_t mipLevelCount_, uint32_t arrayLayerCount_, VkImageCreateFlags flags_, bool cpuBitmapEdits_);
 	void setImage(VkImage& srcImage_); // Needed for swapchain(We dont create images there - we borrow them from swapchain itself)  
 	void addView(const char* name_, VkFormat format_, VkImageAspectFlags aspectFlags_, VkImageViewType dimensionType_, VkImageViewCreateFlags flags_);
 	void destroyViews();

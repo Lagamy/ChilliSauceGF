@@ -23,7 +23,7 @@ void StagingHeap::create(VkDeviceSize size_, StagingDirectionEnum direction_)
 		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
 		name = "Readback Buffer";
 	}
-	this->buffer.create(this->size, usage, VK_SHARING_MODE_EXCLUSIVE, name); 
+	this->buffer.create(name, this->size, usage, VK_SHARING_MODE_EXCLUSIVE); 
 
 	/* The driver may round the buffer's size up. The allocation has to cover memRequirement.size, not just the requested size, or the bind below is invalid. */
 	// Allocate memory

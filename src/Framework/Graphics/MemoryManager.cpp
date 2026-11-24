@@ -135,7 +135,7 @@ void MemoryManager::setup()
 		UploadBatch& rBatch = this->uploadBatches[i];
 		rBatch.fenceId = addFence(true);
 		rBatch.passId = addPass(std::format("Memory Manager Upload Batch {}", i).c_str(), ONESHOT, TRANSFER, rBatch.fenceId);
-		uint32_t taskId = addTaskToPass(rBatch.passId, "Queued Copies Upload", uploadCommandListId);
+		uint32_t taskId = addTaskToPass("Queued Copies Upload", rBatch.passId, uploadCommandListId);
 		rBatch.cmdId = getPass(rBatch.passId).tasks[taskId].cmdIds[0];
 	}
 }

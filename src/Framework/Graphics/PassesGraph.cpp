@@ -81,7 +81,7 @@ void PassesGraph::addDynamicSignalSemaphoreToTask(PassId passId_, uint32_t taskI
     rPass.tasks[taskId_].addDynammicSignalSemaphore(semaphoreRetrivalFunc_); 
 }
 
-uint32_t PassesGraph::addTaskToPass(PassId passId_, const char* name_, PoolId commandListId_)
+uint32_t PassesGraph::addTaskToPass(const char* name_, PassId passId_, PoolId commandListId_)
 {
     uint32_t taskId = getPass(passId_).addTask(name_, commandListId_); 
     this->registerTaskCmdBuffers(passId_, taskId);

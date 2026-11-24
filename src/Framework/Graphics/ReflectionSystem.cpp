@@ -18,12 +18,12 @@ namespace Graphics
         return updateId;
     }
 
-    PoolId ReflectionSystem::addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId ReflectionSystem::addVariableToVerticeLayout(const char* name_, PoolId updateId_, uint32_t orderPosition_, DataTypeEnum dataType_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
         return this->vertexLayoutUpdates[updateId_].staged.addVariableBlueprint(name_, orderPosition_, dataType_, repeatCountPerDimension_);
     }
 
-    PoolId ReflectionSystem::addVariableToVerticeLayout(PoolId updateId_, const char* name_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
+    PoolId ReflectionSystem::addVariableToVerticeLayout(const char* name_, PoolId updateId_, uint32_t orderPosition_, DataTypeEnum dataType_, uint32_t rowCount_, uint32_t columnCount_, const std::vector<uint32_t>& repeatCountPerDimension_)
     {
         return this->vertexLayoutUpdates[updateId_].staged.addVariableBlueprint(name_, orderPosition_, dataType_, rowCount_, columnCount_, repeatCountPerDimension_);
     }

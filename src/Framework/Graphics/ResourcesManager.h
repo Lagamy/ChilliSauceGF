@@ -1,6 +1,6 @@
 #pragma once 
 #include "Mesh.h"
-#include "Image.h"
+#include "ImagePack.h"
 #include "PoolMap.h"
 #include <vector>
 
@@ -9,7 +9,7 @@ namespace Graphics
 struct ResourceManager 
 {
     PoolMap<Mesh> meshes = ("Meshes"); 
-    PoolMap<Image> textures = ("Textures"); 
+    PoolMap<ImagePack> imagePacks = ("Image Packs"); 
     std::vector<PoolId> meshLoadsToWaitFor; // meshes of WAIT_UNTIL_LOADED loaded this frame, see waitForLoads
 
     /*

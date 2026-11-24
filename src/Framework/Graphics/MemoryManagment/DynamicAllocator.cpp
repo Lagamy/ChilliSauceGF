@@ -74,7 +74,7 @@ PoolId DynamicAllocator::allocateEntry(const char* name_, VkDeviceSize size_, Me
             PageInfo& rPageInfo = this->cpuSharedPageInfos[i]; 
             if(size_ <= rPageInfo.upperBoundEntrySize)
             {
-                BufferCreationResult bufferCreationResult = this->cpuSharedPages[i].addBuffer(size_, uploadType_, name_);
+                BufferCreationResult bufferCreationResult = this->cpuSharedPages[i].addBuffer(name_, size_, uploadType_);
                 return this->memoryEntries.add(name_, size_, uploadType_, memoryVisability_,i, bufferCreationResult.memoryBlockId, bufferCreationResult.bufferId);
             } 
         }
@@ -91,7 +91,7 @@ PoolId DynamicAllocator::allocateEntry(const char* name_, VkDeviceSize size_, Me
             PageInfo& rPageInfo = this->gpuLocalPageInfos[i]; 
             if(size_ <= rPageInfo.upperBoundEntrySize)
             {
-                BufferCreationResult bufferCreationResult = this->gpuLocalPages[i].addBuffer(size_, uploadType_, name_);
+                BufferCreationResult bufferCreationResult = this->gpuLocalPages[i].addBuffer(name_, size_, uploadType_);
 
                 return this->memoryEntries.add(name_, size_, uploadType_, memoryVisability_,i, bufferCreationResult.memoryBlockId, bufferCreationResult.bufferId);
             } 
